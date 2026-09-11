@@ -1,0 +1,27 @@
+{
+  "name": "lectorpobre",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxtjs/sanity": "^2.5.0",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "nuxt": "^3.13.0",
+    "vue": "latest",
+    "vue-router": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "@vue/test-utils": "^2.5.0",
+    "msw": "^2.15.0",
+    "playwright": "^1.63.0",
+    "vitest": "^5.0.0"
+  }
+}

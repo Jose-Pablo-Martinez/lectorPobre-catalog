@@ -100,7 +100,8 @@ When the store admin publishes a change in **Sanity Studio**, a webhook triggers
 
 - **Node.js** 20 LTS — [nodejs.org](https://nodejs.org)
 - **Go** 1.22+ — [go.dev](https://go.dev)
-- **Vercel CLI** — `npm install -g vercel`
+- **pnpm** 9.x+ — Windows: `iwr https://get.pnpm.io/install.ps1 -useb | iex` / macOS: `brew install pnpm`
+- **Vercel CLI** — `pnpm add -g vercel`
 - A configured [Sanity.io](https://sanity.io) project (see [`docs/implementationPlan.md`](docs/implementationPlan.md) §0.3)
 
 #### Installation
@@ -111,7 +112,7 @@ git clone https://github.com/tu-org/lectorpobre.git
 cd lectorpobre
 
 # 2. Install frontend dependencies
-npm install
+pnpm install
 
 # 3. Install Go backend dependencies
 cd api && go mod download && cd ..
@@ -127,6 +128,11 @@ vercel dev
 The site will be available at `http://localhost:3000`.
 
 > **Note:** `vercel dev` simultaneously serves the Nuxt.js frontend and the Go serverless functions, accurately emulating the Vercel production environment locally.
+
+#### Troubleshooting: pnpm on Windows
+
+1. **"pnpm is not recognized as an internal or external command"**: If your global `pnpm` installation is corrupt on Windows, bypass it by prefixing commands with `npx` (e.g., `npx pnpm install`, `npx pnpm test`).
+2. **`ERR_PNPM_IGNORED_BUILDS` during installation**: Modern versions of pnpm block build scripts by default for security. If you see this error (usually for `esbuild`), run `npx pnpm approve-builds`, select the packages with `<space>`, and press `<enter>`. Then re-run `pnpm install`.
 
 ---
 
@@ -227,16 +233,16 @@ cp .env.example .env.local
 cd api && go test ./... -v
 
 # Frontend — Vitest unit tests
-npm run test
+pnpm test
 
 # Frontend — Vitest with coverage report
-npm run test -- --coverage
+pnpm test -- --coverage
 
 # E2E — Playwright (requires a running server or BASE_URL)
-npx playwright test
+pnpm dlx playwright test
 
 # E2E — Specific test file
-npx playwright test tests/e2e/catalog.spec.ts
+pnpm dlx playwright test tests/e2e/catalog.spec.ts
 ```
 
 ---
@@ -266,8 +272,8 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 3. Make sure all tests pass locally before opening a PR:
    ```bash
    cd api && go test ./...   # Go backend tests
-   npm run test              # Vitest frontend unit tests
-   npx playwright test       # Playwright E2E tests
+   pnpm test                 # Vitest frontend unit tests
+   pnpm dlx playwright test  # Playwright E2E tests
    ```
 4. Open a Pull Request against `develop` using the provided template.
 5. The CI pipeline must pass before any PR can be merged.
@@ -367,7 +373,8 @@ Cuando el administrador de la tienda publica un cambio en **Sanity Studio**, un 
 
 - **Node.js** 20 LTS — [nodejs.org](https://nodejs.org)
 - **Go** 1.22+ — [go.dev](https://go.dev)
-- **Vercel CLI** — `npm install -g vercel`
+- **pnpm** 9.x+ — Windows: `iwr https://get.pnpm.io/install.ps1 -useb | iex` / macOS: `brew install pnpm`
+- **Vercel CLI** — `pnpm add -g vercel`
 - Un proyecto de [Sanity.io](https://sanity.io) configurado (ver [`docs/implementationPlan.md`](docs/implementationPlan.md) §0.3)
 
 #### Pasos
@@ -378,7 +385,7 @@ git clone https://github.com/tu-org/lectorpobre.git
 cd lectorpobre
 
 # 2. Instalar dependencias del frontend
-npm install
+pnpm install
 
 # 3. Instalar dependencias del backend Go
 cd api && go mod download && cd ..
@@ -394,6 +401,11 @@ vercel dev
 El sitio estará disponible en `http://localhost:3000`.
 
 > **Nota:** `vercel dev` levanta simultáneamente el frontend de Nuxt.js y las funciones serverless de Go, emulando con precisión el entorno de producción de Vercel en tu máquina local.
+
+#### Troubleshooting: Uso de pnpm en Windows
+
+1. **"pnpm no se reconoce como un comando interno o externo"**: Si tu instalación global de `pnpm` en Windows se corrompió, sortea el error anteponiendo `npx` a los comandos (ej. `npx pnpm install`, `npx pnpm test`). Esto descarga y ejecuta el binario al vuelo.
+2. **Error `ERR_PNPM_IGNORED_BUILDS` al instalar**: Las versiones modernas de pnpm bloquean los scripts de construcción por seguridad. Si ves este error (comúnmente por dependencias como `esbuild`), ejecuta `npx pnpm approve-builds`, selecciona los paquetes bloqueados presionando `<espacio>` y presiona `<enter>`. Luego vuelve a correr `pnpm install`.
 
 ---
 
@@ -494,16 +506,16 @@ cp .env.example .env.local
 cd api && go test ./... -v
 
 # Frontend — Tests unitarios con Vitest
-npm run test
+pnpm test
 
 # Frontend — Tests con reporte de cobertura
-npm run test -- --coverage
+pnpm test -- --coverage
 
 # E2E — Playwright (requiere servidor activo o BASE_URL configurada)
-npx playwright test
+pnpm dlx playwright test
 
 # E2E — Archivo de test específico
-npx playwright test tests/e2e/catalog.spec.ts
+pnpm dlx playwright test tests/e2e/catalog.spec.ts
 ```
 
 ---
@@ -533,8 +545,8 @@ La documentación técnica completa se encuentra en la carpeta [`docs/`](docs/):
 3. Asegúrate de que todos los tests pasen localmente antes de abrir un PR:
    ```bash
    cd api && go test ./...   # Tests del backend Go
-   npm run test              # Tests unitarios del frontend con Vitest
-   npx playwright test       # Tests E2E con Playwright
+   pnpm test                 # Tests unitarios del frontend con Vitest
+   pnpm dlx playwright test  # Tests E2E con Playwright
    ```
 4. Abre un Pull Request contra `develop` usando el template proporcionado.
 5. El pipeline de CI debe pasar antes de que cualquier PR pueda ser mergeado.

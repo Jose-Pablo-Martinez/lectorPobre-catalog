@@ -21,6 +21,7 @@
 10. [Convenciones de Testing](#10-convenciones-de-testing)
 11. [Git y Convenciones de Commits](#11-git-y-convenciones-de-commits)
 12. [Directivas para Agentes IA](#12-directivas-para-agentes-ia)
+13. [Entorno Local y Troubleshooting](#13-entorno-local-y-troubleshooting)
 
 ---
 
@@ -980,6 +981,26 @@ Antes de enviar cualquier cambio, verifica:
 - [ ] Los componentes Vue nuevos incluyen atributos de accesibilidad (`role`, `aria-label`, etc.)
 - [ ] Si se agregó un nuevo endpoint: el contrato está documentado tanto en Go como en TypeScript
 - [ ] Si se modificó un handler existente: los tests correspondientes fueron actualizados
+
+---
+
+### 13. Entorno Local y Troubleshooting
+
+#### 13.1 Ejecución de pnpm en Windows
+Es común que al instalar `pnpm` de forma global en Windows (`npm install -g pnpm`), la ruta al binario se corrompa, provocando el error: *"pnpm no se reconoce como un comando interno o externo"*.
+Para solucionar esto permanentemente y evitar depender de configuraciones frágiles de npm, **utiliza el instalador oficial nativo para Windows**:
+1. Desinstala la versión corrupta: `npm uninstall -g pnpm`
+2. Elimina la carpeta residual: `Remove-Item -Recurse -Force "$env:LOCALAPPDATA\pnpm"`
+3. Instala con el script oficial: `iwr https://get.pnpm.io/install.ps1 -useb | iex`
+Si en una emergencia no puedes reinstalar, puedes usar `npx pnpm <comando>` para descargar y ejecutar el binario al vuelo de forma segura.
+
+#### 13.2 Error `ERR_PNPM_IGNORED_BUILDS`
+Por motivos de seguridad, las versiones modernas de `pnpm` bloquean la ejecución automática de scripts de construcción (postinstall) de dependencias de terceros (como `esbuild` requerido por Vite/Nuxt). 
+Si al hacer `npx pnpm install` la instalación falla con `ERR_PNPM_IGNORED_BUILDS`:
+1. Ejecuta `npx pnpm approve-builds`
+2. En la lista interactiva, presiona la tecla **`<espacio>`** sobre las dependencias bloqueadas (ej. `esbuild`) para cambiar su estado a `true`.
+3. Presiona **`<enter>`** para confirmar.
+4. Vuelve a ejecutar `npx pnpm install`.
 
 ---
 
