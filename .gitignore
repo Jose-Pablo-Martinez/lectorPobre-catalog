@@ -1,0 +1,32 @@
+# Node
+node_modules/
+.nuxt/
+dist/
+.output/
+.vercel/
+*.log
+
+# Go
+api/vendor/
+
+# Sanity
+.sanity/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage y tests
+coverage/
+playwright-report/
+test-results/
