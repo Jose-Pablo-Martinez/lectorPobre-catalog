@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Cancela ejecuciones previas del mismo PR/branch para ahorrar minutos
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-backend:
     runs-on: ubuntu-latest
@@ -14,26 +19,35 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
+          cache: true
       - name: Run Go tests with coverage
         working-directory: api
         run: go test ./... -v -cover -coverprofile=coverage.out
       - name: Go vet
         working-directory: api
         run: go vet ./...
+      - name: Upload Go coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: api/coverage.out
 
   test-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Run Vitest unit tests with coverage
-        run: npm run test -- --coverage --run
+        run: pnpm run test -- --coverage --run
       - name: Build Nuxt (SSG)
-        run: npm run generate
+        run: pnpm run generate
         env:
           NUXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
           NUXT_PUBLIC_SANITY_DATASET: staging
@@ -43,13 +57,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
       - name: Run Playwright E2E tests
-        run: npx playwright test
+        run: pnpm exec playwright test
         env:
           BASE_URL: ${{ secrets.VERCEL_PREVIEW_URL }}
