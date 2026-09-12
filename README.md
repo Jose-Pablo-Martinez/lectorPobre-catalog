@@ -10,9 +10,9 @@
 
 ---
 
-**LectorPobre** is a product catalog web platform for a physical bookstore. It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
+**LectorPobre** is a product catalog web platform for an arts and crafts company (keychains, pins, stickers, and books in the future). It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
 
-The platform allows customers to browse books and products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. An admin panel secured with JWT authentication allows the store owner to manage the entire catalog through Sanity Studio without writing code.
+The platform allows customers to browse products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. An admin panel secured with JWT authentication allows the store owner to manage the entire catalog through Sanity Studio without writing code.
 
 ### Table of Contents
 
@@ -20,7 +20,6 @@ The platform allows customers to browse books and products by category, search t
 - [Architecture Overview](#architecture-overview)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Environment Variables](#environment-variables)
 - [Running Tests](#running-tests)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
@@ -32,38 +31,38 @@ The platform allows customers to browse books and products by category, search t
 #### Frontend
 | Technology | Version | Purpose |
 |---|---|---|
-| **Nuxt.js** | 3.x | Vue framework with SSG (Static Site Generation) and file-based routing |
-| **Vue 3** | 3.x | Component-based UI with Composition API |
-| **TypeScript** | 5.x | Static typing across the entire frontend codebase |
-| **Tailwind CSS** | 3.x | Utility-first CSS framework for styling and responsive design |
+| ![Nuxt.js](https://img.shields.io/badge/Nuxt.js-00DC82?style=flat&logo=nuxt.js&logoColor=white) | 3.x | Vue framework with SSG (Static Site Generation) and file-based routing |
+| ![Vue 3](https://img.shields.io/badge/Vue_3-4FC08D?style=flat&logo=vue.js&logoColor=white) | 3.x | Component-based UI with Composition API |
+| ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white) | 5.x | Static typing across the entire frontend codebase |
+| ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white) | 3.x | Utility-first CSS framework for styling and responsive design |
 
 #### Backend
 | Technology | Version | Purpose |
 |---|---|---|
-| **Go** | 1.22+ | Serverless functions for comments, ratings, auth and webhooks |
-| **Vercel Functions** | — | Serverless hosting for Go handlers (`/api/*` routes) |
+| ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white) | 1.22+ | Serverless functions for comments, ratings, auth and webhooks |
+| ![Vercel Functions](https://img.shields.io/badge/Vercel_Functions-000000?style=flat&logo=vercel&logoColor=white) | — | Serverless hosting for Go handlers (`/api/*` routes) |
 
 #### CMS & Data
 | Technology | Version | Purpose |
 |---|---|---|
-| **Sanity.io** | v3 | Headless CMS storing all catalog data, images and global config |
+| ![Sanity.io](https://img.shields.io/badge/Sanity.io-F03E2F?style=flat&logo=sanity&logoColor=white) | v3 | Headless CMS storing all catalog data, images and global config |
 | **GROQ** | — | Sanity's query language for fetching typed content |
 
 #### Infrastructure & DevOps
 | Technology | Purpose |
 |---|---|
-| **Vercel** | Hosting, CDN, environment variables and automatic deployments |
-| **GitHub Actions** | CI/CD pipeline: Go tests, Vitest unit tests, Playwright E2E, Lighthouse CI |
-| **Lighthouse CI** | Automated performance and accessibility audits on every deployment |
+| ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white) | Hosting, CDN, environment variables and automatic deployments |
+| ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=githubactions&logoColor=white) | CI/CD pipeline: Go tests, Vitest unit tests, Playwright E2E, Lighthouse CI |
+| ![Lighthouse CI](https://img.shields.io/badge/Lighthouse_CI-F44B21?style=flat&logo=lighthouse&logoColor=white) | Automated performance and accessibility audits on every deployment |
 
 #### Testing
 | Technology | Purpose |
 |---|---|
-| **Vitest** | Unit tests for Vue composables and components |
-| **@vue/test-utils** | Vue component mounting utilities for Vitest |
-| **Go `testing` + `testify`** | Unit and integration tests for Go serverless handlers |
-| **Playwright** | End-to-end browser tests |
-| **SonarQube** | Centralized code quality, coverage tracking, tech debt and vulnerability management |
+| ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat&logo=vitest&logoColor=white) | Unit tests for Vue composables and components |
+| ![@vue/test-utils](https://img.shields.io/badge/@vue/test--utils-4FC08D?style=flat&logo=vue.js&logoColor=white) | Vue component mounting utilities for Vitest |
+| ![Go testing + testify](https://img.shields.io/badge/Go_testing_+_testify-00ADD8?style=flat&logo=go&logoColor=white) | Unit and integration tests for Go serverless handlers |
+| ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white) | End-to-end browser tests |
+| ![SonarQube](https://img.shields.io/badge/SonarQube-4E9BCD?style=flat&logo=sonarqube&logoColor=white) | Centralized code quality, coverage tracking, tech debt and vulnerability management |
 
 ---
 
@@ -204,30 +203,6 @@ lectorpobre/
 
 ---
 
-### Environment Variables
-
-Copy `.env.example` to `.env.local` and fill in your values:
-
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Description | Scope | Required |
-|---|---|---|---|
-| `NUXT_PUBLIC_SANITY_PROJECT_ID` | Sanity.io project ID | Frontend + Backend | ✅ |
-| `NUXT_PUBLIC_SANITY_DATASET` | Sanity dataset (`production` or `staging`) | Frontend + Backend | ✅ |
-| `SANITY_WRITE_TOKEN` | Sanity write token — **never expose to the browser** | Backend (Go) only | ✅ |
-| `SANITY_WEBHOOK_SECRET` | HMAC secret to validate incoming Sanity webhooks | Backend (Go) only | ✅ |
-| `ADMIN_PASSWORD_HASH` | bcrypt hash of the admin password | Backend (Go) only | ✅ |
-| `ADMIN_JWT_SECRET` | Secret key for signing admin JWT tokens | Backend (Go) only | ✅ |
-| `ALLOWED_ORIGIN` | CORS allowed origin (`http://localhost:3000` in dev) | Backend (Go) only | ✅ |
-| `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Domain for Plausible Analytics | Frontend | ⬜ |
-| `CAPTCHA_SECRET_KEY` | Secret key for anti-bot validation | Backend (Go) only | ⬜ |
-
-> ⚠️ **Never commit `.env.local` or any real secret values.** The `.gitignore` already excludes all `*.env*.local` files.
-
----
-
 ### Running Tests
 
 ```bash
@@ -285,9 +260,9 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 
 ## Español
 
-**LectorPobre** es una plataforma web de catálogo de productos para una librería física. Está construida con **arquitectura Jamstack**: un frontend generado estáticamente con Nuxt.js (SSG), contenido gestionado a través de Sanity.io (Headless CMS), lógica de backend serverless escrita en Go desplegada como Vercel Functions, y distribución global a través de la CDN de Vercel.
+**LectorPobre** es una plataforma web de catálogo de productos para una empresa de artesanías (llaveros, pines, stickers, y en un futuro libros). Está construida con **arquitectura Jamstack**: un frontend generado estáticamente con Nuxt.js (SSG), contenido gestionado a través de Sanity.io (Headless CMS), lógica de backend serverless escrita en Go desplegada como Vercel Functions, y distribución global a través de la CDN de Vercel.
 
-La plataforma permite a los clientes explorar libros y productos por categoría, buscar en el catálogo, ver la disponibilidad de stock en tiempo real, calificar y comentar productos, y contactar directamente a la tienda por WhatsApp. Un panel de administración protegido con autenticación JWT le permite al dueño de la tienda gestionar todo el catálogo a través de Sanity Studio sin escribir código.
+La plataforma permite a los clientes explorar productos por categoría, buscar en el catálogo, ver la disponibilidad de stock en tiempo real, calificar y comentar productos, y contactar directamente a la tienda por WhatsApp. Un panel de administración protegido con autenticación JWT le permite al dueño de la tienda gestionar todo el catálogo a través de Sanity Studio sin escribir código.
 
 ### Tabla de Contenidos
 
@@ -295,7 +270,6 @@ La plataforma permite a los clientes explorar libros y productos por categoría,
 - [Visión General de la Arquitectura](#visión-general-de-la-arquitectura)
 - [Instalación Rápida](#instalación-rápida)
 - [Estructura del Proyecto](#estructura-del-proyecto-1)
-- [Variables de Entorno](#variables-de-entorno-1)
 - [Ejecución de Tests](#ejecución-de-tests)
 - [Documentación](#documentación-1)
 - [Contribución](#contribución-1)
@@ -307,38 +281,38 @@ La plataforma permite a los clientes explorar libros y productos por categoría,
 #### Frontend
 | Tecnología | Versión | Propósito |
 |---|---|---|
-| **Nuxt.js** | 3.x | Framework Vue con generación estática (SSG) y enrutamiento basado en archivos |
-| **Vue 3** | 3.x | Interfaz de usuario basada en componentes con Composition API |
-| **TypeScript** | 5.x | Tipado estático en todo el código del frontend |
-| **Tailwind CSS** | 3.x | Framework CSS utilitario para estilos y diseño responsivo |
+| ![Nuxt.js](https://img.shields.io/badge/Nuxt.js-00DC82?style=flat&logo=nuxt.js&logoColor=white) | 3.x | Framework Vue con generación estática (SSG) y enrutamiento basado en archivos |
+| ![Vue 3](https://img.shields.io/badge/Vue_3-4FC08D?style=flat&logo=vue.js&logoColor=white) | 3.x | Interfaz de usuario basada en componentes con Composition API |
+| ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white) | 5.x | Tipado estático en todo el código del frontend |
+| ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white) | 3.x | Framework CSS utilitario para estilos y diseño responsivo |
 
 #### Backend
 | Tecnología | Versión | Propósito |
 |---|---|---|
-| **Go** | 1.22+ | Funciones serverless para comentarios, calificaciones, autenticación y webhooks |
-| **Vercel Functions** | — | Hosting serverless para los handlers de Go (rutas `/api/*`) |
+| ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat&logo=go&logoColor=white) | 1.22+ | Funciones serverless para comentarios, calificaciones, autenticación y webhooks |
+| ![Vercel Functions](https://img.shields.io/badge/Vercel_Functions-000000?style=flat&logo=vercel&logoColor=white) | — | Hosting serverless para los handlers de Go (rutas `/api/*`) |
 
 #### CMS y Datos
 | Tecnología | Versión | Propósito |
 |---|---|---|
-| **Sanity.io** | v3 | CMS headless que almacena todo el catálogo, imágenes y configuración global |
+| ![Sanity.io](https://img.shields.io/badge/Sanity.io-F03E2F?style=flat&logo=sanity&logoColor=white) | v3 | CMS headless que almacena todo el catálogo, imágenes y configuración global |
 | **GROQ** | — | Lenguaje de consulta de Sanity para obtener contenido tipado |
 
 #### Infraestructura y DevOps
 | Tecnología | Propósito |
 |---|---|
-| **Vercel** | Hosting, CDN, variables de entorno y despliegues automáticos |
-| **GitHub Actions** | Pipeline de CI/CD: tests de Go, Vitest, Playwright E2E y Lighthouse CI |
-| **Lighthouse CI** | Auditorías automatizadas de rendimiento y accesibilidad en cada despliegue |
+| ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat&logo=vercel&logoColor=white) | Hosting, CDN, variables de entorno y despliegues automáticos |
+| ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=githubactions&logoColor=white) | Pipeline de CI/CD: tests de Go, Vitest, Playwright E2E y Lighthouse CI |
+| ![Lighthouse CI](https://img.shields.io/badge/Lighthouse_CI-F44B21?style=flat&logo=lighthouse&logoColor=white) | Auditorías automatizadas de rendimiento y accesibilidad en cada despliegue |
 
 #### Testing
 | Tecnología | Propósito |
 |---|---|
-| **Vitest** | Tests unitarios para composables y componentes Vue |
-| **@vue/test-utils** | Utilidades para montar componentes Vue en Vitest |
-| **Go `testing` + `testify`** | Tests unitarios y de integración para los handlers serverless de Go |
-| **Playwright** | Tests end-to-end en el navegador |
-| **SonarQube** | Gestión centralizada de calidad de código, cobertura, deuda técnica y vulnerabilidades |
+| ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat&logo=vitest&logoColor=white) | Tests unitarios para composables y componentes Vue |
+| ![@vue/test-utils](https://img.shields.io/badge/@vue/test--utils-4FC08D?style=flat&logo=vue.js&logoColor=white) | Utilidades para montar componentes Vue en Vitest |
+| ![Go testing + testify](https://img.shields.io/badge/Go_testing_+_testify-00ADD8?style=flat&logo=go&logoColor=white) | Tests unitarios y de integración para los handlers serverless de Go |
+| ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white) | Tests end-to-end en el navegador |
+| ![SonarQube](https://img.shields.io/badge/SonarQube-4E9BCD?style=flat&logo=sonarqube&logoColor=white) | Gestión centralizada de calidad de código, cobertura, deuda técnica y vulnerabilidades |
 
 ---
 
@@ -476,30 +450,6 @@ lectorpobre/
 ├── tests/                       # Tests unitarios (Vitest) y E2E (Playwright)
 └── docs/                        # Documentación técnica completa del proyecto
 ```
-
----
-
-### Variables de Entorno
-
-Copia `.env.example` a `.env.local` y completa los valores:
-
-```bash
-cp .env.example .env.local
-```
-
-| Variable | Descripción | Alcance | Requerida |
-|---|---|---|---|
-| `NUXT_PUBLIC_SANITY_PROJECT_ID` | ID del proyecto en Sanity.io | Frontend + Backend | ✅ |
-| `NUXT_PUBLIC_SANITY_DATASET` | Dataset de Sanity (`production` o `staging`) | Frontend + Backend | ✅ |
-| `SANITY_WRITE_TOKEN` | Token de escritura privado — **nunca exponer al navegador** | Solo Backend (Go) | ✅ |
-| `SANITY_WEBHOOK_SECRET` | Secreto HMAC para validar webhooks entrantes de Sanity | Solo Backend (Go) | ✅ |
-| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Backend (Go) | ✅ |
-| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Backend (Go) | ✅ |
-| `ALLOWED_ORIGIN` | Origen permitido en CORS (`http://localhost:3000` en desarrollo) | Solo Backend (Go) | ✅ |
-| `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Dominio para Plausible Analytics | Frontend | ⬜ |
-| `CAPTCHA_SECRET_KEY` | Clave secreta para validación anti-bot | Solo Backend (Go) | ⬜ |
-
-> ⚠️ **Nunca commitees `.env.local` ni valores reales de variables privadas.** El `.gitignore` ya excluye todos los archivos `*.env*.local`.
 
 ---
 

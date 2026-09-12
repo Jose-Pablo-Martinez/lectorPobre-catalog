@@ -2,7 +2,7 @@
 
 > **Versión:** 1.0
 > **Stack:** Nuxt.js 3 · Vue.js 3 · Tailwind CSS 3 · Go 1.22+ · Sanity.io · Vercel
-> **Estándares:** ERS LectorPobre v1.0 · ISO/IEC 25010 · Conventional Commits · JSDoc · Go Doc
+> **Estándares:** ERS LectorPobre v1.0 · ISO/IEC 25010 · Conventional Commits · JSDoc · GoDoc · OpenAPI 3.0 (Swaggo)
 > **Audiencia:** Desarrolladores humanos y agentes de codificación IA que contribuyan a este proyecto.
 
 ---
@@ -46,7 +46,7 @@ Estos principios aplican a todas las capas del stack.
 > Comenta el *por qué*, no el *qué*. Si necesitas un comentario para explicar qué hace una línea,
 > reescríbela hasta que sea autoexplicativa.
 
-- Elige nombres que revelen intención: `validarEsquemaComentario` es mejor que `validar1`.
+- **Los nombres deben estar en inglés** y revelar intención: `validateCommentSchema` es mejor que `validate1`.
 - Mantén las funciones cortas: lógica pura ≤ 20 líneas; orquestación ≤ 40 líneas.
 - Una función = una responsabilidad.
 
@@ -86,16 +86,20 @@ El modelo serverless no garantiza estado entre invocaciones. Cada función Go de
 
 ### 3.1 La Regla de Oro
 
+> **Los comentarios explican el *por qué* y los algoritmos complejos. Nunca el *qué*.**
+> Un comentario que describe qué hace el código es una señal de que el código mismo debe refactorizarse.
+
 | Escenario | Acción requerida |
 |---|---|
-| Función/handler Go exportado | GoDoc `// NombreFuncion descripción` **requerido** |
+| Función/handler Go exportado | GoDoc `// FunctionName description` **requerido** |
 | Struct/type Go exportado | GoDoc con descripción + campos relevantes **requerido** |
 | Función privada Go con lógica no obvia | Comentario inline explicando la *razón* |
 | Función privada simple | **Sin comentario** — el nombre es suficiente |
-| Cada archivo `.go` | Comentario de paquete `// Package X ...` al inicio |
+| Cada archivo `.go` | Comentario de paquete `// Package x ...` al inicio |
 | Cada archivo `.ts` / `.vue` | Bloque `@file` JSDoc al inicio |
 | Algoritmo complejo | Comentario a nivel de bloque, no línea por línea |
 | Regla de negocio del ERS | Referencia el ID RF/RNF en el comentario |
+| Endpoint Go exportado | **Anotaciones Swag requeridas** (ver §3.6) |
 
 ### 3.2 GoDoc — Backend Serverless
 
@@ -212,13 +216,78 @@ params := map[string]interface{}{"texto": payload.Texto}
 ### 3.5 Convención TODO y FIXME
 
 ```go
-// TODO(RF-07): Implementar moderación previa antes de publicar comentarios. Issue #12.
-// FIXME: El rate limiter no persiste entre invocaciones en contenedores warm — ver sección 9.6.
-// NOTE: Sanity API v2024 depreca este endpoint — migrar antes del siguiente release.
+// TODO(RF-07): Implement pre-moderation before publishing comments. Issue #12.
+// FIXME: Rate limiter does not persist between invocations in warm containers — see §9.6.
+// NOTE: Sanity API v2024 deprecates this endpoint — migrate before next release.
 ```
 
-- Siempre incluir el ID RF/RNF cuando el TODO se relaciona con un requisito.
-- Nunca hagas commit de un `TODO` que bloquee la feature actual. Regístralo como Issue en GitHub.
+- Always include the RF/RNF ID when the TODO is related to a requirement.
+- Never commit a `TODO` that blocks the current feature. Register it as a GitHub Issue.
+
+### 3.6 Documentación de API con Swaggo (OpenAPI 3.0)
+
+Toda función Handler de Go exportada **debe** incluir anotaciones [Swaggo](https://github.com/swaggo/swag) inmediatamente antes de su declaración. Estas anotaciones generan una especificación OpenAPI 3.0 compatible con Postman, Swagger UI e Insomnia.
+
+> [!IMPORTANT]
+> Las anotaciones Swag **no son comentarios opcionales**. Son parte del contrato de API y son equivalentes a escribir la documentación de Postman directamente en el código. Si el handler no tiene anotaciones Swag, el PR debe ser bloqueado en revisión.
+
+#### Instalación de la herramienta (una vez, globalmente)
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+#### Generación de la especificación
+
+```bash
+# Ejecutar desde la raíz de /api — genera api/docs/swagger.json y api/docs/swagger.yaml
+swag init --dir . --output docs/ --parseDependency
+```
+
+#### Formato de anotaciones
+
+El bloque de anotaciones va **entre el comentario GoDoc y la declaración de la función**.
+
+```go
+// Handler processes a new comment submission for a product.
+//
+// Satisfies: RF-07 (Comments), RNF-04 (Security — no token exposure).
+//
+// @Summary      Submit a product comment
+// @Description  Validates the comment payload, applies rate limiting and writes to Sanity.io with the private write token.
+// @Tags         comments
+// @Accept       json
+// @Produce      json
+// @Param        body  body      handlers.CommentPayload  true  "Comment payload"
+// @Success      201   {object}  handlers.ApiResponse{ok=true}
+// @Failure      400   {object}  handlers.ApiResponse  "Invalid payload or comment too long"
+// @Failure      429   {object}  handlers.ApiResponse  "Rate limit exceeded"
+// @Failure      500   {object}  handlers.ApiResponse  "Internal error (no internal detail exposed)"
+// @Router       /api/comment [post]
+func Handler(w http.ResponseWriter, r *http.Request) {
+```
+
+#### Anotaciones obligatorias por handler
+
+| Tag Swag | Requerido | Descripción |
+|---|---|---|
+| `@Summary` | ✅ | Frase corta en inglés (< 10 palabras) |
+| `@Description` | ✅ | Descripción completa del comportamiento |
+| `@Tags` | ✅ | Categoría del endpoint (`comments`, `ratings`, `auth`, `admin`, `webhooks`) |
+| `@Accept` | ✅ | `json` para todos los POST |
+| `@Produce` | ✅ | `json` para todos los endpoints |
+| `@Param` | ✅ | Todos los parámetros (body, query, header) |
+| `@Success` | ✅ | Código HTTP y tipo de respuesta exitosa |
+| `@Failure` | ✅ | Todos los códigos de error documentados en §8 |
+| `@Router` | ✅ | Ruta exacta de Vercel + método HTTP |
+| `@Security` | Solo endpoints protegidos | `@Security BearerAuth` para rutas `/api/auth/*` |
+
+#### Importar la colección en Postman
+
+Después de ejecutar `swag init`, el archivo `api/docs/swagger.json` puede importarse directamente en Postman:
+1. Postman → **Import** → **File** → seleccionar `api/docs/swagger.json`
+2. Postman convierte automáticamente los endpoints en una colección lista para ejecutar.
+3. Configurar la variable de entorno `{{baseUrl}}` con `http://localhost:3000` (local) o la URL de Preview de Vercel.
 
 ---
 
@@ -226,17 +295,17 @@ params := map[string]interface{}{"texto": payload.Texto}
 
 ### 4.1 Convenciones de Nomenclatura
 
-Seguir las [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) estrictamente.
+Seguir las [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) estrictamente. **Todos los identificadores (paquetes, tipos, funciones, variables) deben estar en inglés.**
 
 | Elemento | Convención | Ejemplo |
 |---|---|---|
 | Package | `lowercase`, una sola palabra | `handlers`, `sanity`, `middleware` |
-| Exported type / func | `PascalCase` | `ComentarioPayload`, `ComentarHandler` |
-| Unexported func / var | `camelCase` | `validarComentario`, `firmarPeticion` |
-| Constante | `PascalCase` o `SCREAMING_SNAKE_CASE` (errores) | `MaxTextoLen`, `ERR_RATE_LIMIT` |
+| Exported type / func | `PascalCase` | `CommentPayload`, `CommentHandler` |
+| Unexported func / var | `camelCase` | `validateComment`, `signRequest` |
+| Constante | `PascalCase` o `SCREAMING_SNAKE_CASE` (errores) | `MaxTextLen`, `ERR_RATE_LIMIT` |
 | Interface | `PascalCase`, sufijo `-er` si aplica | `SanityWriter`, `RateLimiter` |
-| Error variable | prefijo `Err` | `ErrPayloadInvalido`, `ErrRateLimit` |
-| Handler HTTP | sufijo `Handler` | `ComentarHandler`, `CalificarHandler` |
+| Error variable | prefijo `Err` | `ErrInvalidPayload`, `ErrRateLimit` |
+| Handler HTTP | sufijo `Handler` | `CommentHandler`, `RatingHandler` |
 
 ### 4.2 Estructura de Código
 
@@ -389,16 +458,18 @@ var ultimoComentario string // ❌ Puede filtrarse a otra petición en contenedo
 
 ### 5.1 Convenciones de Nomenclatura
 
+**Todos los identificadores (componentes, composables, funciones, tipos, constantes, archivos) deben estar en inglés.**
+
 | Elemento | Convención | Ejemplo |
 |---|---|---|
-| Componente Vue | `PascalCase` | `TarjetaProducto`, `SistemaEstrellas` |
-| Composable | prefijo `use` | `useStock`, `useCalificacion`, `useCatalogo` |
-| Servicio / utilidad | `camelCase` | `enviarComentario`, `construirUrlWhatsApp` |
-| Type / Interface | `PascalCase` | `Producto`, `ComentarioPayload`, `ApiResponse` |
-| Constante | `SCREAMING_SNAKE_CASE` | `MAX_TEXTO_COMENTARIO`, `SANITY_PROJECT_ID` |
-| Archivo (componente) | `PascalCase` igual al componente | `TarjetaProducto.vue`, `SistemaEstrellas.vue` |
+| Componente Vue | `PascalCase` | `ProductCard`, `StarRating` |
+| Composable | prefijo `use` | `useStock`, `useRating`, `useCatalog` |
+| Servicio / utilidad | `camelCase` | `sendComment`, `buildWhatsAppUrl` |
+| Type / Interface | `PascalCase` | `Product`, `CommentPayload`, `ApiResponse` |
+| Constante | `SCREAMING_SNAKE_CASE` | `MAX_COMMENT_LENGTH`, `SANITY_PROJECT_ID` |
+| Archivo (componente) | `PascalCase` igual al componente | `ProductCard.vue`, `StarRating.vue` |
 | Archivo (composable/servicio) | `camelCase` | `useStock.ts`, `sanityClient.ts` |
-| Página Nuxt | `kebab-case` (convención de directorio `pages/`) | `pages/producto/[slug].vue` |
+| Página Nuxt | `kebab-case` (convención del directorio `pages/`) | `pages/product/[slug].vue` |
 
 ### 5.2 Reglas de Tipado
 
@@ -887,12 +958,14 @@ describe('TarjetaProducto', () => {
 
 ### 10.3 Targets de Cobertura
 
-| Capa | Cobertura Mínima |
-|---|---|
-| Handlers Go (validación, lógica de negocio) | ≥ 80% |
-| Funciones de utilidad Go (firmas, HMAC, rate limit) | ≥ 75% |
-| Composables Vue (useStock, useCalificacion) | ≥ 70% |
-| Componentes Vue (solo renderizado) | ≥ 40% |
+> **Umbral mínimo global:** ≥ 85% de cobertura de sentencias, verificado por SonarQube y aplicado como gate en CI a partir de la Fase 5 (ver `VyV_LectorPobre.md` §10.2).
+
+| Capa | Cobertura Mínima | Tipo |
+|---|---|---|
+| Middleware Go (CORS, rate limit, HMAC) | ≥ 90% | Ramas |
+| Handlers Go (validación, lógica de negocio) | ≥ 85% | Ramas |
+| Composables Vue (useStock, useRating) | ≥ 70% | Sentencias |
+| Componentes Vue (solo renderizado) | ≥ 40% | Sentencias |
 
 ---
 

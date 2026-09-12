@@ -1671,6 +1671,7 @@ npm run test
 - [ ] El bundle de JavaScript del frontend NO contiene el `SANITY_WRITE_TOKEN` (SEC-01)
 - [ ] Todos los tests de Go pasan: `cd api && go test ./...`
 - [ ] CI pipeline pasa con los tests nuevos
+- [ ] **Cobertura ≥ 85% de sentencias** en el proyecto global, verificada por SonarQube. Activar el quality gate en CI a partir de este punto (ver `VyV_LectorPobre.md` §10.2). Mientras no existan tests reales (Fases 1–4), el gate **no se activa** para evitar bloqueos en el pipeline.
 - [ ] Commit: `feat(handlers): implement comment, rating handlers with security controls [RF-06, RF-07, RNF-04]`
 
 ---

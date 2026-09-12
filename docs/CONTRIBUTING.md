@@ -326,7 +326,23 @@ ADMIN_JWT_SECRET=
 CAPTCHA_SECRET_KEY=
 ```
 
-### 6.2 Reglas de Gestión de Secretos
+### 6.2 Diccionario de Variables
+
+La siguiente tabla documenta exhaustivamente todas las variables de entorno que el proyecto puede llegar a utilizar, su alcance (si se exponen al navegador o se limitan al servidor de Go) y si son obligatorias para levantar el entorno de desarrollo local.
+
+| Variable | Descripción | Alcance | Requerida |
+|---|---|---|---|
+| `NUXT_PUBLIC_SANITY_PROJECT_ID` | ID del proyecto en Sanity.io | Frontend + Backend | ✅ |
+| `NUXT_PUBLIC_SANITY_DATASET` | Dataset de Sanity (`production` o `staging`) | Frontend + Backend | ✅ |
+| `SANITY_WRITE_TOKEN` | Token de escritura privado — **nunca exponer al navegador** | Solo Backend (Go) | ✅ |
+| `SANITY_WEBHOOK_SECRET` | Secreto HMAC para validar webhooks entrantes de Sanity | Solo Backend (Go) | ✅ |
+| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Backend (Go) | ✅ |
+| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Backend (Go) | ✅ |
+| `ALLOWED_ORIGIN` | Origen permitido en CORS (`http://localhost:3000` en desarrollo) | Solo Backend (Go) | ✅ |
+| `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Dominio para Plausible Analytics | Frontend | ⬜ |
+| `CAPTCHA_SECRET_KEY` | Clave secreta para validación anti-bot | Solo Backend (Go) | ⬜ |
+
+### 6.3 Reglas de Gestión de Secretos
 
 - **Nunca** commitear `.env.local` al repositorio (está en `.gitignore`).
 - **Nunca** agregar secretos al bundle de frontend (variables sin prefijo `NUXT_PUBLIC_`).
