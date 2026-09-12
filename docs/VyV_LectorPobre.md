@@ -191,6 +191,9 @@ Herramienta: Vitest + `@vue/test-utils` + mock de `$fetch`
 | UT-VUE-02 | `useStock retorna null inicialmente mientras carga` | Estado inicial antes de la consulta | `stock.value === null` y `cargando.value === true` | RF-03 |
 | UT-VUE-03 | `useStock retorna -1 cuando la consulta falla` | Mock de Sanity lanza error de red | `stock.value === -1` | RF-03, RNF-03 |
 | UT-VUE-04 | `useStock no expone token privado en la petición` | Inspección del request mockeado | El request no contiene header `Authorization` con token de escritura | RNF-04 |
+| UT-VUE-04a | `useStock marca stock bajo con 5 unidades (BVA — umbral exacto)` | `stock = 5` (umbral definido en `implementationPlan.md` §5) | `stockBajo.value === true` | RF-03, RF-14 |
+| UT-VUE-04b | `useStock no marca stock bajo con 6 unidades (BVA — umbral + 1)` | `stock = 6` | `stockBajo.value === false` | RF-03, RF-14 |
+| UT-VUE-04c | `useStock marca stock bajo con 4 unidades (BVA — umbral - 1)` | `stock = 4` | `stockBajo.value === true` | RF-03, RF-14 |
 
 #### 3.4.2 `useComentario.ts`
 
@@ -527,14 +530,15 @@ Las pruebas de seguridad verifican directamente los controles definidos en la ar
 | Pruebas E2E / Sistema | `Playwright` | TypeScript |
 | Cobertura Go | `go test -cover` + reportes HTML | Go |
 | Cobertura TypeScript | `Vitest --coverage` (Istanbul/c8) | TypeScript |
+| Gestión de calidad y cobertura | SonarQube | Multiplataforma (Go + TypeScript) |
 | Análisis de accesibilidad | `axe-core` (integrado en Playwright) | TypeScript |
 | Rendimiento | Lighthouse CI (`lhci`) | Node.js / CI |
-| Análisis de seguridad de deps | `govulncheck` (Go) + `npm audit` | Go / Node.js |
+| Análisis de seguridad de deps | `govulncheck` (Go) + `pnpm audit` | Go / Node.js |
 
 ### 9.3 Integración Continua
 
 ```yaml
-# Ejemplo de pipeline de pruebas en Vercel CI / GitHub Actions
+# Ejemplo de pipeline de pruebas en GitHub Actions (ver .github/workflows/ci.yml)
 jobs:
   test-backend:
     steps:
@@ -544,20 +548,20 @@ jobs:
 
   test-frontend:
     steps:
-      - run: npm run test -- --coverage
-      - run: npm run lint
+      - run: pnpm run test -- --coverage
+      - run: pnpm run lint
 
   e2e-tests:
     needs: [test-backend, test-frontend]
     steps:
-      - run: npx playwright test
+      - run: pnpm exec playwright test
     env:
       BASE_URL: ${{ env.VERCEL_PREVIEW_URL }}
 
   lighthouse-ci:
     needs: e2e-tests
     steps:
-      - run: npx lhci autorun
+      - run: npx @lhci/cli autorun
 ```
 
 ---
@@ -575,6 +579,8 @@ jobs:
 
 ### 10.2 Criterios de Salida (para considerar las pruebas exitosas)
 
+> **Umbral mínimo global:** ≥ 85% de cobertura de sentencias en todo el proyecto, verificado por SonarQube y aplicado como gate en CI a partir de la Fase 5.
+
 | Nivel | Criterios de salida |
 |---|---|
 | **Unitarias Go** | ≥ 80% de cobertura en handlers. ≥ 75% en middleware y utilidades. 0 tests fallidos. |
@@ -582,9 +588,23 @@ jobs:
 | **Integración** | 100% de casos IT-01 a IT-17 pasan. 0 secretos expuestos detectados. |
 | **Sistema** | 100% de casos ST-01 a ST-26 pasan. Performance Score ≥ 90 en Lighthouse. 0 violaciones críticas de accesibilidad. |
 | **Aceptación** | 100% de criterios UAT-01 a UAT-16 aprobados por el cliente. 0 defectos de severidad alta o crítica abiertos. |
-| **Seguridad** | 100% de pruebas SEC-01 a SEC-11 pasan. 0 vulnerabilidades críticas en `npm audit` o `govulncheck`. |
+| **Seguridad** | 100% de pruebas SEC-01 a SEC-11 pasan. 0 vulnerabilidades críticas en `pnpm audit` o `govulncheck`. |
 
-### 10.3 Clasificación de Defectos
+### 10.3 Cobertura Diferenciada por Riesgo
+
+Los umbrales de la §10.2 son mínimos globales. La siguiente tabla diferencia el objetivo de cobertura por módulo según su nivel de riesgo, siguiendo la metodología de **pruebas basadas en riesgo** (probabilidad × impacto).
+
+| Módulo | Riesgo | Cobertura objetivo | Tipo | Justificación |
+|---|---|---|---|---|
+| `api/middleware/*` (CORS, rate limit, HMAC) | Crítico | ≥ 90% | Ramas | Controles de seguridad; falla = exposición directa |
+| `api/sanity/client.go` (escritura) | Crítico | ≥ 90% | Ramas | Manipulación de datos con token privado |
+| `api/handlers/*` (comentar, calificar, buscar) | Alto | ≥ 85% | Ramas | Entrada pública del usuario, validación obligatoria |
+| `composables/useStock.ts`, `useComentario.ts` | Medio | ≥ 70% | Sentencias | Lógica de negocio con dependencias externas |
+| `components/*.vue` | Bajo | ≥ 40% | Sentencias | UI declarativa con bajo riesgo lógico |
+
+> **Herramienta de gestión:** SonarQube se utiliza como plataforma centralizada para monitorear la cobertura por módulo, deuda técnica, code smells y vulnerabilidades. Los reportes de cobertura de Go (`coverage.out`) y Vitest (`lcov`) se envían a SonarQube como parte del pipeline de CI.
+
+### 10.4 Clasificación de Defectos
 
 | Severidad | Definición | ¿Bloquea el release? |
 |---|---|---|
@@ -592,6 +612,25 @@ jobs:
 | **Alto** | Funcionalidad principal rota (RF Must no funciona), error sin recovery en flujo principal | ✅ Sí |
 | **Medio** | Funcionalidad parcialmente rota, UI con problemas visuales significativos, RF Should no funciona | ⚠️ Depende |
 | **Bajo** | Problemas cosméticos menores, RF Could no funciona, mejoras de UX | ❌ No |
+
+---
+
+### 10.5 Matriz de Riesgos (Probabilidad × Impacto)
+
+La siguiente matriz prioriza los riesgos técnicos identificados en `implementationPlan.md` (§ Correcciones y Precisiones) usando la fórmula `Prioridad = Probabilidad × Impacto`.
+
+| ID | Riesgo | Probabilidad (1-5) | Impacto (1-5) | Prioridad | Mitigación | Cobertura asociada |
+|---|---|---|---|---|---|---|
+| R-01 | Exposición de `SANITY_WRITE_TOKEN` en bundle JS o logs | 2 | 5 | 10 | Token solo en env vars de Vercel; SEC-01 verifica ausencia en bundle | ≥ 90% en `sanity/client.go` |
+| R-02 | Inyección GROQ en endpoint de búsqueda | 3 | 5 | 15 | Parámetros tipados en GROQ, sanitización en `handlers/validacion.go`; IT-06, SEC-03 | ≥ 85% en `handlers/*` |
+| R-03 | XSS almacenado vía comentarios maliciosos | 3 | 4 | 12 | Sanitización server-side + escape en Vue template; SEC-04, ST-13 | ≥ 90% en middleware |
+| R-04 | CORS permisivo permite peticiones desde orígenes no autorizados | 2 | 4 | 8 | `ALLOWED_ORIGIN` restrictivo por ambiente; UT-GO-19 a 21, SEC-02 | ≥ 90% en `middleware/cors.go` |
+| R-05 | Abuso masivo de endpoints de escritura (spam de comentarios) | 4 | 3 | 12 | Rate limiting por IP en middleware; UT-GO-22, 23, SEC-10 | ≥ 90% en `middleware/ratelimit.go` |
+| R-06 | Webhook de rebuild disparado por atacante sin firma válida | 2 | 4 | 8 | Verificación HMAC obligatoria; UT-GO-24 a 26, IT-12 a 14, SEC-07 | ≥ 90% en `middleware/hmac.go` |
+| R-07 | Error off-by-one en umbral de stock bajo (5 unidades) | 3 | 2 | 6 | Tests BVA explícitos: UT-VUE-04a, 04b, 04c (valores 4, 5, 6) | ≥ 70% en composables |
+| R-08 | Autenticación admin con JWT mal configurado | 2 | 5 | 10 | Expiración corta (<24h), secreto en env var, validación por petición | ≥ 85% en `handlers/*` |
+
+> **Umbral de acción:** Riesgos con prioridad ≥ 10 requieren cobertura de ramas ≥ 85% y al menos un test de seguridad dedicado (SEC-*).
 
 ---
 

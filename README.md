@@ -61,7 +61,9 @@ The platform allows customers to browse books and products by category, search t
 |---|---|
 | **Vitest** | Unit tests for Vue composables and components |
 | **@vue/test-utils** | Vue component mounting utilities for Vitest |
+| **Go `testing` + `testify`** | Unit and integration tests for Go serverless handlers |
 | **Playwright** | End-to-end browser tests |
+| **SonarQube** | Centralized code quality, coverage tracking, tech debt and vulnerability management |
 
 ---
 
@@ -334,7 +336,9 @@ La plataforma permite a los clientes explorar libros y productos por categoría,
 |---|---|
 | **Vitest** | Tests unitarios para composables y componentes Vue |
 | **@vue/test-utils** | Utilidades para montar componentes Vue en Vitest |
+| **Go `testing` + `testify`** | Tests unitarios y de integración para los handlers serverless de Go |
 | **Playwright** | Tests end-to-end en el navegador |
+| **SonarQube** | Gestión centralizada de calidad de código, cobertura, deuda técnica y vulnerabilidades |
 
 ---
 
