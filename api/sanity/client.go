@@ -12,13 +12,13 @@ import "context"
 // without touching the real Sanity API, keeping those tests Fast and Isolated (FIRST principle).
 // Tested by: IT-01 to IT-07 with real Sanity staging dataset (VyV_LectorPobre.md §4.1).
 type Writer interface {
-	// CrearComentario writes a new comment document in "pending" state to Sanity.
+	// CreateComment writes a new comment document in "pending" state to Sanity.
 	// Satisfies: RF-07 (Comments with pre-moderation).
-	CrearComentario(ctx context.Context, productoID string, texto string) error
+	CreateComment(ctx context.Context, productID string, text string) error
 
-	// CrearCalificacion writes a new rating document to Sanity.
+	// CreateRating writes a new rating document to Sanity.
 	// Satisfies: RF-06 (Ratings, range 1-5).
-	CrearCalificacion(ctx context.Context, productoID string, valor int) error
+	CreateRating(ctx context.Context, productID string, value int) error
 }
 
 // Client is the production implementation of Writer that calls the real Sanity Mutations API.
@@ -35,15 +35,15 @@ func NewClient() (*Client, error) {
 	return &Client{}, nil
 }
 
-// CrearComentario implements Writer.CrearComentario.
-func (c *Client) CrearComentario(ctx context.Context, productoID string, texto string) error {
+// CreateComment implements Writer.CreateComment.
+func (c *Client) CreateComment(ctx context.Context, productID string, text string) error {
 	// TODO(RF-07, Phase 5): Build Sanity mutation payload, POST to mutations API,
 	// handle non-2xx responses generically (never expose Sanity status codes to callers).
 	return nil
 }
 
-// CrearCalificacion implements Writer.CrearCalificacion.
-func (c *Client) CrearCalificacion(ctx context.Context, productoID string, valor int) error {
+// CreateRating implements Writer.CreateRating.
+func (c *Client) CreateRating(ctx context.Context, productID string, value int) error {
 	// TODO(RF-06, Phase 5): Build Sanity mutation payload, POST to mutations API.
 	return nil
 }

@@ -6,19 +6,19 @@ package constants
 // ErrCodes contains all canonical API error codes returned by the Go serverless functions.
 // Client-facing error messages must reference these codes, never internal details (§9.9).
 var ErrCodes = struct {
-	PayloadInvalido   string
-	RateLimit         string
-	NoAutorizado      string
-	ErrorInterno      string
-	CalificacionRango string
-	QueryInvalida     string
-	FirmaInvalida     string
+	InvalidPayload   string
+	RateLimit        string
+	Unauthorized     string
+	InternalError    string
+	RatingOutOfRange string
+	InvalidQuery     string
+	InvalidSignature string
 }{
-	PayloadInvalido:   "PAYLOAD_INVALIDO",
-	RateLimit:         "RATE_LIMIT_EXCEDIDO",
-	NoAutorizado:      "NO_AUTORIZADO",
-	ErrorInterno:      "ERROR_INTERNO",
-	CalificacionRango: "CALIFICACION_FUERA_DE_RANGO",
-	QueryInvalida:     "QUERY_INVALIDA",
-	FirmaInvalida:     "FIRMA_INVALIDA",
+	InvalidPayload:   "INVALID_PAYLOAD",
+	RateLimit:        "RATE_LIMIT_EXCEEDED",
+	Unauthorized:     "UNAUTHORIZED",
+	InternalError:    "INTERNAL_ERROR",
+	RatingOutOfRange: "RATING_OUT_OF_RANGE",
+	InvalidQuery:     "INVALID_QUERY",
+	InvalidSignature: "INVALID_SIGNATURE",
 }

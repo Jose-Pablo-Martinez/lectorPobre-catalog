@@ -20,7 +20,7 @@ import "net/http"
 // @Failure      500  {object}  interface{}  "Internal error (no internal detail exposed)"
 // @Router       /api/webhook/rebuild [post]
 func Handler(w http.ResponseWriter, r *http.Request) {
-	// TODO(Phase 5): Read body, verify HMAC with middleware.VerificarHMAC,
+	// TODO(Phase 5): Read body, verify HMAC with middleware.VerifyHMAC,
 	// return 401 on failure, POST to VERCEL_DEPLOY_HOOK_URL on success.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)
