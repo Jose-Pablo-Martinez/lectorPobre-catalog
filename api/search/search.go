@@ -10,18 +10,7 @@ import "net/http"
 // Handler processes the search request.
 //
 // Satisfies: RF-18 (Search), RNF-04 (GROQ injection prevention).
-//
-// @Summary      Search products
-// @Description  Searches the catalog using parameterized GROQ queries.
-// @Tags         search
-// @Accept       json
-// @Produce      json
-// @Param        q    query     string  false  "Search query"
-// @Success      200  {object}  interface{}
-// @Failure      400  {object}  interface{}  "Invalid payload"
-// @Failure      429  {object}  interface{}  "Rate limit exceeded"
-// @Failure      500  {object}  interface{}  "Internal error (no internal detail exposed)"
-// @Router       /api/search [get]
+// Endpoint: GET /api/search
 func Handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)

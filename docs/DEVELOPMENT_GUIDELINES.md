@@ -224,70 +224,16 @@ params := map[string]interface{}{"texto": payload.Texto}
 - Always include the RF/RNF ID when the TODO is related to a requirement.
 - Never commit a `TODO` that blocks the current feature. Register it as a GitHub Issue.
 
-### 3.6 Documentación de API con Swaggo (OpenAPI 3.0)
+### 3.6 Documentación de la API
 
-Toda función Handler de Go exportada **debe** incluir anotaciones [Swaggo](https://github.com/swaggo/swag) inmediatamente antes de su declaración. Estas anotaciones generan una especificación OpenAPI 3.0 compatible con Postman, Swagger UI e Insomnia.
+La API serverless de LectorPobre cuenta actualmente con **6 endpoints internos** consumidos exclusivamente por el frontend Nuxt. En este escenario, el contrato queda suficientemente documentado con:
 
-> [!IMPORTANT]
-> Las anotaciones Swag **no son comentarios opcionales**. Son parte del contrato de API y son equivalentes a escribir la documentación de Postman directamente en el código. Si el handler no tiene anotaciones Swag, el PR debe ser bloqueado en revisión.
+- **GoDoc** en cada handler exportado (ver §3.2.3) con el campo `// Endpoint: METHOD /ruta`.
+- **§8 de este documento** con la tabla canónica de endpoints, esquemas de entrada/salida y códigos de error.
+- **Interfaces TypeScript ↔ structs Go** como fuente de verdad tipada de extremo a extremo.
 
-#### Instalación de la herramienta (una vez, globalmente)
-
-```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-#### Generación de la especificación
-
-```bash
-# Ejecutar desde la raíz de /api — genera api/docs/swagger.json y api/docs/swagger.yaml
-swag init --dir . --output docs/ --parseDependency
-```
-
-#### Formato de anotaciones
-
-El bloque de anotaciones va **entre el comentario GoDoc y la declaración de la función**.
-
-```go
-// Handler processes a new comment submission for a product.
-//
-// Satisfies: RF-07 (Comments), RNF-04 (Security — no token exposure).
-//
-// @Summary      Submit a product comment
-// @Description  Validates the comment payload, applies rate limiting and writes to Sanity.io with the private write token.
-// @Tags         comments
-// @Accept       json
-// @Produce      json
-// @Param        body  body      handlers.CommentPayload  true  "Comment payload"
-// @Success      201   {object}  handlers.ApiResponse{ok=true}
-// @Failure      400   {object}  handlers.ApiResponse  "Invalid payload or comment too long"
-// @Failure      429   {object}  handlers.ApiResponse  "Rate limit exceeded"
-// @Failure      500   {object}  handlers.ApiResponse  "Internal error (no internal detail exposed)"
-// @Router       /api/comment [post]
-func Handler(w http.ResponseWriter, r *http.Request) {
-```
-
-#### Anotaciones obligatorias por handler
-
-| Tag Swag | Requerido | Descripción |
-|---|---|---|
-| `@Summary` | ✅ | Frase corta en inglés (< 10 palabras) |
-| `@Description` | ✅ | Descripción completa del comportamiento |
-| `@Tags` | ✅ | Categoría del endpoint (`comments`, `ratings`, `auth`, `admin`, `webhooks`) |
-| `@Accept` | ✅ | `json` para todos los POST |
-| `@Produce` | ✅ | `json` para todos los endpoints |
-| `@Param` | ✅ | Todos los parámetros (body, query, header) |
-| `@Success` | ✅ | Código HTTP y tipo de respuesta exitosa |
-| `@Failure` | ✅ | Todos los códigos de error documentados en §8 |
-| `@Router` | ✅ | Ruta exacta de Vercel + método HTTP |
-| `@Security` | Solo endpoints protegidos | `@Security BearerAuth` para rutas `/api/auth/*` |
-
-#### Importar la colección en Postman
-
-Después de ejecutar `swag init`, el archivo `api/docs/swagger.json` puede importarse directamente en Postman:
-1. Postman → **Import** → **File** → seleccionar `api/docs/swagger.json`
-2. Postman convierte automáticamente los endpoints en una colección lista para ejecutar.
-3. Configurar la variable de entorno `{{baseUrl}}` con `http://localhost:3000` (local) o la URL de Preview de Vercel.
+> [!NOTE]
+> **Cuándo adoptar Swagger/Postman:** Si el proyecto escala a más de ~15 endpoints o la API pasa a tener consumidores externos (otras apps, equipos externos, integraciones de terceros), adoptar [Swaggo](https://github.com/swaggo/swag) para generar una especificación OpenAPI 3.0 e importarla en Postman. En ese punto, las anotaciones `@Summary`, `@Description`, `@Router`, `@Success` y `@Failure` se vuelven obligatorias en cada handler exportado.
 
 ---
 

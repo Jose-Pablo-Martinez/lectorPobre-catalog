@@ -1674,6 +1674,9 @@ npm run test
 - [ ] **Cobertura ≥ 85% de sentencias** en el proyecto global, verificada por SonarQube. Activar el quality gate en CI a partir de este punto (ver `VyV_LectorPobre.md` §10.2). Mientras no existan tests reales (Fases 1–4), el gate **no se activa** para evitar bloqueos en el pipeline.
 - [ ] Commit: `feat(handlers): implement comment, rating handlers with security controls [RF-06, RF-07, RNF-04]`
 
+> [!NOTE]
+> **Documentación de API:** Con 6 endpoints internos consumidos exclusivamente por el frontend Nuxt, la combinación de GoDoc + contratos TypeScript ↔ Go + `DEVELOPMENT_GUIDELINES.md` §8 es suficiente. Si el proyecto escala a más de ~15 endpoints o se expone a consumidores externos, adoptar **Swaggo** (generador OpenAPI 3.0) + **Postman** como herramientas de documentación formal.
+
 ---
 
 ## Fase 6 — Panel de Administración
