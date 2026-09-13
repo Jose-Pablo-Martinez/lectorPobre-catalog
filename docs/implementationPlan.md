@@ -579,10 +579,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 ### 1.7 Verificación
 
-- [ ] `npm run dev` arranca el servidor de Nuxt en modo desarrollo
+- [ ] `pnpm run dev` arranca el servidor de Nuxt en modo desarrollo
 - [ ] `cd api && go build ./...` compila sin errores
 - [ ] `cd api && go test ./...` pasa (stubs)
-- [ ] `npm run test` pasa (tests vacíos iniciales)
+- [ ] `pnpm run test` pasa (tests vacíos iniciales)
 - [ ] Push a `develop` activa el workflow de CI
 - [ ] La estructura de carpetas coincide con el árbol definido arriba
 - [ ] Primer commit: `chore(repo): scaffold project structure, CI/CD pipeline and documentation`

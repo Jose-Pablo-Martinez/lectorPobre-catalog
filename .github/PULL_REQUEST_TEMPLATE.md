@@ -18,12 +18,13 @@
 
 ## Checklist
 
-- [ ] El código compila y los tests pasan localmente (`go test ./...` y `npm run test`)
+- [ ] El código compila y los tests pasan localmente (`cd api && go test ./...` y `pnpm run test`)
 - [ ] Se agregó GoDoc o JSDoc a todas las funciones y tipos públicos nuevos
 - [ ] Se referencia el RF/RNF correspondiente en los comentarios del código
 - [ ] No se introdujeron secretos, tokens ni credenciales en el código fuente
-- [ ] CORS está correctamente configurado en los handlers Go nuevos
-- [ ] Los mensajes de error expuestos al cliente son genéricos (sin detalles internos)
+- [ ] Si el cambio incluye handlers Go: CORS está correctamente configurado
+- [ ] Si el cambio incluye handlers Go: los mensajes de error expuestos al cliente son genéricos (sin detalles internos)
+- [ ] Si el cambio incluye componentes Nuxt: el build SSG pasa sin errores (`pnpm run generate`)
 - [ ] El checklist completo de `docs/DEVELOPMENT_GUIDELINES.md` fue verificado
 
 ## Capturas / evidencia (opcional)
