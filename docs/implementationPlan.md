@@ -811,23 +811,30 @@ Crear al menos 10 productos de prueba en el dataset `staging` con:
 > [!NOTE]
 > Siguiendo el **Modelo en V**, los tests de integración de datos se definen y ejecutan inmediatamente después de implementar los esquemas, antes de pasar a la Fase 3. Esto garantiza que el contrato de datos entre Sanity y el frontend sea correcto desde el inicio.
 
-Crear los siguientes tests en `tests/unit/sanity-schemas.test.ts`:
-- Verificar que los tipos TypeScript generados en `types/sanity.ts` coincidan con los schemas de Sanity (IT-SANITY-01).
-- Verificar que las consultas GROQ básicas (`*[_type == "product"]`) retornan la estructura de campos esperada contra el dataset `staging` (IT-SANITY-02).
-- Verificar que un documento `globalConfig` con `activepalette` y `visualVariant` puede ser consultado correctamente (IT-SANITY-03).
+Estos tests requieren conexión real al dataset `staging` de Sanity, por lo que se clasifican como **tests de integración** y se aislan del comando `pnpm run test` (pruebas unitarias puras). Se ubican en `tests/integration/` y se ejecutan con un script dedicado, replicando el patrón ya usado para Go en §5.7 (`-tags=integration`).
+
+**Casos de prueba a crear en `tests/integration/sanity-schemas.integration.test.ts`:**
+
+- **IT-SANITY-01 (verificación de tipos por CI):** Los tipos TypeScript en `types/sanity.ts` no son verificables en tiempo de ejecución (*type erasure*). La verificación se realiza como un paso de CI (`sanity typegen generate` + `git diff --exit-code`) que falla el build si el archivo generado difiere del comiteado. No se implementa como caso de Vitest.
+- **IT-SANITY-02:** Verificar que la consulta GROQ `*[_type == "producto" && activo == true]` retorna documentos con los campos esperados (`_id`, `nombre`, `slug.current`, `stock`, `categoria.nombre`) contra el dataset `staging`.
+- **IT-SANITY-03:** Verificar que el documento `configuracionGlobal` puede consultarse correctamente y contiene los campos `paletaActiva` y `varianteVisual` con valores válidos.
 
 ```bash
-npm run test -- tests/unit/sanity-schemas.test.ts
+# Pruebas unitarias puras (sin dependencias externas) — usadas en CI por defecto
+pnpm run test
+
+# Pruebas de integración con Sanity staging — requieren VITE_SANITY_PROJECT_ID en entorno
+pnpm run test:integration
 ```
 
 ### 2.7 Verificación
 
 - [ ] `cd sanity && npx sanity dev` arranca Sanity Studio sin errores
 - [ ] Los 5 tipos de documento aparecen en el Studio
-- [ ] Se pueden crear y editar productos, categorías y la configuración global
-- [ ] El dataset de staging tiene al menos 10 productos con datos completos
-- [ ] Los tipos TypeScript en `types/sanity.ts` coinciden con los schemas de Sanity
-- [ ] Tests de integración de datos pasan (`npm run test -- tests/unit/sanity-schemas.test.ts`)
+- [ ] Se pueden crear y editar productos, categorías y la configuración global desde el Studio
+- [ ] El dataset de staging tiene al menos 10 productos con datos completos e imágenes
+- [ ] El paso de CI `sanity typegen generate` + `git diff --exit-code` pasa sin diferencias en `types/sanity.ts`
+- [ ] Tests de integración pasan: `pnpm run test:integration` (requiere acceso a staging)
 - [ ] Commit: `feat(sanity): define data schemas, studio config, staging seed data and integration tests`
 
 ---

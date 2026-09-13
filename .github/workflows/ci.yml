@@ -45,12 +45,44 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Run Vitest unit tests with coverage
+        # Only runs *.test.ts files — *.integration.test.ts are excluded via vitest.config.ts
         run: pnpm run test -- --coverage --run
+      - name: Verify Sanity TypeScript types are in sync (IT-SANITY-01)
+        # Runs sanity typegen and fails if types/sanity.ts differs from the committed version.
+        # Requires SANITY_PROJECT_ID_STAGING secret. Implements Hallazgo 4 from observations doc.
+        run: |
+          npx sanity@latest typegen generate
+          git diff --exit-code types/sanity.ts
+        env:
+          SANITY_STUDIO_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
+          SANITY_STUDIO_DATASET: staging
       - name: Build Nuxt (SSG)
         run: pnpm run generate
         env:
           NUXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
           NUXT_PUBLIC_SANITY_DATASET: staging
+
+  # Integration tests run separately from unit tests — they require network access to Sanity staging.
+  # Replicates the Go pattern: `go test -tags=integration ./sanity/...` (§5.7).
+  # Only runs after test-frontend passes to avoid wasting API calls on broken builds.
+  integration-tests:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Run Sanity integration tests (IT-SANITY-02, IT-SANITY-03)
+        run: pnpm run test:integration
+        env:
+          VITE_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
+          VITE_SANITY_DATASET: staging
 
   e2e-tests:
     needs: [test-backend, test-frontend]
@@ -71,3 +103,4 @@ jobs:
         run: pnpm exec playwright test
         env:
           BASE_URL: ${{ secrets.VERCEL_PREVIEW_URL }}
+
