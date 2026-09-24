@@ -48,7 +48,7 @@ npm run test -- tests/unit/sanity-schemas.test.ts
 | `activepalette` | `paletaActiva` |
 | `visualVariant` | `varianteVisual` |
 
-**Evidencia de la inconsistencia interna:** el propio documento ya usa los nombres correctos en otro lugar — la consulta GROQ de `composables/useCatalogo.ts` (Fase 3, §3.3) consulta `_type == "producto"`, no `"product"`. Esto confirma que §2.6 no fue actualizada cuando el resto del modelo de datos se tradujo a español, probablemente quedando como remanente de una plantilla en inglés.
+**Evidencia de la inconsistencia interna:** el propio documento ya usa los nombres correctos en otro lugar — la consulta GROQ de `composables/useCatalog.ts` (Fase 3, §3.3) consulta `_type == "producto"`, no `"product"`. Esto confirma que §2.6 no fue actualizada cuando el resto del modelo de datos se tradujo a español, probablemente quedando como remanente de una plantilla en inglés.
 
 **Impacto:** Una prueba que consulta un `_type` inexistente en el dataset no falla por un defecto real del sistema — falla siempre, incondicionalmente, independientemente de si el esquema está bien implementado. Esto contradice el propósito declarado de la sección ("garantizar que el contrato de datos... sea correcto desde el inicio"): en lugar de detectar defectos reales, generaría una alarma falsa permanente que el equipo terminaría ignorando o comentando — el riesgo clásico de una prueba mal especificada, que erosiona la confianza en toda la suite.
 

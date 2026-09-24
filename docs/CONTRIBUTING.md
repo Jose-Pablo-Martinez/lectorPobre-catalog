@@ -161,7 +161,7 @@ lectorpobre/
 │   ├── useStock.ts             # RF-03, RNF-03
 │   ├── useCalificacion.ts      # RF-06
 │   ├── useComentario.ts        # RF-07
-│   └── useCatalogo.ts          # RF-01, RF-04, RF-18
+│   └── useCatalog.ts           # RF-01, RF-04, RF-18
 │
 ├── pages/                      # Rutas del sitio (SSG, Nuxt file-based routing)
 │   ├── index.vue               # Catálogo principal (RF-01, RF-04, RF-19)

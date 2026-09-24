@@ -166,7 +166,7 @@ Sanity no copia los datos de la categoría dentro del producto. Guarda únicamen
 
 ### 4.2 "Seguir" la referencia con el operador `->`
 
-Para traer los datos reales de la categoría (el equivalente a un `JOIN`), la consulta GROQ usa el operador `->`. Esto ya está implementado correctamente en `composables/useCatalogo.ts`:
+Para traer los datos reales de la categoría (el equivalente a un `JOIN`), la consulta GROQ usa el operador `->`. Esto ya está implementado correctamente en `composables/useCatalog.ts`:
 
 ```groq
 *[_type == "producto" && activo == true]

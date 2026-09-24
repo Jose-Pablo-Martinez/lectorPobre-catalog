@@ -951,17 +951,17 @@ export default defineNuxtConfig({
 });
 ```
 
-### 3.3 Composable del Catálogo (`composables/useCatalogo.ts`)
+### 3.3 Composable del Catálogo (`composables/useCatalog.ts`)
 
 ```typescript
 /**
- * @file useCatalogo.ts
+ * @file useCatalog.ts
  * @description Composable que expone el catálogo de productos para el SSG.
  * Los datos son consultados en build time y pre-renderizados en HTML estático.
  * @satisfies RF-01 (Catálogo), RF-04 (Categorías), RF-18 (Búsqueda client-side), RF-19 (Paginación)
  */
 
-export function useCatalogo(config: { pagina?: number; categoria?: string } = {}) {
+export function useCatalog(config: { pagina?: number; categoria?: string } = {}) {
     const sanity = useSanityClient();
 
     // Consulta ejecutada en build time (SSG) o en cliente para SSR ligero
@@ -1003,7 +1003,7 @@ useSeoMeta({
     ogTitle: 'LectorPobre — Catálogo de Productos',
 });
 
-const { productosFiltrados, query } = useCatalogo();
+const { productosFiltrados, query } = useCatalog();
 const { data: categorias } = useSanityFetch<Categoria[]>(
     `*[_type == "categoria"] | order(orden asc) { _id, nombre, slug }`
 );
