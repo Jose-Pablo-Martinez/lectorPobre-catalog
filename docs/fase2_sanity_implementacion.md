@@ -341,7 +341,7 @@ export const calificacion = defineType({
 
 ### `sanity/schemas/configuracionGlobal.ts`
 
-**Satisface:** RF-05 (Redes sociales), RF-15 (Paleta de colores), RF-16 (Variantes visuales), RF-17 (WhatsApp), RF-19 (Paginación), RF-03/RF-14 (Umbral de stock bajo).
+**Satisface:** RF-05 (Redes sociales), RF-15 (Paleta de colores — predefinidas + custom), RF-16 (Variantes visuales + patrones decorativos), RF-17 (WhatsApp), RF-19 (Paginación), RF-03/RF-14 (Umbral de stock bajo).
 
 > [!IMPORTANT]
 > Este documento es un **singleton**: solo puede existir un único documento de `configuracionGlobal` en todo el dataset. Esto se logra con `__experimental_actions: ['update', 'publish']`, que elimina la opción "Crear nuevo documento" en el Studio. En la Fase 3 verás cómo leer este documento desde Nuxt para aplicar la paleta de colores de RF-15.
@@ -389,18 +389,52 @@ export const configuracionGlobal = defineType({
             title: 'Paleta de colores activa',
             type: 'string',
             // RF-15: el valor seleccionado aquí inyecta CSS custom properties distintos
-            // en nuxt.config.ts mediante app.head.style. Ver implementación Fase 3 §3.2.
+            // en nuxt.config.ts mediante app.head.style. Ver implementación Fase 3 §3.9.
+            // 'custom' activa los campos paletaCustom* de abajo.
             options: {
                 list: [
-                    { title: 'Azul',    value: 'azul' },
-                    { title: 'Verde',   value: 'verde' },
-                    { title: 'Morado',  value: 'morado' },
-                    { title: 'Naranja', value: 'naranja' },
-                    { title: 'Gris',    value: 'gris' },
+                    { title: 'Claro',     value: 'claro' },
+                    { title: 'Oscuro',    value: 'oscuro' },
+                    { title: 'Océano',    value: 'oceano' },
+                    { title: 'Atardecer', value: 'atardecer' },
+                    { title: 'Personalizada', value: 'custom' },
                 ],
                 layout: 'radio',
             },
-            initialValue: 'azul',
+            initialValue: 'claro',
+        }),
+
+        // RF-15: campos para paleta personalizada (solo se usan cuando paletaActiva === 'custom')
+        defineField({
+            name: 'paletaCustomPrimario',
+            title: 'Color primario (hex)',
+            type: 'string',
+            description: 'Ej: #3b82f6. Solo se usa cuando la paleta activa es "Personalizada".',
+            hidden: ({ document }) => document?.paletaActiva !== 'custom',
+        }),
+        defineField({
+            name: 'paletaCustomSecundario',
+            title: 'Color secundario (hex)',
+            type: 'string',
+            hidden: ({ document }) => document?.paletaActiva !== 'custom',
+        }),
+        defineField({
+            name: 'paletaCustomAcento',
+            title: 'Color de acento (hex)',
+            type: 'string',
+            hidden: ({ document }) => document?.paletaActiva !== 'custom',
+        }),
+        defineField({
+            name: 'paletaCustomFondo',
+            title: 'Color de fondo (hex)',
+            type: 'string',
+            hidden: ({ document }) => document?.paletaActiva !== 'custom',
+        }),
+        defineField({
+            name: 'paletaCustomTexto',
+            title: 'Color de texto (hex)',
+            type: 'string',
+            hidden: ({ document }) => document?.paletaActiva !== 'custom',
         }),
         defineField({
             name: 'varianteVisual',
@@ -416,6 +450,22 @@ export const configuracionGlobal = defineType({
                 layout: 'radio',
             },
             initialValue: 'moderno',
+        }),
+
+        // ── Patrones decorativos (RF-16) ─────────────────────────────────────────────
+        defineField({
+            name: 'patronDecorativoActivo',
+            title: 'Patrón decorativo activo',
+            type: 'boolean',
+            description: 'Activa un overlay de imagen repetible sobre el catálogo (p. ej. temática Halloween, Navidad).',
+            initialValue: false,
+        }),
+        defineField({
+            name: 'patronDecorativo',
+            title: 'Imagen del patrón decorativo',
+            type: 'image',
+            description: 'Imagen pequeña (ej. 200x200px) que se repite como fondo semi-transparente. Solo se usa si el toggle de arriba está activo.',
+            hidden: ({ document }) => !document?.patronDecorativoActivo,
         }),
 
         // ── Umbrales operativos ────────────────────────────────────────────────────
@@ -567,8 +617,15 @@ export interface ConfiguracionGlobal {
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
-    paletaActiva: 'azul' | 'verde' | 'morado' | 'naranja' | 'gris';
+    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
+    paletaCustomPrimario?: string;
+    paletaCustomSecundario?: string;
+    paletaCustomAcento?: string;
+    paletaCustomFondo?: string;
+    paletaCustomTexto?: string;
     varianteVisual: 'clasico' | 'moderno' | 'minimalista';
+    patronDecorativoActivo: boolean;
+    patronDecorativo?: SanityImage;
     umbralStockBajo: number;
     productosPorPagina: number;
 }

@@ -1,7 +1,7 @@
 # Plan de Verificación y Validación (V&V) — LectorPobre
 
-> **Versión:** 1.0
-> **Basado en:** `ERS_LectorPobre.md` (v1.0) · `Arquitectura_Tecnica_Detallada_LectorPobre.md` (v2.0) · `Stack_Tecnologico_LectorPobre.md` (v1.0)
+> **Versión:** 1.1
+> **Basado en:** `ERS_LectorPobre.md` (v1.1) · `Arquitectura_Tecnica_Detallada_LectorPobre.md` (v2.0) · `Stack_Tecnologico_LectorPobre.md` (v1.0)
 > **Estándar de referencia:** IEEE 829 (Documentación de testing) · ISO/IEC 25010 (Calidad de software)
 > **Stack bajo prueba:** Nuxt.js 3 · Vue 3 · Tailwind CSS · Go 1.22+ · Sanity.io · Vercel
 
@@ -424,6 +424,15 @@ Las pruebas de aceptación validan que el sistema cumple con los criterios de ac
 |---|---|---|---|
 | UAT-10 | Existe un botón "Comprar por WhatsApp" en la ficha de producto. El enlace abre WhatsApp con un mensaje prellenado que referencia el producto. | Manual con dispositivo real | ❌ |
 
+#### 6.1.3b Lista de Artículos / Carrito de Referencia (RF-21, RF-22, RF-23)
+
+| ID | Criterio de aceptación | Verificación | ¿Automatizable? |
+|---|---|---|---|
+| UAT-17 | El usuario puede agregar productos a una lista de artículos desde la tarjeta de producto y desde la ficha de detalle. La lista muestra nombre, precio, cantidad y subtotal de cada artículo, además del total general. | Visual + Playwright | ✅ |
+| UAT-18 | La lista persiste tras recargar la página (almacenada en `localStorage`). El usuario puede modificar cantidades y eliminar artículos. | Playwright (recargar y verificar) | ✅ |
+| UAT-19 | El usuario puede descargar un resumen de la lista en formato PDF o PNG. El documento incluye nombre del sitio, fecha, lista itemizada con precios y total. | Manual (verificar archivo descargado) | ❌ |
+| UAT-20 | El usuario puede enviar la lista completa por WhatsApp. El enlace abre WhatsApp con un resumen textual de todos los artículos, cantidades y precios. | Manual con dispositivo real | ❌ |
+
 #### 6.1.4 Panel de Administración (RF-08 a RF-16)
 
 | ID | Criterio de aceptación | Verificación | ¿Automatizable? |
@@ -432,7 +441,7 @@ Las pruebas de aceptación validan que el sistema cumple con los criterios de ac
 | UAT-12 | El administrador puede modificar nombre, descripción e imagen de un producto. Los cambios se reflejan en el sitio tras el rebuild automático (< 5 minutos después del webhook). | Manual con cronómetro | Parcial |
 | UAT-13 | El administrador puede crear y eliminar productos. El catálogo se actualiza tras el rebuild. | Manual | Parcial |
 | UAT-14 | El administrador puede visualizar el stock de todos los productos en el panel. Puede identificar productos con stock bajo o agotado. | Manual + visual | ✅ |
-| UAT-15 | El administrador puede cambiar la paleta de colores del sitio desde el panel. El cambio se refleja tras rebuild. | Manual (si RF-15 está implementado) | Parcial |
+| UAT-15 | El administrador puede cambiar la paleta de colores del sitio desde el panel, eligiendo entre 4 paletas predefinidas (claro, oscuro, océano, atardecer) o una paleta personalizada con valores hex. El cambio se refleja tras rebuild. | Manual (si RF-15 está implementado) | Parcial |
 
 #### 6.1.5 Redes Sociales (RF-05)
 
@@ -652,10 +661,15 @@ La siguiente matriz prioriza los riesgos técnicos identificados en `implementat
 | RF-12 (Imagen producto) | — | — | — | UAT-12 |
 | RF-13 (Crear/eliminar producto) | — | — | — | UAT-13 |
 | RF-14 (Stock admin) | — | — | — | UAT-14 |
+| RF-15 (Paleta colores) | UT-VUE-14, 15 | — | — | UAT-15 |
+| RF-16 (Variantes + patrones) | UT-VUE-17 | — | — | UAT-15 |
 | RF-17 (WhatsApp) | UT-TS-01, 02, UT-VUE-11 | — | ST-14, ST-15 | UAT-10 |
 | RF-18 (Búsqueda) | UT-GO-08, 09, 10 | IT-05, IT-06, IT-11 | ST-05 | UAT-05 |
 | RF-19 (Paginación) | — | — | ST-04 | UAT-06 |
 | RF-20 (SEO/OG) | — | IT-16 | ST-22, ST-23, ST-24 | UAT-07 |
+| RF-21 (Lista artículos) | UT-VUE-18, 19 | — | — | UAT-17, UAT-18 |
+| RF-22 (Exportar PDF/PNG) | UT-VUE-20 | — | — | UAT-19 |
+| RF-23 (Lista → WhatsApp) | UT-VUE-18 | — | — | UAT-20 |
 | RNF-01 (Sin auth usuarios) | — | — | ST-25, ST-26 | — |
 | RNF-02 (Rendimiento UI) | — | — | NF-01 a NF-06 | — |
 | RNF-03 (Stock tiempo real) | UT-VUE-01 a 04 | IT-07 | ST-06, ST-07 | UAT-03 |
@@ -665,5 +679,5 @@ La siguiente matriz prioriza los riesgos técnicos identificados en `implementat
 
 ---
 
-*Última actualización: Septiembre 2026 · Aplica a LectorPobre ERS v1.0*
+*Última actualización: Septiembre 2026 · Aplica a LectorPobre ERS v1.1*
 *Este plan debe revisarse cuando se agreguen requisitos al ERS o cambien las decisiones de arquitectura.*

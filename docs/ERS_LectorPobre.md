@@ -1,7 +1,7 @@
 # Especificación de Requisitos de Software (ERS)
 ## Proyecto: Plataforma Web "LectorPobre"
 
-**Versión:** 1.0
+**Versión:** 1.1
 **Basado en:** `Requisitos_LectorPobre_Final.pdf`, `Arquitectura_Detallada_LectorPobre.pdf`, `Stack_Tecnologico_LectorPobre.pdf`
 **Plantilla de redacción de requisitos:** "El [Sistema / Actor] debe [Acción] [Condición o Complemento]"
 **Principio de atomicidad:** cada requisito describe una única acción, sin detalles de implementación técnica.
@@ -20,10 +20,10 @@ Este documento se apoya y es consistente con la **Arquitectura Técnica Detallad
 
 LectorPobre es una plataforma web de **catálogo de productos** que permite:
 
-- A **usuarios generales** (visitantes públicos, sin necesidad de registro) navegar, buscar y consultar el catálogo de productos, ver el stock disponible, interactuar socialmente (calificaciones y comentarios) e iniciar un contacto de compra vía WhatsApp.
-- A un **administrador** autenticado gestionar el contenido del catálogo (productos, imágenes, stock) y la personalización visual del sitio (paleta de colores y elementos gráficos) mediante un panel de control.
+- A **usuarios generales** (visitantes públicos, sin necesidad de registro) navegar, buscar y consultar el catálogo de productos, ver el stock disponible, interactuar socialmente (calificaciones y comentarios), armar una lista de artículos deseados (carrito de referencia) con exportación a PDF/PNG, e iniciar un contacto de compra vía WhatsApp.
+- A un **administrador** autenticado gestionar el contenido del catálogo (productos, imágenes, stock) y la personalización visual del sitio (paletas de colores predefinidas y personalizadas, patrones decorativos y elementos gráficos) mediante un panel de control.
 
-El sistema **no** incluye, salvo que se indique lo contrario en futuras iteraciones: pasarela de pago en línea, carrito de compras, gestión de pedidos, ni registro/autenticación de usuarios generales. La conversión de venta se delega a un canal externo (WhatsApp).
+El sistema **no** incluye, salvo que se indique lo contrario en futuras iteraciones: pasarela de pago en línea, gestión de pedidos, ni registro/autenticación de usuarios generales. El carrito funciona exclusivamente como **lista de referencia** — no tiene función de pago. La conversión de venta se delega a un canal externo (WhatsApp).
 
 ### 1.3 Definiciones, Acrónimos y Abreviaturas
 
@@ -71,9 +71,10 @@ LectorPobre se construye sobre una arquitectura **Jamstack desacoplada**, que se
 
 1. **Catálogo público**: exploración, búsqueda, categorización y detalle de productos con stock en tiempo real.
 2. **Interacción social**: calificaciones por estrellas y comentarios de texto (opcionales).
-3. **Conversión a venta**: enlace directo a WhatsApp desde la ficha de producto.
-4. **Panel de administración**: autenticación, gestión de catálogo (CRUD parcial), gestión de stock, personalización visual (colores y elementos gráficos).
-5. **Optimización y alcance**: SEO mediante metadatos dinámicos, integración con redes sociales, analítica de tráfico.
+3. **Lista de artículos (carrito de referencia)**: lista de productos deseados con exportación a PDF/PNG y vinculación con WhatsApp.
+4. **Conversión a venta**: enlace directo a WhatsApp desde la ficha de producto o desde la lista de artículos.
+5. **Panel de administración**: autenticación, gestión de catálogo (CRUD parcial), gestión de stock, personalización visual avanzada (paletas predefinidas/personalizadas, patrones decorativos).
+6. **Optimización y alcance**: SEO mediante metadatos dinámicos, integración con redes sociales, analítica de tráfico.
 
 ### 2.3 Características de los Usuarios / Actores
 
@@ -204,13 +205,46 @@ Cada requisito se presenta con: **Descripción** (texto literal de la fuente), *
 - **Componente arquitectónico:** Función serverless en Go (`/api/comentar`) → escritura validada en Sanity.io.
 
 **RF-17**
-- **Descripción:** El sistema debe habilitar una vía de comunicación directa hacia WhatsApp desde la vista detallada del producto para que el usuario general inicie el proceso de compra.
+- **Descripción:** El sistema debe habilitar una vía de comunicación directa hacia WhatsApp desde la vista detallada del producto y desde la lista de artículos (RF-23) para que el usuario general inicie el proceso de compra.
 - **Actor:** Usuario General
-- **Prioridad:** Must (mecanismo principal de conversión, dado que no hay carrito/pago en línea)
+- **Prioridad:** Must (mecanismo principal de conversión, dado que no hay pago en línea)
 - **Criterios de aceptación sugeridos:**
   - Existe un botón/enlace "Comprar por WhatsApp" (o equivalente) en la ficha de producto.
   - El enlace utiliza el esquema `wa.me` o API de WhatsApp Business con un mensaje prellenado que referencia el producto.
-- **Componente arquitectónico:** Frontend Nuxt.js (enlace estático generado con datos del producto).
+  - La lista de artículos (RF-23) también ofrece un botón para enviar el resumen completo a WhatsApp.
+- **Componente arquitectónico:** Frontend Nuxt.js (enlace estático generado con datos del producto o de la lista).
+
+**RF-21**
+- **Descripción:** El sistema debe permitir a los usuarios generales agregar productos a una lista de artículos deseados (carrito de referencia) accesible durante la sesión de navegación, con la posibilidad de ajustar cantidades y eliminar artículos.
+- **Actor:** Usuario General
+- **Prioridad:** Must
+- **Criterios de aceptación sugeridos:**
+  - Existe un botón "Agregar a la lista" en cada tarjeta de producto y en la ficha de detalle.
+  - La lista muestra nombre, precio, cantidad y subtotal de cada artículo, además del total general.
+  - La lista se persiste en `localStorage` del navegador (no requiere cuenta ni backend).
+  - El carrito **no incluye función de pago**; es exclusivamente una lista de referencia.
+- **Componente arquitectónico:** Frontend Nuxt.js (estado client-side con `localStorage`). Inspiración funcional: carrito de Steam.
+
+**RF-22**
+- **Descripción:** El sistema debe permitir a los usuarios generales y al administrador generar un documento resumen de la lista de artículos en formato PDF o imagen (PNG), que incluya nombre, precio y cantidad de cada artículo seleccionado, así como el total general.
+- **Actor:** Usuario General, Administrador
+- **Prioridad:** Must
+- **Criterios de aceptación sugeridos:**
+  - Existe un botón "Descargar resumen" visible en la vista de la lista de artículos.
+  - El documento generado incluye: nombre del sitio, fecha, lista itemizada con precios y total.
+  - El formato es seleccionable: PDF o PNG (imagen).
+  - La generación ocurre enteramente en el navegador (client-side, sin servidor).
+- **Componente arquitectónico:** Frontend Nuxt.js (generación client-side con librería de PDF/canvas, p. ej. `jsPDF` + `html2canvas`).
+
+**RF-23**
+- **Descripción:** El sistema debe permitir al usuario general enviar la lista de artículos completa como mensaje a WhatsApp, con un resumen textual de los productos seleccionados, sus cantidades y precios.
+- **Actor:** Usuario General
+- **Prioridad:** Must
+- **Criterios de aceptación sugeridos:**
+  - Existe un botón "Enviar lista por WhatsApp" en la vista de la lista de artículos.
+  - El enlace utiliza el esquema `wa.me` con un mensaje prellenado que resume todos los artículos de la lista.
+  - El proceso de compra y pago sigue ocurriendo por WhatsApp; el sistema solo facilita el envío del resumen.
+- **Componente arquitectónico:** Frontend Nuxt.js (enlace generado dinámicamente con el contenido de la lista).
 
 #### 3.1.3 Módulo: Panel de Administración
 
@@ -279,22 +313,26 @@ Cada requisito se presenta con: **Descripción** (texto literal de la fuente), *
 - **Componente arquitectónico:** Sanity Studio (vista de documentos) o dashboard propio consultando Sanity.io.
 
 **RF-15**
-- **Descripción:** El administrador debe poder cambiar la paleta de colores de la página web desde el panel de control.
+- **Descripción:** El administrador debe poder cambiar la paleta de colores de la página web desde el panel de control, eligiendo entre paletas predefinidas o definiendo una paleta personalizada.
 - **Actor:** Administrador
 - **Prioridad:** Could
 - **Criterios de aceptación sugeridos:**
-  - Existe un conjunto de paletas predefinidas (o un selector de color) gestionable como dato de configuración.
+  - Existen al menos 4 paletas predefinidas: **modo claro**, **modo oscuro**, y al menos 2 paletas temáticas adicionales.
+  - El administrador puede crear una **paleta personalizada** proporcionando valores de color hexadecimales desde Sanity Studio.
+  - Cuando se selecciona una paleta personalizada, los valores custom tienen prioridad sobre los predefinidos.
   - El cambio de paleta se refleja en el sitio tras la siguiente reconstrucción (dado el modelo SSG).
-- **Componente arquitectónico:** Esquema de configuración global en Sanity.io + Tailwind CSS (tokens de diseño dinámicos) + Frontend Nuxt.js.
+- **Componente arquitectónico:** Esquema de configuración global en Sanity.io (campo de selección + campos de color custom) + Tailwind CSS (tokens de diseño dinámicos via CSS custom properties) + Frontend Nuxt.js.
 
 **RF-16**
-- **Descripción:** El administrador debe poder intercambiar los elementos visuales de la página web por otras opciones predefinidas desde el panel de control.
+- **Descripción:** El administrador debe poder intercambiar los elementos visuales de la página web por otras opciones predefinidas desde el panel de control, incluyendo la aplicación de patrones decorativos temáticos (p. ej. Halloween, Navidad, etc.) almacenados como imágenes en Sanity.
 - **Actor:** Administrador
 - **Prioridad:** Could
 - **Criterios de aceptación sugeridos:**
-  - Existe un conjunto cerrado de "temas" o variantes visuales predefinidas (no un editor visual libre).
-  - El administrador puede seleccionar y aplicar una variante desde Sanity Studio.
-- **Componente arquitectónico:** Esquema de configuración global en Sanity.io + Frontend Nuxt.js (renderizado condicional de variantes).
+  - Existe un conjunto cerrado de variantes visuales predefinidas (layout/estilo de tarjetas).
+  - El administrador puede subir **imágenes de patrón decorativo** a Sanity Studio que se aplican como overlay/fondo repetible en el catálogo (p. ej. murciélagos para Halloween, copos para Navidad).
+  - El administrador puede activar o desactivar el patrón decorativo activo sin necesidad de modificar código.
+  - El administrador puede seleccionar y aplicar una variante visual desde Sanity Studio.
+- **Componente arquitectónico:** Esquema de configuración global en Sanity.io (campo de selección de variante + array de imágenes de patrón) + Frontend Nuxt.js (renderizado condicional de variantes y overlay de patrón via CSS `background-image`).
 
 ---
 
@@ -358,12 +396,15 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 | RF-12 | (Sanity Studio) | | ✔ | |
 | RF-13 | (Sanity Studio) | | ✔ | ✔ (rebuild) |
 | RF-14 | (Sanity Studio) | | ✔ | |
-| RF-15 | ✔ (render) | | ✔ (config) | ✔ (rebuild) |
-| RF-16 | ✔ (render) | | ✔ (config) | ✔ (rebuild) |
+| RF-15 | ✔ (render) | | ✔ (config + paletas custom) | ✔ (rebuild) |
+| RF-16 | ✔ (render + overlay) | | ✔ (config + imágenes patrón) | ✔ (rebuild) |
 | RF-17 | ✔ | | | |
 | RF-18 | ✔ (client-side) | | | |
 | RF-19 | ✔ | | | |
 | RF-20 | ✔ (SSG metadata) | | ✔ (fuente) | |
+| RF-21 | ✔ (client-side, localStorage) | | | |
+| RF-22 | ✔ (client-side, jsPDF/canvas) | | | |
+| RF-23 | ✔ (client-side, wa.me) | | | |
 | RNF-01 | ✔ | | | |
 | RNF-02 | ✔ | | | |
 | RNF-03 | ✔ (consulta) | (posible proxy) | ✔ | |
@@ -380,10 +421,11 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 | Explorar catálogo y buscar producto | Usuario General | RF-01, RF-04, RF-18, RF-19 |
 | Consultar detalle y stock de un producto | Usuario General | RF-02, RF-03, RF-20 |
 | Calificar y comentar un producto | Usuario General | RF-06, RF-07 |
-| Iniciar compra vía WhatsApp | Usuario General | RF-17 |
+| Armar lista de artículos y exportar resumen | Usuario General | RF-21, RF-22, RF-23 |
+| Iniciar compra vía WhatsApp (producto individual o lista) | Usuario General | RF-17, RF-23 |
 | Iniciar sesión / cerrar sesión | Administrador | RF-08, RF-09 |
 | Gestionar catálogo (crear/editar/eliminar productos, imágenes, stock) | Administrador | RF-10, RF-11, RF-12, RF-13, RF-14 |
-| Personalizar apariencia del sitio | Administrador | RF-15, RF-16 |
+| Personalizar apariencia del sitio (paletas, patrones decorativos, variantes) | Administrador | RF-15, RF-16 |
 | Compartir producto en redes/mensajería | Usuario General / Sistema | RF-20, RF-05 |
 
 ---
@@ -392,6 +434,8 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 
 - **Catálogo:** conjunto de productos publicados y visibles para los usuarios generales.
 - **Producto:** entidad central del sistema, con atributos como nombre, descripción, imagen, categoría y stock.
+- **Lista de artículos (carrito de referencia):** lista temporal de productos que el usuario desea comprar. No tiene función de pago; sirve como referencia para la gestión de compra vía WhatsApp.
+- **Patrón decorativo:** imagen almacenada en Sanity que se aplica como overlay visual repetible sobre el catálogo (p. ej. murciélagos para Halloween, copos para Navidad).
 - **Panel de administración:** interfaz privada para la gestión del catálogo y la configuración visual.
 - **Requisito Opcional:** requisito marcado explícitamente como no crítico en la fuente (RF-06, RF-07), sujeto a priorización posterior.
 - **Rebuild / Reconstrucción:** proceso por el cual Nuxt.js regenera los archivos estáticos del sitio a partir del contenido actualizado en Sanity.io.
@@ -401,22 +445,26 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 ## 7. Restricciones, Supuestos y Temas Abiertos
 
 ### 7.1 Restricciones
-- No se contempla pasarela de pago ni carrito de compras en el alcance actual.
+- No se contempla pasarela de pago en línea en el alcance actual. El carrito (RF-21) funciona exclusivamente como lista de referencia.
 - El backend debe permanecer stateless por decisión arquitectónica (impacta RF-08, RF-09, RF-10, RNF-04).
 - El stock debe consultarse en tiempo real, lo que introduce una excepción al modelo SSG puro (impacta RF-03, RNF-03).
+- La lista de artículos (RF-21) se almacena en `localStorage` del navegador; no hay persistencia server-side ni sincronización entre dispositivos.
 
 ### 7.2 Supuestos
 - La empresa proveerá contenido inicial del catálogo (productos, imágenes, categorías) para la carga inicial.
 - Existe un único rol administrador; no se requieren permisos granulares por ahora.
 - El servicio de analítica (RNF-06) y las redes sociales a enlazar (RF-05) serán confirmados por el cliente antes del desarrollo.
+- La empresa proveerá las imágenes de patrones decorativos (RF-16) para las temporadas que desee soportar.
 
 ### 7.3 Temas Abiertos (a validar con la parte interesada)
 1. ¿Los comentarios (RF-07) requieren moderación previa por el administrador antes de publicarse?
 2. ¿Cuál es el umbral exacto de productos que activa la paginación/carga diferida (RF-19)?
 3. ¿Qué constituye "stock bajo" vs "agotado" para efectos de UI (RF-03, RF-14)?
 4. ¿Qué servicio de analítica externo se utilizará (RNF-06)?
-5. ¿Cuántas paletas de colores y variantes visuales predefinidas se ofrecerán (RF-15, RF-16)?
+5. ~~¿Cuántas paletas de colores y variantes visuales predefinidas se ofrecerán (RF-15, RF-16)?~~ **Resuelto en v1.1:** mínimo 4 predefinidas (claro, oscuro + 2 temáticas) + paleta personalizada desde Studio.
 6. ¿Existe un límite de longitud o política de contenido para comentarios y calificaciones (moderación anti-abuso)?
+7. ¿La lista de artículos (RF-21) debe mostrar un indicador en el header con la cantidad de artículos, tipo badge?
+8. ¿El resumen PDF/PNG (RF-22) debe incluir el logo del sitio o algún branding adicional?
 
 ---
 

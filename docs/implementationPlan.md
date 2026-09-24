@@ -16,7 +16,7 @@ El plan se divide en **8 fases (0–7)** ordenadas por dependencias. Cada fase t
 | 0 | Prerrequisitos | Instalaciones manuales y cuentas | Node.js 20, Go 1.22+, Vercel CLI, cuenta Sanity.io, cuenta Vercel |
 | 1 | Scaffolding + CI/CD | Organización, docs, configs, automatización | Estructura de carpetas, README, `.gitignore`, Vercel pipeline, Lighthouse CI |
 | 2 | Modelo de datos Sanity | Esquemas, Studio, datos de prueba | Esquemas Sanity, Sanity Studio configurado, dataset de staging y producción |
-| 3 | Release 1 — Frontend Completo | Nuxt SSG con catálogo, paleta y variantes | Catálogo SSG, SEO, WhatsApp, redes sociales, paleta dinámica (RF-15), variantes visuales (RF-16) |
+| 3 | Release 1 — Frontend Completo | Nuxt SSG con catálogo, paleta, variantes, carrito de referencia | Catálogo SSG, SEO, WhatsApp, redes sociales, paleta dinámica con 4+ predefinidas + custom (RF-15), variantes visuales con patrones decorativos (RF-16), lista de artículos con exportación PDF/PNG (RF-21, RF-22, RF-23) |
 | 4 | Despliegue Continuo | Vercel + Webhooks de rebuild | CDN global, webhooks de Sanity → Vercel, dominio propio |
 | 5 | Backend Serverless — Funciones Go | Lógica dinámica segura | Handlers comentar, calificar, buscar, webhook con Go |
 | 6 | Panel de Administración | Login, gestión de catálogo | Autenticación JWT, rutas protegidas, CRUD via Sanity Studio |
@@ -695,7 +695,8 @@ export const calificacion = defineType({
 #### `sanity/schemas/configuracionGlobal.ts`
 
 ```typescript
-// Satisfies: RF-05 (Redes sociales), RF-15 (Paleta colores), RF-16 (Variantes visuales), RF-17 (WhatsApp)
+// Satisfies: RF-05 (Redes sociales), RF-15 (Paleta colores — predefinidas + custom),
+//            RF-16 (Variantes visuales + patrones decorativos), RF-17 (WhatsApp)
 export const configuracionGlobal = defineType({
     name: 'configuracionGlobal',
     title: 'Configuración Global del Sitio',
@@ -710,15 +711,24 @@ export const configuracionGlobal = defineType({
         defineField({                                                      // RF-15
             name: 'paletaActiva',
             type: 'string',
-            options: { list: ['azul', 'verde', 'morado', 'naranja', 'gris'] },
-            initialValue: 'azul'
+            options: { list: ['claro', 'oscuro', 'oceano', 'atardecer', 'custom'] },
+            initialValue: 'claro'
         }),
+        // RF-15: campos para paleta personalizada (solo se usan cuando paletaActiva === 'custom')
+        defineField({ name: 'paletaCustomPrimario',   type: 'string', description: 'Color primario hex. Ej: #3b82f6' }),
+        defineField({ name: 'paletaCustomSecundario',  type: 'string', description: 'Color secundario hex.' }),
+        defineField({ name: 'paletaCustomAcento',      type: 'string', description: 'Color de acento hex.' }),
+        defineField({ name: 'paletaCustomFondo',       type: 'string', description: 'Color de fondo hex.' }),
+        defineField({ name: 'paletaCustomTexto',       type: 'string', description: 'Color de texto hex.' }),
         defineField({                                                      // RF-16
             name: 'varianteVisual',
             type: 'string',
             options: { list: ['clasico', 'moderno', 'minimalista'] },
             initialValue: 'moderno'
         }),
+        // RF-16: patrón decorativo temático (Halloween, Navidad, etc.)
+        defineField({ name: 'patronDecorativoActivo', type: 'boolean', initialValue: false }),
+        defineField({ name: 'patronDecorativo', type: 'image', description: 'Imagen de patrón repetible (ej. murciélagos, copos de nieve)' }),
         defineField({ name: 'umbralStockBajo', type: 'number', initialValue: 5 }),    // RF-03, RF-14
         defineField({ name: 'productosPorPagina', type: 'number', initialValue: 24 }), // RF-19
     ],
@@ -782,8 +792,15 @@ export interface ConfiguracionGlobal {
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
-    paletaActiva: 'azul' | 'verde' | 'morado' | 'naranja' | 'gris';
+    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
+    paletaCustomPrimario?: string;
+    paletaCustomSecundario?: string;
+    paletaCustomAcento?: string;
+    paletaCustomFondo?: string;
+    paletaCustomTexto?: string;
     varianteVisual: 'clasico' | 'moderno' | 'minimalista';
+    patronDecorativoActivo: boolean;
+    patronDecorativo?: SanityImage;
     umbralStockBajo: number;
     productosPorPagina: number;
 }
@@ -841,10 +858,10 @@ pnpm run test:integration
 
 ## Fase 3 — Release 1 — Frontend Completo
 
-**Objetivo:** Implementar el frontend completo con Nuxt.js SSG consumiendo datos reales de Sanity, incluyendo personalización de paleta de colores (RF-15) y variantes visuales (RF-16). Al finalizar esta fase, el catálogo público es completamente funcional como sitio estático con todas sus funcionalidades de presentación.
+**Objetivo:** Implementar el frontend completo con Nuxt.js SSG consumiendo datos reales de Sanity, incluyendo personalización de paleta de colores con paletas predefinidas y personalizadas (RF-15), variantes visuales con patrones decorativos (RF-16), y lista de artículos con exportación PDF/PNG y vinculación con WhatsApp (RF-21, RF-22, RF-23). Al finalizar esta fase, el catálogo público es completamente funcional como sitio estático con todas sus funcionalidades de presentación.
 
-**Duración estimada:** 4–5 sesiones de trabajo  
-**Satisface:** RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20 · RNF-01, RNF-02, RNF-05
+**Duración estimada:** 5–7 sesiones de trabajo  
+**Satisface:** RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23 · RNF-01, RNF-02, RNF-05
 
 ### 3.1 Sistema de Diseño (`assets/css/global.css` + `tailwind.config.ts`)
 
@@ -1192,55 +1209,128 @@ Crear los siguientes componentes con su funcionalidad básica:
 - `SistemaEstrellas.vue` — muestra calificación promedio (UI solo, sin lógica de envío aún)
 - `FormularioComentario.vue` — formulario con validación client-side (sin envío aún)
 - `BotonPrimario.vue` — botón reutilizable
+- `BotonAgregarLista.vue` — botón "Agregar a la lista" para tarjetas y detalle (RF-21)
+- `BadgeCarrito.vue` — indicador en el header con cantidad de artículos en la lista (RF-21)
 
 ### 3.9 Personalización de Paleta de Colores (RF-15)
 
-Implementar el sistema de paleta dinámica que lee `paletaActiva` de `configuracionGlobal` en Sanity y aplica los tokens CSS correspondientes en el build.
+Implementar el sistema de paleta dinámica que lee `paletaActiva` y los campos de paleta personalizada de `configuracionGlobal` en Sanity y aplica los tokens CSS correspondientes en el build.
+
+**Paletas predefinidas (mínimo 4):**
+- `claro` — Modo claro (default)
+- `oscuro` — Modo oscuro
+- `oceano` — Temática azul-verde (tonos frios)
+- `atardecer` — Temática naranja-rosa (tonos cálidos)
+
+Además, el administrador puede definir una **paleta personalizada** (`custom`) proporcionando valores hexadecimales desde Sanity Studio que sobreescriben los tokens de cualquier paleta base.
 
 ```typescript
 // plugins/paleta.ts — Plugin de Nuxt ejecutado en build time
-// Satisfies: RF-15 (Personalización de paleta de colores)
+// Satisfies: RF-15 (Personalización de paleta de colores — predefinidas + custom)
 export default defineNuxtPlugin(async () => {
-    const { data: config } = await useSanityFetch<{ paletaActiva: string }>(
-        `*[_type == "configuracionGlobal"][0]{ paletaActiva }`
+    const { data: config } = await useSanityFetch<{
+        paletaActiva: string;
+        paletaCustomPrimario?: string;
+        paletaCustomSecundario?: string;
+        paletaCustomAcento?: string;
+        paletaCustomFondo?: string;
+        paletaCustomTexto?: string;
+    }>(
+        `*[_type == "configuracionGlobal"][0]{
+            paletaActiva,
+            paletaCustomPrimario, paletaCustomSecundario,
+            paletaCustomAcento, paletaCustomFondo, paletaCustomTexto
+        }`
     );
 
     const paletas: Record<string, Record<string, string>> = {
-        azul:    { '--color-brand-500': '#3b82f6', '--color-brand-600': '#2563eb', '--color-brand-700': '#1d4ed8' },
-        verde:   { '--color-brand-500': '#22c55e', '--color-brand-600': '#16a34a', '--color-brand-700': '#15803d' },
-        morado:  { '--color-brand-500': '#a855f7', '--color-brand-600': '#9333ea', '--color-brand-700': '#7e22ce' },
-        naranja: { '--color-brand-500': '#f97316', '--color-brand-600': '#ea580c', '--color-brand-700': '#c2410c' },
-        gris:    { '--color-brand-500': '#6b7280', '--color-brand-600': '#4b5563', '--color-brand-700': '#374151' },
+        claro: {
+            '--color-brand-500': '#3b82f6', '--color-brand-600': '#2563eb', '--color-brand-700': '#1d4ed8',
+            '--color-bg': '#ffffff', '--color-text': '#1f2937', '--color-surface': '#f9fafb',
+        },
+        oscuro: {
+            '--color-brand-500': '#60a5fa', '--color-brand-600': '#3b82f6', '--color-brand-700': '#2563eb',
+            '--color-bg': '#111827', '--color-text': '#f9fafb', '--color-surface': '#1f2937',
+        },
+        oceano: {
+            '--color-brand-500': '#06b6d4', '--color-brand-600': '#0891b2', '--color-brand-700': '#0e7490',
+            '--color-bg': '#f0fdfa', '--color-text': '#134e4a', '--color-surface': '#ccfbf1',
+        },
+        atardecer: {
+            '--color-brand-500': '#f97316', '--color-brand-600': '#ea580c', '--color-brand-700': '#c2410c',
+            '--color-bg': '#fffbeb', '--color-text': '#78350f', '--color-surface': '#fef3c7',
+        },
     };
 
-    const tokens = paletas[config.value?.paletaActiva ?? 'azul'];
-    // Inyectar los tokens en el :root durante el SSG — el CSS custom property
-    // es leído por tailwind.config.ts en tiempo de ejecución (RF-15, §6.5 Guidelines)
+    const activa = config.value?.paletaActiva ?? 'claro';
+    let tokens = { ...(paletas[activa] ?? paletas.claro) };
+
+    // RF-15: si paletaActiva === 'custom', usar los valores hex del administrador
+    if (activa === 'custom') {
+        const c = config.value;
+        tokens = {
+            '--color-brand-500': c?.paletaCustomPrimario ?? '#3b82f6',
+            '--color-brand-600': c?.paletaCustomSecundario ?? '#2563eb',
+            '--color-brand-700': c?.paletaCustomAcento ?? '#1d4ed8',
+            '--color-bg': c?.paletaCustomFondo ?? '#ffffff',
+            '--color-text': c?.paletaCustomTexto ?? '#1f2937',
+            '--color-surface': c?.paletaCustomFondo ?? '#f9fafb',
+        };
+    }
+
     useHead({
         style: [{ children: `:root { ${Object.entries(tokens).map(([k, v]) => `${k}:${v}`).join(';')} }` }]
     });
 });
 ```
 
-El administrador cambia la paleta desde `configuracionGlobal` en Sanity Studio → el webhook dispara un rebuild → la nueva paleta se aplica en el siguiente deploy.
+El administrador cambia la paleta desde `configuracionGlobal` en Sanity Studio → el webhook dispara un rebuild → la nueva paleta se aplica en el siguiente deploy. Para paletas personalizadas, el administrador selecciona `custom` e introduce los valores hexadecimales en los campos dedicados.
 
-### 3.10 Variantes Visuales (RF-16)
+### 3.10 Variantes Visuales y Patrones Decorativos (RF-16)
 
-Implementar 3 variantes visuales controladas por `varianteVisual` en `configuracionGlobal`. Cada variante es una clase en el elemento `<html>` que el plugin lee en build time:
+Implementar 3 variantes visuales controladas por `varianteVisual` en `configuracionGlobal`, más un sistema de **patrones decorativos** que permite al administrador subir imágenes (p. ej. murciélagos para Halloween, copos de nieve para Navidad) que se aplican como overlay repetible sobre el catálogo.
 
 ```typescript
 // plugins/variante.ts — Plugin de Nuxt ejecutado en build time
-// Satisfies: RF-16 (Variantes visuales del catálogo)
+// Satisfies: RF-16 (Variantes visuales + patrones decorativos del catálogo)
 export default defineNuxtPlugin(async () => {
-    const { data: config } = await useSanityFetch<{ varianteVisual: string }>(
-        `*[_type == "configuracionGlobal"][0]{ varianteVisual }`
+    const { data: config } = await useSanityFetch<{
+        varianteVisual: string;
+        patronDecorativoActivo: boolean;
+        patronDecorativo?: { asset: { _ref: string } };
+    }>(
+        `*[_type == "configuracionGlobal"][0]{
+            varianteVisual,
+            patronDecorativoActivo,
+            patronDecorativo { asset { _ref } }
+        }`
     );
 
-    // La variante se aplica como clase en <html> para que los estilos sean
-    // intercambiables desde CSS con [.variante-*] selectors
+    // La variante se aplica como clase en <html>
+    const variante = config.value?.varianteVisual ?? 'moderno';
     useHead({
-        htmlAttrs: { class: `variante-${config.value?.varianteVisual ?? 'moderno'}` }
+        htmlAttrs: { class: `variante-${variante}` }
     });
+
+    // RF-16: patrón decorativo como overlay CSS repetible
+    if (config.value?.patronDecorativoActivo && config.value?.patronDecorativo) {
+        const patronUrl = urlFor(config.value.patronDecorativo).width(200).format('webp').url();
+        useHead({
+            style: [{
+                children: `body::before {
+                    content: '';
+                    position: fixed;
+                    inset: 0;
+                    z-index: 0;
+                    pointer-events: none;
+                    background-image: url('${patronUrl}');
+                    background-repeat: repeat;
+                    background-size: 120px;
+                    opacity: 0.06;
+                }`
+            }]
+        });
+    }
 });
 ```
 
@@ -1259,7 +1349,175 @@ Definir en `assets/css/global.css` los estilos de cada variante:
 .variante-minimalista { @apply font-mono; }
 ```
 
-### 3.11 Tests Unitarios de Frontend (Modelo en V)
+> **Patrones decorativos:** El administrador sube una imagen de patrón en Sanity Studio (campo `patronDecorativo`), activa el toggle `patronDecorativoActivo`, y tras el rebuild la imagen se aplica como fondo repetible semi-transparente sobre todo el catálogo. Esto permite decoraciones temáticas (Halloween, Navidad, etc.) sin modificar código.
+```
+
+### 3.11 Lista de Artículos / Carrito de Referencia (RF-21, RF-22, RF-23)
+
+#### 3.11.1 Composable `useCarrito.ts`
+
+```typescript
+/**
+ * @file composables/useCarrito.ts
+ * @description Composable para gestionar la lista de artículos (carrito de referencia).
+ * Persiste en localStorage del navegador. No tiene función de pago.
+ * @satisfies RF-21 (Lista de artículos), RF-23 (Vinculación WhatsApp)
+ */
+
+export interface ItemCarrito {
+    productoId: string;
+    nombre: string;
+    precio: number;
+    cantidad: number;
+    imagenUrl?: string;
+    slug: string;
+}
+
+const STORAGE_KEY = 'lectorpobre-carrito';
+
+export function useCarrito() {
+    const items = useState<ItemCarrito[]>('carrito', () => {
+        if (import.meta.client) {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            return saved ? JSON.parse(saved) : [];
+        }
+        return [];
+    });
+
+    /** Sincroniza con localStorage en cada cambio */
+    function persistir() {
+        if (import.meta.client) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value));
+        }
+    }
+
+    function agregar(producto: Omit<ItemCarrito, 'cantidad'>) {
+        const existente = items.value.find(i => i.productoId === producto.productoId);
+        if (existente) {
+            existente.cantidad++;
+        } else {
+            items.value.push({ ...producto, cantidad: 1 });
+        }
+        persistir();
+    }
+
+    function eliminar(productoId: string) {
+        items.value = items.value.filter(i => i.productoId !== productoId);
+        persistir();
+    }
+
+    function cambiarCantidad(productoId: string, cantidad: number) {
+        const item = items.value.find(i => i.productoId === productoId);
+        if (item) {
+            item.cantidad = Math.max(1, cantidad);
+            persistir();
+        }
+    }
+
+    function vaciar() {
+        items.value = [];
+        persistir();
+    }
+
+    const total = computed(() =>
+        items.value.reduce((sum, i) => sum + i.precio * i.cantidad, 0)
+    );
+
+    const cantidadTotal = computed(() =>
+        items.value.reduce((sum, i) => sum + i.cantidad, 0)
+    );
+
+    /** RF-23: genera el texto del resumen para enviar por WhatsApp */
+    function generarResumenTexto(): string {
+        const lineas = items.value.map(i =>
+            `\u2022 ${i.nombre} x${i.cantidad} - $${(i.precio * i.cantidad).toFixed(2)}`
+        );
+        return `\ud83d\udcdd Mi lista de LectorPobre:\n${lineas.join('\n')}\n\n\ud83d\udcb0 Total: $${total.value.toFixed(2)}`;
+    }
+
+    return { items, agregar, eliminar, cambiarCantidad, vaciar, total, cantidadTotal, generarResumenTexto };
+}
+```
+
+#### 3.11.2 Página del Carrito (`pages/lista.vue`)
+
+Página dedicada a la lista de artículos con tabla itemizada, controles de cantidad, botón de descarga PDF/PNG (RF-22) y botón de envío por WhatsApp (RF-23). Inspiración funcional: carrito de Steam.
+
+```vue
+<script setup lang="ts">
+/**
+ * @file pages/lista.vue
+ * @description Página de lista de artículos (carrito de referencia).
+ * @satisfies RF-21 (Lista), RF-22 (Exportación PDF/PNG), RF-23 (WhatsApp)
+ */
+
+useSeoMeta({
+    title: 'Mi Lista de Artículos | LectorPobre',
+    description: 'Revisa tu lista de artículos deseados. Descarga un resumen o envíalo por WhatsApp.',
+});
+
+const { items, eliminar, cambiarCantidad, vaciar, total, cantidadTotal, generarResumenTexto } = useCarrito();
+
+const { data: config } = useSanityFetch<ConfiguracionGlobal>(
+    `*[_type == "configuracionGlobal"][0]{ numeroWhatsApp }`
+);
+
+// RF-23: URL de WhatsApp con resumen de la lista completa
+const urlWhatsAppLista = computed(() => {
+    const numero = config.value?.numeroWhatsApp ?? '';
+    const texto = encodeURIComponent(generarResumenTexto());
+    return `https://wa.me/${numero}?text=${texto}`;
+});
+</script>
+```
+
+#### 3.11.3 Exportación PDF/PNG (RF-22)
+
+Instalar dependencias client-side para generación de documentos:
+
+```bash
+pnpm add jspdf html2canvas
+```
+
+```typescript
+/**
+ * @file composables/useExportarResumen.ts
+ * @description Genera PDF o PNG del resumen de la lista de artículos.
+ * La generación ocurre enteramente en el navegador (client-side).
+ * @satisfies RF-22 (Exportación de resumen PDF/PNG)
+ */
+
+export function useExportarResumen() {
+    /**
+     * Exporta el contenido del elemento HTML referenciado como PDF o PNG.
+     * @param elementRef - Ref al elemento HTML que contiene la tabla de la lista.
+     * @param formato - 'pdf' | 'png'
+     */
+    async function exportar(elementRef: HTMLElement, formato: 'pdf' | 'png') {
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(elementRef, { scale: 2, useCORS: true });
+
+        if (formato === 'png') {
+            const link = document.createElement('a');
+            link.download = `lectorpobre-lista-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } else {
+            const { jsPDF } = await import('jspdf');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgData = canvas.toDataURL('image/png');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const imgHeight = (canvas.height * pageWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 0, 10, pageWidth, imgHeight);
+            pdf.save(`lectorpobre-lista-${Date.now()}.pdf`);
+        }
+    }
+
+    return { exportar };
+}
+```
+
+### 3.12 Tests Unitarios de Frontend (Modelo en V)
 
 > [!NOTE]
 > Siguiendo el **Modelo en V**, cada componente y composable se acompaña de su test unitario en el mismo paso de desarrollo, no al final de la fase. La siguiente tabla indica qué tests del Plan de V&V corresponden a cada sección ya implementada:
@@ -1273,13 +1531,15 @@ Definir en `assets/css/global.css` los estilos de cada variante:
 | 3.8 Componentes restantes (`StockIndicator`, `WhatsAppButton`, `StarRating`, `CommentForm`) | UT-VUE-08 a UT-VUE-13 | `tests/unit/components.test.ts` |
 | 3.9 Plugin de paleta (`plugins/palette.ts`) | UT-VUE-14, UT-VUE-15 (paleta aplicada al `:root`) | `tests/unit/palette.test.ts` |
 | 3.10 Plugin de variante (`plugins/variant.ts`) | UT-VUE-17 (clase de variante en `<html>`) | `tests/unit/variant.test.ts` |
+| 3.11.1 `useCarrito.ts` | UT-VUE-18, UT-VUE-19 (agregar/eliminar/cantidad/localStorage) | `tests/unit/useCarrito.test.ts` |
+| 3.11.3 `useExportarResumen.ts` | UT-VUE-20 (generación PDF/PNG) | `tests/unit/useExportarResumen.test.ts` |
 
 ```bash
 # Ejecutar al terminar cada sección correspondiente:
 npm run test
 ```
 
-### 3.12 Verificación
+### 3.13 Verificación
 
 - [ ] `npm run generate` genera el sitio estático con datos reales de staging
 - [ ] Página principal muestra catálogo de productos con imágenes
@@ -1288,12 +1548,20 @@ npm run test
 - [ ] Página de detalle carga con datos del producto y metadatos OG
 - [ ] Botón WhatsApp tiene URL correcta con número configurado
 - [ ] **Cambiar `paletaActiva` en Sanity Studio → rebuild → la paleta del sitio cambia (RF-15)**
+- [ ] **Las 4 paletas predefinidas (claro, oscuro, océano, atardecer) se ven correctamente**
+- [ ] **Paleta `custom` con valores hex del admin se aplica correctamente (RF-15)**
 - [ ] **Cambiar `varianteVisual` en Sanity Studio → rebuild → el layout del catálogo cambia (RF-16)**
-- [ ] Las 5 paletas y las 3 variantes visuales se ven correctamente
+- [ ] **Subir patrón decorativo + activar toggle → rebuild → el overlay aparece sobre el catálogo (RF-16)**
+- [ ] Las 3 variantes visuales se ven correctamente
+- [ ] **Botón "Agregar a la lista" añade producto al carrito (RF-21)**
+- [ ] **Página `/lista` muestra artículos con nombre, precio, cantidad y total (RF-21)**
+- [ ] **La lista persiste tras recargar la página (localStorage) (RF-21)**
+- [ ] **Botón "Descargar resumen" genera PDF y PNG correctos (RF-22)**
+- [ ] **Botón "Enviar lista por WhatsApp" abre WhatsApp con resumen de todos los artículos (RF-23)**
 - [ ] Lighthouse Performance ≥ 90 en mobile con `npm run generate && npm run preview`
-- [ ] Todos los tests unitarios de la sección 3.11 pasan (`npm run test`)
+- [ ] Todos los tests unitarios de la sección 3.12 pasan (`npm run test`)
 - [ ] CI pipeline pasa
-- [ ] Commit: `feat(frontend): implement release 1 with catalog SSG, palette, visual variants and SEO [RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20]`
+- [ ] Commit: `feat(frontend): implement release 1 with catalog SSG, palette system, visual variants, decorative patterns, cart with PDF/PNG export and WhatsApp integration [RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23]`
 
 ---
 
