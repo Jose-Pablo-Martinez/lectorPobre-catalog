@@ -1,3 +1,11 @@
+# Workspace packages for the LectorPobre monorepo.
+# Both the root (Nuxt frontend) and sanity/ (Sanity Studio) are managed by pnpm.
+# pnpm's content-addressable store handles version differences between the two
+# (e.g. React is only needed by sanity/, not by the root Nuxt project).
+packages:
+  - '.'
+  - 'sanity'
+
 allowBuilds:
   esbuild: false
   msw: true

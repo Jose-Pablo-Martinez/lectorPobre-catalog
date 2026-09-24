@@ -43,13 +43,13 @@ cd lectorpobre
 # 2. Ejecutar el script de setup (crea .env.local y muestra los pasos siguientes)
 pnpm run setup
 
-# 3. Instalar dependencias del frontend
+# 3. Instalar TODAS las dependencias del workspace (raíz + Sanity Studio)
+#    Un solo comando instala ambos proyectos porque pnpm-workspace.yaml los registra:
+#    - Raíz: Nuxt, Vue, cliente de Sanity (@nuxtjs/sanity, @sanity/vision)
+#    - sanity/: Studio UI (react, react-dom, styled-components) con versiones correctas
 pnpm install
 
-# 4. Instalar dependencias del Sanity Studio
-cd sanity && pnpm install && cd ..
-
-# 5. Descargar dependencias de Go
+# 4. Descargar dependencias de Go
 cd api && go mod download && cd ..
 ```
 
@@ -480,6 +480,69 @@ Las decisiones de arquitectura significativas se documentan aquí para preservar
 | ADR-06 | **JWT de corta duración** para sesiones de administrador | Sesiones de Sanity Studio nativas | Permite control total sobre la autenticación y validación stateless en cada función Go protegida (RNF-04). |
 
 > Para agregar un nuevo ADR, añade una fila a esta tabla con un número consecutivo e incluye la decisión, las alternativas evaluadas y la razón técnica.
+
+---
+
+## 9. Solución de Problemas Comunes
+
+### 9.1 Sanity Studio no arranca: `styled-components is not installed`
+
+**Síntoma:**
+```
+Error: Failed to start dev server: Declared dependency `styled-components` is not installed
+react (installed: 1924.0.0, want: ^19.2.2)
+```
+
+**Causa:** pnpm está resolviendo las dependencias de `sanity/` desde el workspace raíz en lugar de
+instalar las versiones correctas de React y styled-components que el Studio necesita.
+
+**Diagnóstico:** verifica que `pnpm-workspace.yaml` incluye `sanity/` como miembro del workspace:
+```bash
+cat pnpm-workspace.yaml
+# Debe mostrar:
+# packages:
+#   - '.'
+#   - 'sanity'
+```
+
+**Solución:**
+```bash
+# Desde la raíz del proyecto — reinstala todos los paquetes del workspace
+pnpm install
+
+# Verifica que sanity/node_modules existe
+ls sanity/node_modules | head -5
+
+# Arranca el Studio
+cd sanity && pnpm dev
+```
+
+### 9.2 `pnpm run setup` dice que `.env.local` ya existe
+
+El script nunca sobreescribe `.env.local` existente para proteger tus secretos.
+Si quieres reiniciarlo completamente:
+```bash
+rm .env.local    # o en PowerShell: Remove-Item .env.local
+pnpm run setup
+```
+
+### 9.3 `pnpm exec sanity login` falla o no abre el navegador
+
+```bash
+# Intenta con npx (descarga la última versión de Sanity CLI)
+npx sanity@latest login
+
+# O verifica que tienes acceso al proyecto desde sanity.io/manage
+```
+
+### 9.4 `pnpm exec sanity dataset list` no muestra `staging`
+
+El dataset hay que crearlo manualmente la primera vez:
+```bash
+cd sanity
+pnpm exec sanity dataset create staging
+# Elegir "private" cuando pregunte visibilidad
+```
 
 ---
 

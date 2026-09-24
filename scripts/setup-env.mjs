@@ -72,9 +72,9 @@ if (empty.length > 0) {
 console.log(`\n${c.bold}Next steps to finish local setup:${c.reset}`);
 console.log('─'.repeat(40));
 
-step(1, 'Install dependencies (root + Sanity Studio)');
+step(1, 'Install ALL workspace dependencies (root + Sanity Studio)');
 console.log(code('pnpm install'));
-console.log(code('cd sanity && pnpm install && cd ..'));
+console.log(`   ${c.dim}→ Installs Nuxt, Sanity client (root) AND Studio UI/react (sanity/) in one step.${c.reset}`);
 
 step(2, 'Log in to Sanity (opens browser)');
 console.log(code('cd sanity'));
