@@ -64,6 +64,7 @@ The platform allows customers to browse products by category, search the catalog
 | ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white) | End-to-end browser tests |
 | ![SonarQube](https://img.shields.io/badge/SonarQube-4E9BCD?style=flat&logo=sonarqube&logoColor=white) | Centralized code quality, coverage tracking, tech debt and vulnerability management |
 
+---TESTING RULES PROTECTION---
 ---
 
 ### Architecture Overview

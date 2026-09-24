@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    /* Paleta Azul (default — RF-15) */
+    --color-brand-primario: #2563eb;
+    --color-brand-secundario: #60a5fa;
+    --color-brand-acento: #3b82f6;
+    --color-brand-fondo: #ffffff;
+    --color-brand-texto: #1e3a8a;
+
+    /* Tipografía */
+    --font-sans: 'Outfit', system-ui, sans-serif;
+
+    /* Transiciones */
+    --transition-base: 200ms ease-in-out;
+}
+
+/* Las paletas de color de RF-15 se inyectan dinámicamente desde nuxt.config.ts
+   o un plugin de Nuxt según el valor de paletaActiva en configuracionGlobal de Sanity */

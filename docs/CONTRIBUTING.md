@@ -28,6 +28,7 @@ Este documento describe **cómo configurar el entorno, el flujo de trabajo de co
 | Herramienta | Versión mínima | Propósito |
 |---|---|---|
 | **Node.js** | 20 LTS | Frontend Nuxt.js |
+| **pnpm** | 9+ | Gestor de paquetes del proyecto (`npm i -g pnpm`) |
 | **Go** | 1.22+ | Funciones serverless |
 | **Vercel CLI** | Latest | Desarrollo local de funciones y preview |
 | **Git** | 2.40+ | Control de versiones |
@@ -39,20 +40,57 @@ Este documento describe **cómo configurar el entorno, el flujo de trabajo de co
 git clone https://github.com/tu-org/lectorpobre.git
 cd lectorpobre
 
-# 2. Instalar dependencias del frontend
-npm install
+# 2. Ejecutar el script de setup (crea .env.local y muestra los pasos siguientes)
+pnpm run setup
 
-# 3. Descargar dependencias de Go
-cd api
-go mod download
-cd ..
+# 3. Instalar TODAS las dependencias del workspace (raíz + Sanity Studio)
+#    Un solo comando instala ambos proyectos porque pnpm-workspace.yaml los registra:
+#    - Raíz: Nuxt, Vue, cliente de Sanity (@nuxtjs/sanity, @sanity/vision)
+#    - sanity/: Studio UI (react, react-dom, styled-components) con versiones correctas
+pnpm install
 
-# 4. Copiar variables de entorno de desarrollo
-cp .env.example .env.local
-# Editar .env.local con los valores de desarrollo (ver Sección 6)
+# 4. Descargar dependencias de Go
+cd api && go mod download && cd ..
 ```
 
-### 1.3 Levantar el Entorno Local
+> El script `pnpm run setup` copia `.env.example` → `.env.local` (sin sobreescribir si ya existe)
+> e imprime los pasos pendientes con los comandos exactos.
+
+### 1.3 Configurar Sanity Studio (primer uso)
+
+Antes de poder arrancar el Studio o cargar datos de prueba, debes autenticarte con tu
+cuenta de Sanity y crear el dataset `staging`.
+
+> **Servidores locales — puertos distintos:**
+> Sanity Studio y el frontend Nuxt son dos servidores independientes que corren en paralelo:
+> - `http://localhost:3000` → **Nuxt** (el sitio público que ven los visitantes)
+> - `http://localhost:3333` → **Sanity Studio** (la interfaz de administración de contenido)
+
+```bash
+# 1. Autenticarse (abre el navegador para login con GitHub/Google)
+cd sanity
+pnpm exec sanity login
+# Alternativa con npx (usa la versión más reciente descargada en el momento):
+# npx sanity@latest login
+
+# 2. Crear el dataset de staging (solo la primera vez — elegir "private")
+pnpm exec sanity dataset create staging
+
+# 3. Verificar que ambos datasets existen
+pnpm exec sanity dataset list
+# Deberías ver: production, staging
+
+# 4. Arrancar el Studio apuntando a staging
+pnpm dev
+# Studio disponible en http://localhost:3333
+```
+
+> **¿Por qué staging?**
+> El dataset `staging` es el entorno de prueba donde se carga la seed data y se
+> verifican las consultas GROQ antes de publicar en `production`. Nunca se cargan
+> datos de prueba directamente en `production`.
+
+### 1.4 Levantar el Entorno Local
 
 LectorPobre usa **Vercel CLI** para emular el entorno unificado (frontend + funciones serverless) en local.
 
@@ -66,21 +104,21 @@ vercel dev
 
 > **Nota:** `vercel dev` emula el entorno de Vercel incluyendo las variables de entorno definidas en `.env.local` y el routing de funciones Go en el directorio `/api`.
 
-### 1.4 Solo el Frontend (sin funciones Go)
+### 1.5 Solo el Frontend (sin funciones Go)
 
 ```bash
 # Útil para trabajar en componentes Vue o páginas Nuxt de forma aislada
-npm run dev
+pnpm dev
 ```
 
-### 1.5 Build de Producción Local
+### 1.6 Build de Producción Local
 
 ```bash
 # Genera el sitio estático completo (SSG)
-npm run generate
+pnpm run generate
 
-# Previsualiza el sitio generado localmente
-npm run preview
+# Previsualiza el build generado localmente
+pnpm run preview
 ```
 
 ---
@@ -123,7 +161,7 @@ lectorpobre/
 │   ├── useStock.ts             # RF-03, RNF-03
 │   ├── useCalificacion.ts      # RF-06
 │   ├── useComentario.ts        # RF-07
-│   └── useCatalogo.ts          # RF-01, RF-04, RF-18
+│   └── useCatalog.ts           # RF-01, RF-04, RF-18
 │
 ├── pages/                      # Rutas del sitio (SSG, Nuxt file-based routing)
 │   ├── index.vue               # Catálogo principal (RF-01, RF-04, RF-19)
@@ -297,102 +335,158 @@ Verifica cada punto antes de enviar tu PR. Este checklist resume las reglas de `
 
 ## 6. Variables de Entorno
 
-### 6.1 Variables Requeridas
-
-Copia `.env.example` a `.env.local` y completa los valores para desarrollo.
+### 6.1 Crear `.env.local` con el script de setup
 
 ```bash
-# .env.example
-
-# ── Sanity.io ──────────────────────────────────────────────────────────────
-# Proyecto y dataset públicos (seguros para el frontend)
-NUXT_PUBLIC_SANITY_PROJECT_ID=tu_project_id
-NUXT_PUBLIC_SANITY_DATASET=production
-
-# Token de ESCRITURA PRIVADO — solo accesible por las funciones Go en Vercel
-# ⚠️ NUNCA exponer al frontend ni commitear este valor
-SANITY_WRITE_TOKEN=
-
-# Secreto compartido para verificar la firma de los webhooks de Sanity
-SANITY_WEBHOOK_SECRET=
-
-# ── Autenticación del Administrador ────────────────────────────────────────
-# Secreto para firmar JWT de administrador (RF-08)
-# ⚠️ Usar una cadena aleatoria larga y segura
-ADMIN_JWT_SECRET=
-
-# ── Anti-bot (opcional) ────────────────────────────────────────────────────
-# Token del servicio CAPTCHA/desafío elegido (hCaptcha, Turnstile, etc.)
-CAPTCHA_SECRET_KEY=
+# Crea .env.local desde .env.example e imprime los pasos pendientes
+pnpm run setup
 ```
+
+El script nunca sobreescribe un `.env.local` existente, por lo que es seguro correrlo
+en cualquier momento. Si quieres reiniciarlo, elimina `.env.local` primero.
 
 ### 6.2 Diccionario de Variables
 
-La siguiente tabla documenta exhaustivamente todas las variables de entorno que el proyecto puede llegar a utilizar, su alcance (si se exponen al navegador o se limitan al servidor de Go) y si son obligatorias para levantar el entorno de desarrollo local.
-
-| Variable | Descripción | Alcance | Requerida |
+| Variable | Descripción | Leído por | Requerida |
 |---|---|---|---|
-| `NUXT_PUBLIC_SANITY_PROJECT_ID` | ID del proyecto en Sanity.io | Frontend + Backend | ✅ |
-| `NUXT_PUBLIC_SANITY_DATASET` | Dataset de Sanity (`production` o `staging`) | Frontend + Backend | ✅ |
-| `SANITY_WRITE_TOKEN` | Token de escritura privado — **nunca exponer al navegador** | Solo Backend (Go) | ✅ |
-| `SANITY_WEBHOOK_SECRET` | Secreto HMAC para validar webhooks entrantes de Sanity | Solo Backend (Go) | ✅ |
-| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Backend (Go) | ✅ |
-| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Backend (Go) | ✅ |
-| `ALLOWED_ORIGIN` | Origen permitido en CORS (`http://localhost:3000` en desarrollo) | Solo Backend (Go) | ✅ |
-| `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Dominio para Plausible Analytics | Frontend | ⬜ |
-| `CAPTCHA_SECRET_KEY` | Clave secreta para validación anti-bot | Solo Backend (Go) | ⬜ |
+| `NUXT_PUBLIC_SANITY_PROJECT_ID` | ID del proyecto en Sanity.io (público) | Nuxt frontend | ✅ |
+| `NUXT_PUBLIC_SANITY_DATASET` | Dataset que el frontend consume (`staging` en local) | Nuxt frontend | ✅ |
+| `SANITY_STUDIO_PROJECT_ID` | ID del proyecto leído por `sanity.config.ts` y `sanity.cli.ts` | Sanity Studio | ✅ |
+| `SANITY_STUDIO_DATASET` | Dataset que el Studio edita (`staging` en local) | Sanity Studio | ✅ |
+| `SANITY_WRITE_TOKEN` | Token de escritura privado — **nunca exponer al navegador** | Solo Go (Vercel) | ✅ |
+| `SANITY_WEBHOOK_SECRET` | Secreto HMAC para validar webhooks de Sanity | Solo Go (Vercel) | ✅ |
+| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Go (Vercel) | ✅ |
+| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Go (Vercel) | ✅ |
+| `ALLOWED_ORIGIN` | Origen permitido en CORS (`http://localhost:3000` en local) | Solo Go (Vercel) | ✅ |
+| `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Dominio para Plausible Analytics | Nuxt frontend | ⬜ |
+| `CAPTCHA_SECRET_KEY` | Clave secreta para validación anti-bot | Solo Go (Vercel) | ⬜ |
 
 ### 6.3 Reglas de Gestión de Secretos
 
 - **Nunca** commitear `.env.local` al repositorio (está en `.gitignore`).
-- **Nunca** agregar secretos al bundle de frontend (variables sin prefijo `NUXT_PUBLIC_`).
+- **Nunca** agregar secretos al bundle de frontend (solo variables con prefijo `NUXT_PUBLIC_` llegan al navegador).
 - Los secretos de producción se configuran exclusivamente en el panel de Vercel → Settings → Environment Variables.
 - Separar las variables por ambiente: **Production**, **Preview** y **Development** en Vercel.
 - Rotar el `SANITY_WRITE_TOKEN` y el `ADMIN_JWT_SECRET` ante cualquier sospecha de compromiso.
+
+### 6.4 Cómo generar los secretos
+
+```bash
+# SANITY_WEBHOOK_SECRET — 32 bytes aleatorios en hex
+openssl rand -hex 32
+
+# ADMIN_JWT_SECRET — 64 bytes aleatorios en hex
+openssl rand -hex 64
+
+# ADMIN_PASSWORD_HASH — hash bcrypt de tu contraseña
+htpasswd -bnBC 10 "" TU_CONTRASEÑA | tr -d ':\n'
+
+# SANITY_WRITE_TOKEN — generar desde sanity.io/manage
+# → tu proyecto → API → Tokens → Add API token (Editor)
+```
 
 ---
 
 ## 7. Comandos Útiles
 
-### Frontend
+### 7.1 Frontend (raíz del proyecto)
 
 ```bash
-npm run dev          # Servidor de desarrollo Nuxt (HMR)
-npm run generate     # Genera el sitio estático completo (SSG)
-npm run preview      # Previsualiza el build generado localmente
-npm run lint         # Ejecuta ESLint sobre el código TypeScript/Vue
-npm run test         # Ejecuta todos los tests con Vitest
-npm run test:ui      # Tests con interfaz visual de Vitest
-npm run typecheck    # Verifica tipos TypeScript sin compilar
+pnpm run setup           # Crea .env.local desde .env.example e imprime los pasos de setup
+pnpm run seed:staging    # Carga datos de prueba en el dataset staging (idempotente)
+pnpm dev                 # Servidor de desarrollo Nuxt (HMR) → http://localhost:3000
+pnpm run generate        # Genera el sitio estático completo (SSG)
+pnpm run preview         # Previsualiza el build generado localmente
+pnpm run test            # Ejecuta tests unitarios con Vitest (excluye *.integration.test.ts)
+pnpm run test:integration # Ejecuta tests de integración contra Sanity staging
 ```
 
-### Backend Go
+> **`pnpm run seed:staging`** requiere `SANITY_WRITE_TOKEN` en `.env.local`.
+> Crea: 1 configuración global, 3 categorías, 6 productos (con distintos niveles de stock),
+> 4 comentarios (aprobado/pendiente/rechazado) y 4 calificaciones con patch atómico en productos.
+> Es **idempotente**: usa IDs fijos con prefijo `seed-`, por lo que correrlo dos veces actualiza
+> los documentos existentes sin crear duplicados.
+
+### 7.2 Backend Go
 
 ```bash
 cd api
-
 go test ./...                    # Ejecuta todos los tests
-go test ./handlers/... -v        # Tests de handlers con output verboso
-go test -cover ./...             # Tests con reporte de cobertura
+go test ./... -v -cover          # Tests con output verboso y reporte de cobertura
 go vet ./...                     # Análisis estático de Go
 go mod tidy                      # Limpia y sincroniza dependencias
 ```
 
-### Vercel CLI
+### 7.3 Vercel CLI
 
 ```bash
-vercel dev                       # Entorno local completo (frontend + funciones)
+vercel dev                       # Entorno local completo (frontend + funciones Go)
 vercel env pull .env.local       # Sincroniza variables de entorno desde Vercel
 vercel --prod                    # Despliega manualmente a producción (solo mantenedores)
 ```
 
-### Sanity Studio
+### 7.4 Sanity Studio (`cd sanity` primero)
+
+> **¿Por qué hay que hacer `cd sanity` antes de `pnpm dev`?**
+> El servidor del Studio es un proyecto Node independiente con su propio `package.json` en `sanity/`.
+> Al correr `pnpm dev` desde la raíz, Nuxt arranca (el script `dev` del `package.json` raíz llama a `nuxt dev`).
+> El Studio **no se puede iniciar desde la raíz** — hay que pararse en `sanity/` para ejecutarlo.
+> Nuxt y el Studio son dos procesos separados que corren en paralelo:
+> - Nuxt frontend: `http://localhost:3000` (ejecutar desde la raíz)
+> - Sanity Studio: `http://localhost:3333` (ejecutar desde `sanity/`)
+
+> **`sanity/.env.development` — ¿por qué existe?**
+> Vite (el bundler que usa Sanity Studio) no busca variables de entorno en directorios padre.
+> El archivo `sanity/.env.development` es la forma estándar de Vite para inyectar variables de entorno
+> cuando el Studio corre en modo desarrollo. Sin él, `SANITY_STUDIO_DATASET` no se resuelve y el Studio
+> cae al valor por defecto `'production'` definido en `sanity.cli.ts`, mostrando un dataset diferente
+> al que populaste con el seed script.
+> **No commitear este archivo si contiene secretos** (solo tiene `PROJECT_ID` y `DATASET`, que son públicos).
+
+> **`pnpm exec sanity` vs `npx sanity@latest`**
+> `pnpm exec sanity` corre la versión de Sanity **ya instalada localmente** en el proyecto —
+> reproducible y sin descargas extras. `npx sanity@latest` siempre descarga la última versión
+> disponible en npm aunque ya la tengas instalada. Prefiere `pnpm exec`; usa `npx` solo
+> cuando quieras forzar la última versión (por ejemplo en `typegen generate`).
 
 ```bash
-cd sanity
-npm run dev                      # Inicia Sanity Studio en modo desarrollo
-npm run deploy                   # Despliega Sanity Studio a su URL alojada
+# Autenticarse con cuenta Sanity (abre navegador)
+pnpm exec sanity login
+# npx sanity@latest login
+
+# Ver datasets disponibles del proyecto
+pnpm exec sanity dataset list
+# npx sanity@latest dataset list
+
+# Crear dataset staging (solo primera vez — elegir "private")
+pnpm exec sanity dataset create staging
+# npx sanity@latest dataset create staging
+
+# Iniciar Studio en modo desarrollo → http://localhost:3333  (Nuxt corre en :3000)
+# IMPORTANTE: ejecutar desde sanity/, NO desde la raíz del proyecto
+pnpm dev
+
+# Desplegar Studio a su URL alojada en sanity.io
+pnpm run deploy
+# npx sanity@latest deploy
+
+# Regenerar types/sanity.ts desde los schemas (forzar última versión recomendado)
+pnpm exec sanity typegen generate
+# npx sanity@latest typegen generate   ← preferido en CI (siempre la versión más reciente)
 ```
+
+### 7.5 Archivos de configuración de Sanity
+
+| Archivo | Ubicación | Propósito |
+|---|---|---|
+| `sanity.config.ts` | `sanity/` | Configuración principal del Studio: plugins, schemas registrados, estructura del sidebar, singleton pattern de `configuracionGlobal`. Es el punto de entrada de Sanity Studio. |
+| `sanity.cli.ts` | `sanity/` | Configuración de la CLI de Sanity (`pnpm exec sanity ...`). Define el `projectId` y `dataset` que usan los comandos de terminal como `deploy`, `dataset list` y `typegen generate`. |
+| `schemaTypes/index.ts` | `sanity/schemaTypes/` | Barrel file que agrupa todos los schemas en el array `schemaTypes[]`. Añadir un schema nuevo aquí para que aparezca en el Studio. |
+| `schemaTypes/product.ts` | `sanity/schemaTypes/` | Schema del documento `producto` (RF-01, RF-02, RF-11–RF-14). |
+| `schemaTypes/category.ts` | `sanity/schemaTypes/` | Schema del documento `categoria` (RF-04). |
+| `schemaTypes/comment.ts` | `sanity/schemaTypes/` | Schema del documento `comentario` con workflow de moderación (RF-07). |
+| `schemaTypes/rating.ts` | `sanity/schemaTypes/` | Schema del documento `calificacion` con contadores atómicos (RF-06). |
+| `schemaTypes/globalConfig.ts` | `sanity/schemaTypes/` | Singleton de configuración global: paleta, variante visual, WhatsApp, redes sociales, umbrales (RF-05, RF-15–RF-17, RF-19). |
 
 ---
 
@@ -410,6 +504,92 @@ Las decisiones de arquitectura significativas se documentan aquí para preservar
 | ADR-06 | **JWT de corta duración** para sesiones de administrador | Sesiones de Sanity Studio nativas | Permite control total sobre la autenticación y validación stateless en cada función Go protegida (RNF-04). |
 
 > Para agregar un nuevo ADR, añade una fila a esta tabla con un número consecutivo e incluye la decisión, las alternativas evaluadas y la razón técnica.
+
+---
+
+## 9. Solución de Problemas Comunes
+
+### 9.1 Sanity Studio no arranca: `styled-components is not installed`
+
+**Síntoma:**
+```
+Error: Failed to start dev server: Declared dependency `styled-components` is not installed
+react (installed: 1924.0.0, want: ^19.2.2)
+```
+
+**Causa:** pnpm está resolviendo las dependencias de `sanity/` desde el workspace raíz en lugar de
+instalar las versiones correctas de React y styled-components que el Studio necesita.
+
+**Diagnóstico:** verifica que `pnpm-workspace.yaml` incluye `sanity/` como miembro del workspace:
+```bash
+cat pnpm-workspace.yaml
+# Debe mostrar:
+# packages:
+#   - '.'
+#   - 'sanity'
+```
+
+**Solución:**
+```bash
+# Desde la raíz del proyecto — reinstala todos los paquetes del workspace
+pnpm install
+
+# Verifica que sanity/node_modules existe
+ls sanity/node_modules | head -5
+
+# Arranca el Studio
+cd sanity && pnpm dev
+```
+
+### 9.2 `pnpm run setup` dice que `.env.local` ya existe
+
+El script nunca sobreescribe `.env.local` existente para proteger tus secretos.
+Si quieres reiniciarlo completamente:
+```bash
+rm .env.local    # o en PowerShell: Remove-Item .env.local
+pnpm run setup
+```
+
+### 9.3 `pnpm exec sanity login` falla o no abre el navegador
+
+```bash
+# Intenta con npx (descarga la última versión de Sanity CLI)
+npx sanity@latest login
+
+# O verifica que tienes acceso al proyecto desde sanity.io/manage
+```
+
+### 9.4 `pnpm exec sanity dataset list` no muestra `staging`
+
+El dataset hay que crearlo manualmente la primera vez:
+```bash
+cd sanity
+pnpm exec sanity dataset create staging
+# Elegir "private" cuando pregunte visibilidad
+```
+
+### 9.5 El Studio arranca pero no muestra los documentos creados por `seed:staging`
+
+**Síntoma:** El Studio carga sin errores pero aparece vacío, sin productos ni categorías.
+
+**Causa:** El Studio está apuntando al dataset `production` en lugar de `staging`.
+Esto ocurre porque Vite **no hereda variables de entorno del directorio padre**. Si ejecutas
+`pnpm dev` desde `sanity/` sin el archivo `sanity/.env.development`, `SANITY_STUDIO_DATASET`
+no se resuelve y el Studio usa el valor por defecto `'production'` definido en `sanity.cli.ts`.
+
+**Solución:** Verifica que el archivo `sanity/.env.development` existe y contiene:
+```env
+SANITY_STUDIO_PROJECT_ID=rbrk7xv9
+SANITY_STUDIO_DATASET=staging
+```
+Si el archivo falta, créalo y reinicia el Studio (`Ctrl+C` + `pnpm dev`).
+
+**Gotcha relacionado — `.env.local` con dos datasets distintos:**
+Si `NUXT_PUBLIC_SANITY_DATASET=production` y `SANITY_STUDIO_DATASET=staging` coexisten
+en el mismo `.env.local`, el frontend Nuxt consultará `production` y el Studio mostrará
+`staging`. Esto produce confusión durante el desarrollo. En local, **ambas variables deben
+apuntar a `staging`**. Solo en el entorno de Vercel (producción) se inyecta
+`NUXT_PUBLIC_SANITY_DATASET=production` como secret del proyecto.
 
 ---
 
