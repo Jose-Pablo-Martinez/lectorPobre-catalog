@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 # Cancela ejecuciones previas del mismo PR/branch para ahorrar minutos
 concurrency:
