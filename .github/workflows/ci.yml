@@ -52,6 +52,7 @@ jobs:
         # Requires SANITY_PROJECT_ID_STAGING secret. Implements Hallazgo 4 from observations doc.
         working-directory: sanity
         run: |
+          npx sanity@latest schema extract
           npx sanity@latest typegen generate
           git diff --exit-code ../types/sanity.ts
         env:
