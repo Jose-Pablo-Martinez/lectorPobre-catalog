@@ -628,8 +628,16 @@ export const producto = defineType({
         }),
         defineField({ name: 'precio', type: 'number' }),          // Opcional, para el mensaje de WhatsApp
         defineField({ name: 'activo', type: 'boolean', initialValue: true }),
-        defineField({ name: 'calificacionPromedio', type: 'number', readOnly: true }), // Calculado
-        defineField({ name: 'totalCalificaciones', type: 'number', readOnly: true }),  // Calculado
+        // ── Contadores atómicos de calificación (RF-06) ──────────────────────────────────────────
+        // El promedio NO se persiste; se calcula en GROQ: round(ratingSum / ratingCount, 1).
+        // Todos los contadores se actualizan con patch.inc desde el handler Go (sin condición de carrera).
+        defineField({ name: 'ratingSum',    type: 'number', readOnly: true, initialValue: 0 }), // Suma total de estrellas
+        defineField({ name: 'ratingCount',  type: 'number', readOnly: true, initialValue: 0 }), // Número total de calificaciones
+        defineField({ name: 'rating1Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 1★
+        defineField({ name: 'rating2Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 2★
+        defineField({ name: 'rating3Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 3★
+        defineField({ name: 'rating4Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 4★
+        defineField({ name: 'rating5Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 5★
     ],
     preview: {
         select: { title: 'nombre', subtitle: 'categoria.nombre', media: 'imagenPrincipal' }
@@ -1108,15 +1116,21 @@ const props = defineProps<Props>();
 <script setup lang="ts">
 /**
  * @file pages/producto/[slug].vue
- * @description Página de detalle de producto con stock en tiempo real.
- * @satisfies RF-02 (Detalle), RF-03 (Stock real), RF-06 (Calificación),
- *            RF-07 (Comentarios), RF-17 (WhatsApp), RF-20 (SEO/OG), RNF-03
+ * @description Página de detalle de producto con stock en tiempo real,
+ *              calificación con desglose por estrella y listado de comentarios.
+ * @satisfies RF-02 (Detalle), RF-03 (Stock real), RF-06 (Calificación + desglose),
+ *            RF-07 (Comentarios + listado filtrable), RF-17 (WhatsApp), RF-20 (SEO/OG), RNF-03
  */
 
 const route = useRoute();
 const { data: producto } = await useSanityFetch<Producto>(
-    `*[_type == "producto" && slug.current == $slug][0]
-     { _id, nombre, descripcion, imagenPrincipal, imagenes, categoria->{nombre}, stock, calificacionPromedio }`,
+    `*[_type == "producto" && slug.current == $slug && activo == true][0]
+     {
+       _id, nombre, descripcion, imagenPrincipal, imagenes, categoria->{nombre}, stock, precio,
+       "calificacionPromedio": select(ratingCount > 0 => round(ratingSum / ratingCount, 1), null),
+       ratingCount,
+       rating1Count, rating2Count, rating3Count, rating4Count, rating5Count
+     }`,
     { slug: route.params.slug }
 );
 
@@ -1162,19 +1176,37 @@ const urlWhatsApp = computed(() =>
 
                 <p class="text-gray-600 dark:text-gray-400">{{ producto.descripcion }}</p>
 
-                <!-- Calificación (RF-06) -->
+                <!-- Calificación global + contador de reseñas (RF-06) -->
+                <!-- Ej: ★ 4.8 · 150 reseñas -->
                 <SistemaEstrellas
                     :producto-id="producto._id"
                     :calificacion-promedio="producto.calificacionPromedio"
+                    :rating-count="producto.ratingCount"
+                />
+
+                <!-- Desglose de calificaciones por estrella (RF-06) -->
+                <!-- Ej: 5★: 120 votos | 4★: 20 votos | ... -->
+                <DesgloseCalificaciones
+                    :rating1="producto.rating1Count"
+                    :rating2="producto.rating2Count"
+                    :rating3="producto.rating3Count"
+                    :rating4="producto.rating4Count"
+                    :rating5="producto.rating5Count"
+                    :total="producto.ratingCount"
                 />
 
                 <!-- Botón WhatsApp (RF-17) -->
                 <BotonWhatsApp :href="urlWhatsApp" />
 
-                <!-- Comentarios (RF-07) -->
+                <!-- Formulario combinado: calificación + comentario (RF-06 + RF-07) -->
+                <!-- Anti-duplicación via localStorage: lectorpobre-calificado-{id} y lectorpobre-comentado-{id} -->
                 <FormularioComentario :producto-id="producto._id" />
             </div>
         </div>
+
+        <!-- Listado de comentarios aprobados (RF-07) -->
+        <!-- Filtros: por fecha (más reciente / más antiguo) y por puntuación (mayor a menor / menor a mayor) -->
+        <ListaComentarios :producto-id="producto._id" />
     </div>
 </template>
 ```
@@ -1206,8 +1238,10 @@ export default defineNuxtConfig({
 Crear los siguientes componentes con su funcionalidad básica:
 - `IndicadorStock.vue` — muestra estado de stock (RF-03)
 - `BotonWhatsApp.vue` — enlace a WhatsApp (RF-17)
-- `SistemaEstrellas.vue` — muestra calificación promedio (UI solo, sin lógica de envío aún)
-- `FormularioComentario.vue` — formulario con validación client-side (sin envío aún)
+- `SistemaEstrellas.vue` — muestra calificación promedio + contador de reseñas (RF-06); incluye anti-duplicación via `localStorage`
+- `DesgloseCalificaciones.vue` — panel con barras de progreso para cada estrella (1★–5★) y sus conteos (RF-06)
+- `FormularioComentario.vue` — **formulario combinado**: selección de estrellas + campo de texto de comentario en un solo paso; valida y bloquea si el usuario ya comentó (via `localStorage`); sin enviar aún (RF-06 + RF-07)
+- `ListaComentarios.vue` — sección navegable de comentarios aprobados con filtros por fecha y puntuación, paginados o con scroll infinito (RF-07)
 - `BotonPrimario.vue` — botón reutilizable
 - `BotonAgregarLista.vue` — botón "Agregar a la lista" para tarjetas y detalle (RF-21)
 - `BadgeCarrito.vue` — indicador en el header con cantidad de artículos en la lista (RF-21)
@@ -1837,7 +1871,49 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 ### 5.3 Handler: `/api/calificar` (RF-06)
 
-Estructura idéntica a `/api/comentar` adaptada para `CalificacionPayload` con validación de rango (1–5).
+```go
+// api/calificar.go
+// Satisfies: RF-06 (Calificación por estrellas), RNF-04 (Seguridad sin estado).
+// Al crear un documento de calificación, realiza un patch.inc atómico en el producto:
+//   - ratingSum  += valor
+//   - ratingCount += 1
+//   - rating{valor}Count += 1   (ej. rating4Count si el usuario votó 4 estrellas)
+// Esto permite derivar en GROQ: promedio = ratingSum / ratingCount
+// y mostrar el desglose por estrella en el frontend sin ningún cálculo adicional.
+
+func Handler(w http.ResponseWriter, r *http.Request) {
+    // ... (misma estructura de guards que /api/comentar: CORS, método, rate limit)
+
+    var payload handlers.CalificacionPayload // { ProductoID string, Valor int (1–5) }
+    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil { /* 400 */ }
+    if payload.Valor < 1 || payload.Valor > 5 { /* 400 CALIFICACION_FUERA_DE_RANGO */ }
+
+    // Campo dinámico para el contador por estrella: "rating1Count" ... "rating5Count"
+    contadorEstrella := fmt.Sprintf("rating%dCount", payload.Valor)
+
+    mutaciones := map[string]interface{}{
+        "mutations": []map[string]interface{}{
+            // 1. Crear el documento de calificación (registro histórico)
+            {"create": map[string]interface{}{
+                "_type":         "calificacion",
+                "valor":         payload.Valor,
+                "producto":      map[string]string{"_type": "reference", "_ref": payload.ProductoID},
+                "fechaCreacion": time.Now().UTC().Format(time.RFC3339),
+            }},
+            // 2. Incrementos atómicos en el producto (patch.inc — sin condición de carrera)
+            {"patch": map[string]interface{}{
+                "id":  payload.ProductoID,
+                "inc": map[string]interface{}{
+                    "ratingSum":      payload.Valor, // Suma la cantidad de estrellas
+                    "ratingCount":    1,             // Incrementa el total de calificaciones
+                    contadorEstrella: 1,             // Incrementa el contador de esa estrella
+                },
+            }},
+        },
+    }
+    // ... enviar mutaciones a Sanity API y retornar 201
+}
+```
 
 ### 5.4 Handler: `/api/buscar` (RF-18, opcional serverless)
 

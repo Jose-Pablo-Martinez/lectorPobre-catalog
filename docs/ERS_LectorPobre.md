@@ -185,24 +185,35 @@ Cada requisito se presenta con: **Descripción** (texto literal de la fuente), *
 - **Componente arquitectónico:** Frontend Nuxt.js (configuración estática o gestionada desde Sanity Studio).
 
 **RF-06**
-- **Descripción:** El sistema debe permitir a los usuarios generales asignar una calificación basada en un sistema de estrellas al producto (Requisito Opcional).
+- **Descripción:** El sistema debe permitir a los usuarios generales asignar una calificación basada en un sistema de estrellas al producto.
 - **Actor:** Usuario General
-- **Prioridad:** Could (marcado como opcional en la fuente)
-- **Criterios de aceptación sugeridos:**
+- **Prioridad:** Could (marcado como opcional en la fuente, pero con viabilidad confirmada)
+- **Criterios de aceptación:**
   - El usuario puede seleccionar de 1 a 5 estrellas en la vista de detalle del producto.
-  - La calificación se persiste y actualiza el promedio visible del producto.
-  - Se aplican medidas anti-abuso (ver RNF-04 y modelo de seguridad de la arquitectura).
-- **Componente arquitectónico:** Función serverless en Go (`/api/calificar` o similar) → escritura validada en Sanity.io.
+  - La calificación se persiste y actualiza el promedio global visible del producto.
+  - **Contador de reseñas:** al lado del promedio de estrellas se muestra el número total de calificaciones (ej. `4.8 ★ · 150 reseñas`).
+  - **Desglose por estrella:** la vista de detalle incluye un panel que muestra cuántas calificaciones de cada valor (1★ a 5★) ha recibido el producto, alimentado por los contadores `rating1Count`–`rating5Count` del esquema `producto`.
+  - **Anti-duplicación sin cuenta de usuario:** antes de enviar una calificación, el frontend verifica en `localStorage` si el usuario ya calificó este producto (clave: `lectorpobre-calificado-{productoId}`). Si ya calificó, se muestra su elección anterior deshabilitada y no se permite volver a calificar.
+  - Se aplican medidas anti-abuso: rate limiting por IP en el handler Go (ver RNF-04).
+  - **En Sanity Studio (administrador):** los documentos individuales de `calificacion` son de solo lectura (no se pueden crear ni editar manualmente); el administrador solo ve el promedio y los contadores en el documento del producto.
+- **Esquema de datos:** Los documentos `calificacion` (con campo `valor` 1–5) permanecen separados de `comentario`. El documento `producto` almacena los contadores atómicos `ratingSum`, `ratingCount` y `rating1Count`–`rating5Count`, todos actualizados mediante `patch.inc` desde el handler Go (sin condición de carrera).
+- **Componente arquitectónico:** Función serverless en Go (`/api/calificar`) → escritura validada en Sanity.io · Frontend Nuxt (`useCalificacion.ts`, `SistemaEstrellas.vue`).
 
 **RF-07**
-- **Descripción:** El sistema debe permitir a los usuarios generales publicar comentarios de texto en la vista detallada del producto (Requisito Opcional).
+- **Descripción:** El sistema debe permitir a los usuarios generales publicar comentarios de texto en la vista detallada del producto y ver los comentarios de otros usuarios.
 - **Actor:** Usuario General
-- **Prioridad:** Could (marcado como opcional en la fuente)
-- **Criterios de aceptación sugeridos:**
-  - El usuario puede escribir y enviar un comentario asociado al producto.
-  - El comentario pasa por validación de entrada (longitud, sanitización) antes de persistirse.
-  - Se recomienda definir con el cliente si los comentarios requieren moderación previa del administrador.
-- **Componente arquitectónico:** Función serverless en Go (`/api/comentar`) → escritura validada en Sanity.io.
+- **Prioridad:** Could (marcado como opcional en la fuente, pero con viabilidad confirmada)
+- **Criterios de aceptación:**
+  - El usuario puede escribir y enviar un comentario asociado al producto desde la vista de detalle.
+  - El comentario pasa por validación de entrada (longitud máx. 1000 caracteres, sanitización) antes de persistirse.
+  - Los comentarios enviados quedan en estado `pendiente` hasta que el administrador los apruebe desde Sanity Studio; solo los comentarios con `estado == 'aprobado'` se muestran en el sitio público.
+  - **Formulario combinado:** el formulario en la vista de detalle incluye tanto la selección de estrellas (RF-06) como el campo de texto del comentario, para que el usuario realice ambas acciones en un solo paso.
+  - **Anti-duplicación sin cuenta de usuario:** antes de enviar, el frontend verifica en `localStorage` si el usuario ya dejó un comentario en este producto (clave: `lectorpobre-comentado-{productoId}`). Si ya comentó, el formulario muestra su comentario anterior y no permite enviar otro.
+  - **Listado de comentarios aprobados:** la vista de detalle del producto incluye una sección navegable con todos los comentarios aprobados, paginados o con scroll infinito.
+    - **Orden por defecto:** más recientes primero.
+    - **Filtros disponibles:** por fecha (más reciente / más antiguo) y por puntuación de estrellas (de mayor a menor / de menor a mayor).
+  - El administrador puede aprobar o rechazar comentarios desde Sanity Studio cambiando el campo `estado`.
+- **Componente arquitectónico:** Función serverless en Go (`/api/comentar`) → escritura validada en Sanity.io · Frontend Nuxt (`useComentario.ts`, `FormularioComentario.vue`, `ListaComentarios.vue`).
 
 **RF-17**
 - **Descripción:** El sistema debe habilitar una vía de comunicación directa hacia WhatsApp desde la vista detallada del producto y desde la lista de artículos (RF-23) para que el usuario general inicie el proceso de compra.

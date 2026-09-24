@@ -16,6 +16,7 @@ export const rating = defineType({
     name: 'calificacion',
     title: 'Calificación',
     type: 'document',
+    readOnly: true, // Disables all form fields in the Studio UI
     fields: [
         defineField({
             name: 'valor',

@@ -19,9 +19,12 @@ import { defineConfig } from 'sanity';
 import { structureTool } from 'sanity/structure';
 import { visionTool } from '@sanity/vision';
 import { schemaTypes } from './schemaTypes';
+import { esESLocale } from '@sanity/locale-es-es';
 
 // Document types that must have exactly one instance in the dataset.
 const SINGLETON_TYPES = ['configuracionGlobal'];
+// Document types that should be read-only in the Studio (prevent manual creation/editing).
+const READ_ONLY_TYPES = ['calificacion'];
 // The fixed document ID used for the singleton — always edits the same document.
 const SINGLETON_DOC_ID = 'global-config';
 
@@ -56,21 +59,32 @@ export default defineConfig({
                     ]),
         }),
         visionTool(),
+        esESLocale(),
     ],
 
     schema: {
         types: schemaTypes,
-        // Prevent "Create new document" from appearing for singleton types.
+        // Prevent "Create new document" from appearing for singleton and read-only types.
         templates: (templates) =>
-            templates.filter(({ schemaType }) => !SINGLETON_TYPES.includes(schemaType)),
+            templates.filter(
+                ({ schemaType }) =>
+                    !SINGLETON_TYPES.includes(schemaType) && !READ_ONLY_TYPES.includes(schemaType)
+            ),
     },
 
     document: {
-        // Remove "Delete" and "Duplicate" actions for singleton types.
         actions: (prev, context) => {
+            // Remove "Delete" and "Duplicate" actions for singleton types.
             if (SINGLETON_TYPES.includes(context.schemaType)) {
                 return prev.filter(({ action }) =>
                     ['publish', 'discardChanges', 'restore'].includes(action ?? '')
+                );
+            }
+            // Remove "Publish" (save) and "Duplicate" for read-only types to prevent manual edits,
+            // leaving only "delete" available for moderation/spam removal.
+            if (READ_ONLY_TYPES.includes(context.schemaType)) {
+                return prev.filter(({ action }) =>
+                    ['delete', 'discardChanges', 'restore'].includes(action ?? '')
                 );
             }
             return prev;

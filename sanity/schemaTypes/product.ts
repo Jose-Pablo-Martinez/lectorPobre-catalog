@@ -77,9 +77,10 @@ export const product = defineType({
             initialValue: true
         }),
         // No persisted 'calificacionPromedio' field exists. The average is derived
-        // in every GROQ query as: round(ratingSum / ratingCount, 1). ratingSum and
-        // ratingCount are updated atomically by the Go rating handler via patch.inc,
+        // in every GROQ query as: round(ratingSum / ratingCount, 1).
+        // All counters below are updated atomically by the Go rating handler via patch.inc,
         // avoiding the read-calculate-write race condition (see rating.ts file header).
+        // rating1Count–rating5Count feed the per-star breakdown panel in the frontend (RF-06).
         defineField({
             name: 'ratingSum',
             title: 'Suma de calificaciones (interno)',
@@ -93,7 +94,43 @@ export const product = defineType({
             type: 'number',
             readOnly: true,
             initialValue: 0
+        }),
+        defineField({
+            name: 'rating1Count',
+            title: 'Calificaciones de 1★ (interno)',
+            type: 'number',
+            readOnly: true,
+            initialValue: 0
+        }),
+        defineField({
+            name: 'rating2Count',
+            title: 'Calificaciones de 2★ (interno)',
+            type: 'number',
+            readOnly: true,
+            initialValue: 0
+        }),
+        defineField({
+            name: 'rating3Count',
+            title: 'Calificaciones de 3★ (interno)',
+            type: 'number',
+            readOnly: true,
+            initialValue: 0
+        }),
+        defineField({
+            name: 'rating4Count',
+            title: 'Calificaciones de 4★ (interno)',
+            type: 'number',
+            readOnly: true,
+            initialValue: 0
+        }),
+        defineField({
+            name: 'rating5Count',
+            title: 'Calificaciones de 5★ (interno)',
+            type: 'number',
+            readOnly: true,
+            initialValue: 0
         })
+
     ],
     preview: {
         select: {

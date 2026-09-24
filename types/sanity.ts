@@ -67,11 +67,13 @@ export interface SanityImage {
  *   This requires `categoria->{nombre, slug}` in every GROQ query.
  * - `calificacionPromedio` does NOT exist as a stored field. It is computed inline
  *   in GROQ as `round(ratingSum / ratingCount, 1)` and only present if ratingCount > 0.
- * - `ratingSum` and `ratingCount` are internal atomic counters updated by the Go handler.
- *   They are never exposed to the frontend and are not included in this interface.
+ * - `ratingSum` is an internal counter and is NOT included in this interface.
+ * - `ratingCount` and `rating1Count`–`rating5Count` ARE exposed to the frontend to power
+ *   the review counter ("150 reseñas") and the per-star breakdown panel (RF-06).
  *
  * @satisfies RF-01 - Catalog listing.
  * @satisfies RF-02 - Product detail page.
+ * @satisfies RF-06 - Star rating: average, total count and per-star breakdown.
  * @satisfies RF-14 - Stock management; use umbralStockBajo from ConfiguracionGlobal to evaluate.
  */
 export interface Producto extends SanityDocument {
@@ -104,8 +106,24 @@ export interface Producto extends SanityDocument {
      * Average star rating (1.0–5.0), computed in GROQ as round(ratingSum / ratingCount, 1).
      * null when the product has no ratings yet (ratingCount === 0).
      * Never stored in Sanity — appears in query results only when projected explicitly.
+     * RF-06.
      */
     calificacionPromedio?: number | null;
+    /**
+     * Total number of ratings received. Shown as "X reseñas" next to the star average.
+     * Updated atomically by the Go rating handler via patch.inc. RF-06.
+     */
+    ratingCount?: number;
+    /**
+     * Per-star counters for the rating breakdown panel ("5★: 120 votos, 4★: 20 votos...").
+     * Each counter is incremented atomically by the Go rating handler via patch.inc
+     * using the field name `rating{valor}Count`. RF-06.
+     */
+    rating1Count?: number;
+    rating2Count?: number;
+    rating3Count?: number;
+    rating4Count?: number;
+    rating5Count?: number;
 }
 
 // ── Categoria ─────────────────────────────────────────────────────────────────
@@ -129,7 +147,13 @@ export interface Categoria extends SanityDocument {
  * User comment on a product, with admin moderation workflow.
  * Only comments with estado === 'aprobado' are shown in the public catalog.
  * The admin approves/rejects from Sanity Studio.
- * @satisfies RF-07 - Text comments with moderation.
+ *
+ * The public listing in the product detail page supports ordering by:
+ * - fechaCreacion desc (most recent first — default)
+ * - fechaCreacion asc  (oldest first)
+ * Filtering by star rating is done client-side using the associated Calificacion documents.
+ *
+ * @satisfies RF-07 - Text comments with moderation and sortable public listing.
  */
 export interface Comentario extends SanityDocument {
     _type: 'comentario';
@@ -144,9 +168,17 @@ export interface Comentario extends SanityDocument {
 
 /**
  * Star rating (1–5) submitted by a user for a product.
- * When created by the Go handler, it also triggers a patch.inc on
- * producto.ratingSum and producto.ratingCount (atomic, no race condition).
- * @satisfies RF-06 - Star rating system.
+ * When created by the Go handler, the handler also issues three atomic patch.inc
+ * mutations on the parent product:
+ *   - ratingSum    += valor
+ *   - ratingCount  += 1
+ *   - rating{valor}Count += 1  (e.g. rating4Count for a 4-star rating)
+ * This enables the average and the per-star breakdown panel without race conditions.
+ *
+ * Documents of this type are read-only in Sanity Studio (RF-06 — admin cannot
+ * create or edit ratings manually). They serve as an audit log only.
+ *
+ * @satisfies RF-06 - Star rating system with counter and per-star breakdown.
  */
 export interface Calificacion extends SanityDocument {
     _type: 'calificacion';

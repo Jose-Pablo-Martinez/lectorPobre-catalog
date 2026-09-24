@@ -144,11 +144,12 @@ export const producto = defineType({
             initialValue: true,
         }),
 
-        // ── Contadores atómicos para calificación promedio ─────────────────────────
+        // ── Contadores atómicos para calificación (RF-06) ──────────────────────────
         // NO existe un campo "calificacionPromedio" persistido.
         // El promedio se calcula en GROQ como: round(ratingSum / ratingCount, 1).
-        // Ambos campos se actualizan mediante patch.inc (operación atómica) desde el
-        // handler Go de calificación. Satisfies: RF-06.
+        // Todos los contadores se actualizan mediante patch.inc (operación atómica) desde
+        // el handler Go. Los contadores por estrella alimentan el panel de desglose
+        // "X votos de 5★, Y votos de 4★..." en la vista de detalle. Satisfies: RF-06.
         defineField({
             name: 'ratingSum',
             title: 'Suma de calificaciones (interno)',
@@ -163,6 +164,12 @@ export const producto = defineType({
             readOnly: true,
             initialValue: 0,
         }),
+        // Contadores por valor de estrella — actualizados con patch.inc desde Go
+        defineField({ name: 'rating1Count', title: 'Calificaciones de 1★ (interno)', type: 'number', readOnly: true, initialValue: 0 }),
+        defineField({ name: 'rating2Count', title: 'Calificaciones de 2★ (interno)', type: 'number', readOnly: true, initialValue: 0 }),
+        defineField({ name: 'rating3Count', title: 'Calificaciones de 3★ (interno)', type: 'number', readOnly: true, initialValue: 0 }),
+        defineField({ name: 'rating4Count', title: 'Calificaciones de 4★ (interno)', type: 'number', readOnly: true, initialValue: 0 }),
+        defineField({ name: 'rating5Count', title: 'Calificaciones de 5★ (interno)', type: 'number', readOnly: true, initialValue: 0 }),
     ],
     preview: {
         select: {
@@ -677,11 +684,30 @@ Estas consultas son las que usará el frontend en la Fase 3. Puedes verificarlas
     ratingCount > 0 => round(ratingSum / ratingCount, 1),
     null
   ),
-  "comentarios": *[_type == "comentario" && producto._ref == ^._id && estado == "aprobado"]
-    | order(fechaCreacion desc)
-    { _id, texto, fechaCreacion }
+  ratingCount,
+  rating1Count, rating2Count, rating3Count, rating4Count, rating5Count
 }
 ```
+
+`ratingCount` y los contadores `rating1Count`–`rating5Count` alimentan el panel de desglose de calificaciones y el contador de reseñas en el frontend (`SistemaEstrellas.vue` y `DesgloseCalificaciones.vue`).
+
+### Comentarios aprobados de un producto (con orden configurable)
+
+Esta consulta se ejecuta desde el composable `useComentario.ts` con el parámetro `$orden`:
+
+```groq
+// Orden por fecha descendente (más recientes primero — default)
+*[_type == "comentario" && producto._ref == $productoId && estado == "aprobado"]
+| order(fechaCreacion desc)
+{ _id, texto, fechaCreacion }
+
+// Orden por fecha ascendente
+*[_type == "comentario" && producto._ref == $productoId && estado == "aprobado"]
+| order(fechaCreacion asc)
+{ _id, texto, fechaCreacion }
+```
+
+El filtro por puntuación (mayor a menor / menor a mayor) se implementa en el frontend leyendo los documentos de `calificacion` relacionados en una segunda consulta, o vinculando `calificacionId` al comentario en fases posteriores si se requiere unión exacta por usuario.
 
 `^._id` referencia el `_id` del documento padre (el producto) dentro de la subconsulta de comentarios.
 
