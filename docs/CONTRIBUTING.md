@@ -427,6 +427,22 @@ vercel --prod                    # Despliega manualmente a producción (solo man
 
 ### 7.4 Sanity Studio (`cd sanity` primero)
 
+> **¿Por qué hay que hacer `cd sanity` antes de `pnpm dev`?**
+> El servidor del Studio es un proyecto Node independiente con su propio `package.json` en `sanity/`.
+> Al correr `pnpm dev` desde la raíz, Nuxt arranca (el script `dev` del `package.json` raíz llama a `nuxt dev`).
+> El Studio **no se puede iniciar desde la raíz** — hay que pararse en `sanity/` para ejecutarlo.
+> Nuxt y el Studio son dos procesos separados que corren en paralelo:
+> - Nuxt frontend: `http://localhost:3000` (ejecutar desde la raíz)
+> - Sanity Studio: `http://localhost:3333` (ejecutar desde `sanity/`)
+
+> **`sanity/.env.development` — ¿por qué existe?**
+> Vite (el bundler que usa Sanity Studio) no busca variables de entorno en directorios padre.
+> El archivo `sanity/.env.development` es la forma estándar de Vite para inyectar variables de entorno
+> cuando el Studio corre en modo desarrollo. Sin él, `SANITY_STUDIO_DATASET` no se resuelve y el Studio
+> cae al valor por defecto `'production'` definido en `sanity.cli.ts`, mostrando un dataset diferente
+> al que populaste con el seed script.
+> **No commitear este archivo si contiene secretos** (solo tiene `PROJECT_ID` y `DATASET`, que son públicos).
+
 > **`pnpm exec sanity` vs `npx sanity@latest`**
 > `pnpm exec sanity` corre la versión de Sanity **ya instalada localmente** en el proyecto —
 > reproducible y sin descargas extras. `npx sanity@latest` siempre descarga la última versión
@@ -447,6 +463,7 @@ pnpm exec sanity dataset create staging
 # npx sanity@latest dataset create staging
 
 # Iniciar Studio en modo desarrollo → http://localhost:3333  (Nuxt corre en :3000)
+# IMPORTANTE: ejecutar desde sanity/, NO desde la raíz del proyecto
 pnpm dev
 
 # Desplegar Studio a su URL alojada en sanity.io
@@ -550,6 +567,29 @@ cd sanity
 pnpm exec sanity dataset create staging
 # Elegir "private" cuando pregunte visibilidad
 ```
+
+### 9.5 El Studio arranca pero no muestra los documentos creados por `seed:staging`
+
+**Síntoma:** El Studio carga sin errores pero aparece vacío, sin productos ni categorías.
+
+**Causa:** El Studio está apuntando al dataset `production` en lugar de `staging`.
+Esto ocurre porque Vite **no hereda variables de entorno del directorio padre**. Si ejecutas
+`pnpm dev` desde `sanity/` sin el archivo `sanity/.env.development`, `SANITY_STUDIO_DATASET`
+no se resuelve y el Studio usa el valor por defecto `'production'` definido en `sanity.cli.ts`.
+
+**Solución:** Verifica que el archivo `sanity/.env.development` existe y contiene:
+```env
+SANITY_STUDIO_PROJECT_ID=rbrk7xv9
+SANITY_STUDIO_DATASET=staging
+```
+Si el archivo falta, créalo y reinicia el Studio (`Ctrl+C` + `pnpm dev`).
+
+**Gotcha relacionado — `.env.local` con dos datasets distintos:**
+Si `NUXT_PUBLIC_SANITY_DATASET=production` y `SANITY_STUDIO_DATASET=staging` coexisten
+en el mismo `.env.local`, el frontend Nuxt consultará `production` y el Studio mostrará
+`staging`. Esto produce confusión durante el desarrollo. En local, **ambas variables deben
+apuntar a `staging`**. Solo en el entorno de Vercel (producción) se inyecta
+`NUXT_PUBLIC_SANITY_DATASET=production` como secret del proyecto.
 
 ---
 
