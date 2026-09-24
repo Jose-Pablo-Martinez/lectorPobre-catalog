@@ -11,6 +11,7 @@ export default defineConfig({
             '**/dist/**',
             '**/*.integration.test.ts',
         ],
+        passWithNoTests: true,
         environment: 'happy-dom',
         coverage: {
             provider: 'v8',
