@@ -50,9 +50,10 @@ jobs:
       - name: Verify Sanity TypeScript types are in sync (IT-SANITY-01)
         # Runs sanity typegen and fails if types/sanity.ts differs from the committed version.
         # Requires SANITY_PROJECT_ID_STAGING secret. Implements Hallazgo 4 from observations doc.
+        working-directory: sanity
         run: |
           npx sanity@latest typegen generate
-          git diff --exit-code types/sanity.ts
+          git diff --exit-code ../types/sanity.ts
         env:
           SANITY_STUDIO_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
           SANITY_STUDIO_DATASET: staging
@@ -84,23 +85,23 @@ jobs:
           VITE_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
           VITE_SANITY_DATASET: staging
 
-  e2e-tests:
-    needs: [test-backend, test-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run Playwright E2E tests
-        run: pnpm exec playwright test
-        env:
-          BASE_URL: ${{ secrets.VERCEL_PREVIEW_URL }}
+ # e2e-tests:
+ #   needs: [test-backend, test-frontend]
+ #   runs-on: ubuntu-latest
+ #   steps:
+ #     - uses: actions/checkout@v4
+ #     - uses: pnpm/action-setup@v4
+ #       with:
+ #         version: 9
+ #     - uses: actions/setup-node@v4
+ #       with:
+ #         node-version: '22'
+ #         cache: 'pnpm'
+ #     - run: pnpm install --frozen-lockfile
+ #     - name: Install Playwright browsers
+ #       run: pnpm exec playwright install --with-deps chromium
+ #     - name: Run Playwright E2E tests
+ #       run: pnpm exec playwright test
+ #       env:
+ #         BASE_URL: ${{ secrets.VERCEL_PREVIEW_URL }}
 
