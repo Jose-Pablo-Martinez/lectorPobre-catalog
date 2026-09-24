@@ -28,7 +28,7 @@
  *  will PATCH (update) existing documents instead of creating duplicates.
  *  To reset, delete all "seed-*" documents from Studio and re-run.
  *
- * @satisfies RF-01, RF-02, RF-03, RF-04, RF-06, RF-07, RF-14, RF-15, RF-17, RF-19
+ * @satisfies RF-01, RF-02, RF-03, RF-04, RF-06, RF-07, RF-14, RF-15, RF-16, RF-17, RF-19, RF-21, RF-22, RF-23
  */
 
 import { createClient } from '@sanity/client';
@@ -138,8 +138,23 @@ await upsert({
     urlInstagram:      'https://instagram.com/lectorpobre',
     urlFacebook:       'https://facebook.com/lectorpobre',
     urlTikTok:         'https://tiktok.com/@lectorpobre',
-    paletaActiva:      'azul',
-    varianteVisual:    'moderno',
+
+    // RF-15: palette selection — 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom'
+    paletaActiva:      'claro',
+    // paletaCustom* fields are only used when paletaActiva === 'custom'.
+    // They are left undefined here so the Studio shows the predefined palette by default.
+    // To test the custom palette, set paletaActiva to 'custom' and fill these in:
+    // paletaCustomPrimario:    '#6366f1',
+    // paletaCustomSecundario:  '#4f46e5',
+    // paletaCustomAcento:      '#818cf8',
+    // paletaCustomFondo:       '#0f172a',
+    // paletaCustomTexto:       '#f8fafc',
+
+    // RF-16: visual variant and decorative pattern
+    varianteVisual:          'moderno',
+    patronDecorativoActivo:  false,    // set to true and add patronDecorativo image in Studio to test overlay
+    // patronDecorativo: omitted — binary image assets must be uploaded via Sanity Studio.
+
     umbralStockBajo:   5,             // RF-03, RF-14: show "pocas unidades" alert
     productosPorPagina: 24,           // RF-19: catalog page size
 });

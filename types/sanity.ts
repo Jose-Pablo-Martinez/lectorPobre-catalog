@@ -9,7 +9,7 @@
  * Future automation: run `pnpm exec sanity typegen generate` (from sanity/) to regenerate
  * this file automatically once schemas are stable. Pair with the CI check in ci.yml (IT-SANITY-01).
  *
- * @satisfies RF-01, RF-02, RF-04, RF-05, RF-06, RF-07, RF-14, RF-15, RF-16, RF-17, RF-19
+ * @satisfies RF-01, RF-02, RF-04, RF-05, RF-06, RF-07, RF-14, RF-15, RF-16, RF-17, RF-19, RF-21, RF-22, RF-23
  */
 
 // ── Sanity system fields present on every document ────────────────────────────
@@ -165,8 +165,10 @@ export interface Calificacion extends SanityDocument {
  * Read at Nuxt build time; changes require a site rebuild (triggered by the Sanity webhook).
  *
  * @satisfies RF-05 - Social media links.
- * @satisfies RF-15 - Active color palette (injected as CSS custom properties at build time).
- * @satisfies RF-16 - Visual variant (layout style applied via CSS class on catalog container).
+ * @satisfies RF-15 - Color palette: 4 predefined palettes (claro, oscuro, oceano, atardecer)
+ *   + a fully custom palette defined via individual hex color fields.
+ * @satisfies RF-16 - Visual variant (layout style) + decorative pattern image applied
+ *   as a repeating semi-transparent CSS overlay on the catalog.
  * @satisfies RF-17 - WhatsApp contact and message template.
  * @satisfies RF-19 - Products per page (pagination slice size in GROQ).
  * @satisfies RF-03, RF-14 - Low-stock threshold configuration.
@@ -181,16 +183,43 @@ export interface ConfiguracionGlobal extends SanityDocument {
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
+
     /**
-     * Active color palette. Value read at build time and injected as CSS custom properties
-     * in nuxt.config.ts (app.head.style). RF-15.
+     * Active color palette. Read at build time and injected as CSS custom properties
+     * in plugins/paleta.ts. When set to 'custom', the paletaCustom* fields below are used. RF-15.
      */
-    paletaActiva: 'azul' | 'verde' | 'morado' | 'naranja' | 'gris';
+    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
+
+    // RF-15: custom palette hex values — only consumed when paletaActiva === 'custom'.
+    /** Primary brand color (hex). E.g. '#3b82f6'. */
+    paletaCustomPrimario?: string;
+    /** Secondary brand color (hex). */
+    paletaCustomSecundario?: string;
+    /** Accent color (hex). */
+    paletaCustomAcento?: string;
+    /** Page background color (hex). */
+    paletaCustomFondo?: string;
+    /** Primary text color (hex). */
+    paletaCustomTexto?: string;
+
     /**
      * Visual variant that controls card layout style and density. RF-16.
-     * Applied as a CSS class on the catalog container component.
+     * Applied as a CSS class on the catalog container component at build time.
      */
     varianteVisual: 'clasico' | 'moderno' | 'minimalista';
+
+    /**
+     * When true, patronDecorativo is rendered as a semi-transparent repeating
+     * CSS background overlay on the catalog. RF-16.
+     */
+    patronDecorativoActivo: boolean;
+    /**
+     * Small image (~200×200 px, PNG with transparent background) used as the
+     * decorative overlay pattern. Only consumed when patronDecorativoActivo is true.
+     * RF-16. Examples: Halloween bats, Christmas snowflakes.
+     */
+    patronDecorativo?: SanityImage;
+
     /**
      * When producto.stock <= umbralStockBajo, the frontend shows the "¡Pocas unidades!" alert.
      * Default: 5. Resolves ERS Open Issue #3. RF-03, RF-14.
