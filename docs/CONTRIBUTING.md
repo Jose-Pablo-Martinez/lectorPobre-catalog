@@ -393,12 +393,19 @@ htpasswd -bnBC 10 "" TU_CONTRASEÑA | tr -d ':\n'
 
 ```bash
 pnpm run setup           # Crea .env.local desde .env.example e imprime los pasos de setup
+pnpm run seed:staging    # Carga datos de prueba en el dataset staging (idempotente)
 pnpm dev                 # Servidor de desarrollo Nuxt (HMR) → http://localhost:3000
 pnpm run generate        # Genera el sitio estático completo (SSG)
 pnpm run preview         # Previsualiza el build generado localmente
 pnpm run test            # Ejecuta tests unitarios con Vitest (excluye *.integration.test.ts)
 pnpm run test:integration # Ejecuta tests de integración contra Sanity staging
 ```
+
+> **`pnpm run seed:staging`** requiere `SANITY_WRITE_TOKEN` en `.env.local`.
+> Crea: 1 configuración global, 3 categorías, 6 productos (con distintos niveles de stock),
+> 4 comentarios (aprobado/pendiente/rechazado) y 4 calificaciones con patch atómico en productos.
+> Es **idempotente**: usa IDs fijos con prefijo `seed-`, por lo que correrlo dos veces actualiza
+> los documentos existentes sin crear duplicados.
 
 ### 7.2 Backend Go
 

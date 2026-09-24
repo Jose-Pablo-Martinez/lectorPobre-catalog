@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup-env.mjs",
+    "seed:staging": "node scripts/seed-staging.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
