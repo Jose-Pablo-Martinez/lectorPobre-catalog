@@ -18,10 +18,10 @@ Este documento se apoya y es consistente con la **Arquitectura Técnica Detallad
 
 ### 1.2 Alcance del Sistema
 
-LectorPobre es una plataforma web de **catálogo de productos** que permite:
+LectorPobre es una plataforma web de **catálogo de productos de arte y manualidades** (dedicada a la exhibición y venta de creaciones de una artista independiente: llaveros semiartesanales en acrílico/resina, prints de ilustración, stickers, pines y accesorios de diseño propio; **no es una librería ni una tienda de libros**). El sistema permite:
 
-- A **usuarios generales** (visitantes públicos, sin necesidad de registro) navegar, buscar y consultar el catálogo de productos, ver el stock disponible, interactuar socialmente (calificaciones y comentarios), armar una lista de artículos deseados (carrito de referencia) con exportación a PDF/PNG, e iniciar un contacto de compra vía WhatsApp.
-- A un **administrador** autenticado gestionar el contenido del catálogo (productos, imágenes, stock) y la personalización visual del sitio (paletas de colores predefinidas y personalizadas, patrones decorativos y elementos gráficos) mediante un panel de control.
+- A **usuarios generales** (visitantes públicos, sin necesidad de registro) navegar, buscar y consultar el catálogo de productos artísticos y manualidades, ver el stock disponible de piezas hechas a mano, interactuar socialmente (calificaciones y comentarios), armar una lista de artículos deseados (carrito de referencia tipo Steam) con exportación o envío consolidado, e iniciar un contacto de compra vía WhatsApp.
+- A un **administrador** (la dueña y artista principal) gestionar el contenido del catálogo (piezas, imágenes, stock) y la personalización visual del sitio (paletas de colores predefinidas y personalizadas, patrones decorativos y elementos gráficos) mediante un panel de control.
 
 El sistema **no** incluye, salvo que se indique lo contrario en futuras iteraciones: pasarela de pago en línea, gestión de pedidos, ni registro/autenticación de usuarios generales. El carrito funciona exclusivamente como **lista de referencia** — no tiene función de pago. La conversión de venta se delega a un canal externo (WhatsApp).
 
@@ -472,7 +472,7 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 2. ¿Cuál es el umbral exacto de productos que activa la paginación/carga diferida (RF-19)?
 3. ¿Qué constituye "stock bajo" vs "agotado" para efectos de UI (RF-03, RF-14)?
 4. ¿Qué servicio de analítica externo se utilizará (RNF-06)?
-5. ~~¿Cuántas paletas de colores y variantes visuales predefinidas se ofrecerán (RF-15, RF-16)?~~ **Resuelto en v1.1:** mínimo 4 predefinidas (claro, oscuro + 2 temáticas) + paleta personalizada desde Studio.
+5. ~~¿Cuántas paletas de colores y variantes visuales predefinidas se ofrecerán (RF-15, RF-16)?~~ **Resuelto:** 5 paletas armónicas inspiradas en la mascota (Periquito azul, pañoleta roja, fondo verde pastel) y la tradición mexicana/yucateca (Identidad Lector Pobre, Cartel Lucha Libre, Cenote Sagrado, Bugambilia & Paseo Montejo, Barro Maya) más opción de paleta personalizada Hex.
 6. ¿Existe un límite de longitud o política de contenido para comentarios y calificaciones (moderación anti-abuso)?
 7. ¿La lista de artículos (RF-21) debe mostrar un indicador en el header con la cantidad de artículos, tipo badge?
 8. ¿El resumen PDF/PNG (RF-22) debe incluir el logo del sitio o algún branding adicional?

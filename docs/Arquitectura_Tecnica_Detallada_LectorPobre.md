@@ -26,7 +26,7 @@
 
 ## 1. Resumen ejecutivo
 
-LectorPobre es una plataforma de catálogo de productos que prioriza **rendimiento, SEO y costo operativo mínimo**. Para lograrlo, la arquitectura desacopla completamente tres responsabilidades:
+LectorPobre es una plataforma de catálogo de productos de arte y manualidades (llaveros semiartesanales, prints de arte, stickers y accesorios de autor; no es una librería) que prioriza **rendimiento, SEO y costo operativo mínimo**. Para lograrlo, la arquitectura desacopla completamente tres responsabilidades:
 
 - **Presentación**: un sitio estático pre-renderizado (Nuxt.js/SSG) servido desde una CDN global.
 - **Lógica dinámica**: microservicios serverless en Go, activados únicamente para operaciones puntuales (calificaciones, comentarios, consulta de stock en vivo).

@@ -61,15 +61,16 @@ export const globalConfig = defineType({
             // plugins/paleta.ts. 'custom' activates the hex color fields below (RF-15).
             options: {
                 list: [
-                    { title: 'Claro',         value: 'claro' },
-                    { title: 'Oscuro',        value: 'oscuro' },
-                    { title: 'Océano',        value: 'oceano' },
-                    { title: 'Atardecer',     value: 'atardecer' },
-                    { title: 'Personalizada', value: 'custom' },
+                    { title: 'Identidad Lector Pobre (Verde Pastel & Azul)', value: 'identidad' },
+                    { title: 'Cartel de Lucha Libre Clásico',                value: 'luchaLibre' },
+                    { title: 'Cenote Sagrado & Costa Yucateca',              value: 'cenote' },
+                    { title: 'Bugambilia & Paseo Montejo',                   value: 'bugambilia' },
+                    { title: 'Barro Maya & Tradición',                       value: 'barroMaya' },
+                    { title: 'Personalizada (Valores Hex)',                  value: 'custom' },
                 ],
                 layout: 'radio',
             },
-            initialValue: 'claro',
+            initialValue: 'identidad',
         }),
 
         // RF-15: custom palette hex fields — only visible when paletaActiva === 'custom'

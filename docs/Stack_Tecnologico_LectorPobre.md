@@ -9,7 +9,7 @@
 
 ## 1. Introducción y Objetivo
 
-Este documento describe, con el mayor nivel de detalle posible, el stack tecnológico seleccionado para LectorPobre y la justificación técnica de cada decisión, en el contexto de una **arquitectura Jamstack desacoplada**. El objetivo es servir como referencia técnica para el equipo de desarrollo y como documento de comunicación técnica hacia la parte interesada del negocio.
+Este documento describe, con el mayor nivel de detalle posible, el stack tecnológico seleccionado para LectorPobre (catálogo web de arte independiente, manualidades urbanas y llaveros semiartesanales de autor; no es una librería) y la justificación técnica de cada decisión, en el contexto de una **arquitectura Jamstack desacoplada**. El objetivo es servir como referencia técnica para el equipo de desarrollo y como documento de comunicación técnica hacia la parte interesada del negocio.
 
 El patrón arquitectónico elegido es **Jamstack** (**J**avaScript, **A**PIs, **M**arkup), que se diferencia del patrón tradicional MVC en que el servidor **no** construye las páginas en tiempo real para cada visitante. En su lugar, el sitio se **pre-renderiza una sola vez** en tiempo de build, y solo se recurre a servicios dinámicos (vía APIs) cuando es estrictamente necesario (p. ej. stock en tiempo real, comentarios, calificaciones, autenticación de administrador).
 
