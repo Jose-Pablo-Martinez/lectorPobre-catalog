@@ -5,10 +5,10 @@
 @tailwind utilities;
 
 :root {
-    /* Paleta Oficial Lector Pobre (Default — Inspirada en la mascota: Periquito azul, pañoleta roja, fondo verde pastel — RF-15) */
-    --color-brand-primario: #0284c7;    /* Azul Periquito */
-    --color-brand-secundario: #38bdf8;  /* Azul Turquesa / Plumas */
-    --color-brand-acento: #e11d48;      /* Rojo Pañoleta */
+    /* Paleta Oficial Lector Pobre (Rosa Mexicano, Azul Maya, Amarillo, Verde Pastel — RF-15) */
+    --color-brand-primario: #e4007c;    /* Rosa Mexicano */
+    --color-brand-secundario: #0091d5;  /* Azul Maya */
+    --color-brand-acento: #ffd000;      /* Amarillo Cempasúchil / Sol */
     --color-brand-fondo: #edf8f1;       /* Verde Pastel Colonial / Mérida */
     --color-brand-texto: #18181b;       /* Negro Tinta Serigráfica */
 

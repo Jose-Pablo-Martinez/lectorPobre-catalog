@@ -17,6 +17,7 @@
  * @satisfies RF-17 - WhatsApp contact and message template.
  * @satisfies RF-19 - Products per page (pagination).
  * @satisfies RF-03, RF-14 - Low-stock threshold configuration.
+ * @satisfies RF-23 - Global search synonyms definition.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -61,12 +62,12 @@ export const globalConfig = defineType({
             // plugins/paleta.ts. 'custom' activates the hex color fields below (RF-15).
             options: {
                 list: [
-                    { title: 'Identidad Lector Pobre (Verde Pastel & Azul)', value: 'identidad' },
-                    { title: 'Cartel de Lucha Libre Clásico',                value: 'luchaLibre' },
-                    { title: 'Cenote Sagrado & Costa Yucateca',              value: 'cenote' },
-                    { title: 'Bugambilia & Paseo Montejo',                   value: 'bugambilia' },
-                    { title: 'Barro Maya & Tradición',                       value: 'barroMaya' },
-                    { title: 'Personalizada (Valores Hex)',                  value: 'custom' },
+                    { title: 'Bazar Lector Pobre (Rosa Mexicano, Azul Maya, Amarillo)', value: 'identidad' },
+                    { title: 'Cenote & Costa Maya',                                    value: 'cenote' },
+                    { title: 'Arena México (Lucha Libre)',                              value: 'luchaLibre' },
+                    { title: 'Noche Urbana (Dark Mode Neón)',                           value: 'nocheFiesta' },
+                    { title: 'Paseo Montejo Colonial (Verde & Rosa)',                   value: 'meridaPastel' },
+                    { title: 'Personalizada (Valores Hex)',                            value: 'custom' },
                 ],
                 layout: 'radio',
             },
@@ -159,6 +160,39 @@ export const globalConfig = defineType({
             // Controls the slice size in the catalog GROQ query. Resolves ERS Open Issue #2 (RF-19).
             initialValue: 24,
             validation: Rule => Rule.min(1).integer()
+        }),
+
+        // ── Search & Recommendation (RF-23) ──────────────────────────────────
+        defineField({
+            name: 'sinonimos',
+            title: 'Sinónimos globales de búsqueda',
+            type: 'array',
+            description: 'Grupos de términos equivalentes para la búsqueda y recomendaciones (ej. llavero, keychain, yavero). RF-23.',
+            of: [
+                {
+                    type: 'object',
+                    name: 'grupoSinonimos',
+                    title: 'Grupo de sinónimos',
+                    fields: [
+                        defineField({
+                            name: 'terminos',
+                            title: 'Términos equivalentes',
+                            type: 'array',
+                            of: [{ type: 'string' }],
+                            options: { layout: 'tags' },
+                            validation: Rule => Rule.required().min(2)
+                        })
+                    ],
+                    preview: {
+                        select: { terminos: 'terminos' },
+                        prepare({ terminos }: { terminos?: string[] }) {
+                            return {
+                                title: terminos && terminos.length > 0 ? terminos.join(' ↔ ') : 'Grupo vacío'
+                            };
+                        }
+                    }
+                }
+            ]
         }),
     ],
 

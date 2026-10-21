@@ -124,6 +124,10 @@ export interface Producto extends SanityDocument {
     rating3Count?: number;
     rating4Count?: number;
     rating5Count?: number;
+    /**
+     * Optional keywords/tags for fuzzy search and content-based recommendations. RF-23.
+     */
+    palabrasClave?: string[];
 }
 
 // ── Categoria ─────────────────────────────────────────────────────────────────
@@ -197,13 +201,14 @@ export interface Calificacion extends SanityDocument {
  * Read at Nuxt build time; changes require a site rebuild (triggered by the Sanity webhook).
  *
  * @satisfies RF-05 - Social media links.
- * @satisfies RF-15 - Color palette: 4 predefined palettes (claro, oscuro, oceano, atardecer)
- *   + a fully custom palette defined via individual hex color fields.
+ * @satisfies RF-15 - Color palette: 5 predefined palettes (identidad, cenote, luchaLibre,
+ *   nocheFiesta, meridaPastel) + a fully custom palette defined via individual hex color fields.
  * @satisfies RF-16 - Visual variant (layout style) + decorative pattern image applied
  *   as a repeating semi-transparent CSS overlay on the catalog.
  * @satisfies RF-17 - WhatsApp contact and message template.
  * @satisfies RF-19 - Products per page (pagination slice size in GROQ).
  * @satisfies RF-03, RF-14 - Low-stock threshold configuration.
+ * @satisfies RF-23 - Global search synonyms definition.
  */
 export interface ConfiguracionGlobal extends SanityDocument {
     _type: 'configuracionGlobal';
@@ -220,10 +225,10 @@ export interface ConfiguracionGlobal extends SanityDocument {
      * Active color palette. Read at build time and injected as CSS custom properties
      * in plugins/paleta.ts. When set to 'custom', the paletaCustom* fields below are used. RF-15.
      */
-    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
+    paletaActiva: 'identidad' | 'cenote' | 'luchaLibre' | 'nocheFiesta' | 'meridaPastel' | 'custom';
 
     // RF-15: custom palette hex values — only consumed when paletaActiva === 'custom'.
-    /** Primary brand color (hex). E.g. '#3b82f6'. */
+    /** Primary brand color (hex). E.g. '#e4007c'. */
     paletaCustomPrimario?: string;
     /** Secondary brand color (hex). */
     paletaCustomSecundario?: string;
@@ -262,4 +267,12 @@ export interface ConfiguracionGlobal extends SanityDocument {
      * Default: 24. Resolves ERS Open Issue #2. RF-19.
      */
     productosPorPagina: number;
+
+    /**
+     * Global synonym groups for search query expansion and recommendation linking. RF-23.
+     */
+    sinonimos?: Array<{
+        _key?: string;
+        terminos: string[];
+    }>;
 }

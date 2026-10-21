@@ -7,6 +7,7 @@
  * @satisfies RF-12 - Image management (main image + gallery).
  * @satisfies RF-13 - Create/delete products.
  * @satisfies RF-14 - Stock management and low-stock alerting.
+ * @satisfies RF-23 - Search keywords and recommendation metadata.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -129,8 +130,16 @@ export const product = defineType({
             type: 'number',
             readOnly: true,
             initialValue: 0
+        }),
+        // ── Search & Recommendation (RF-23) ──────────────────────────────────
+        defineField({
+            name: 'palabrasClave',
+            title: 'Palabras clave de búsqueda',
+            type: 'array',
+            of: [{ type: 'string' }],
+            options: { layout: 'tags' },
+            description: 'Términos, tags o palabras clave adicionales para potenciar el buscador difuso y los productos similares (RF-23).'
         })
-
     ],
     preview: {
         select: {

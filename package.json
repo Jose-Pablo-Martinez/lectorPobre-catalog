@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@sanity/client": "^8.10.0",
     "@vitest/coverage-v8": "^5.0.0",
     "@vue/test-utils": "^2.5.0",
     "happy-dom": "^20.14.5",
