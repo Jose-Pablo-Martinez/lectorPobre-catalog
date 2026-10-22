@@ -5,6 +5,56 @@ export default defineNuxtConfig({
 
     css: ['~/assets/css/global.css'],
 
+    // Excluir subdirectorios del monorepo (como sanity/node_modules con miles de archivos)
+    // y archivos placeholder vacíos para evitar bloqueos del watcher y fallos EPIPE en esbuild.
+    ignore: [
+        'sanity/**',
+        'api/**',
+        'tests/**',
+        'coverage/**',
+        'scripts/**',
+        'docs/**',
+        'playwright-report/**',
+        'test-results/**',
+        'layouts/admin.vue',
+        'pages/admin/**',
+        'middleware/auth.ts',
+    ],
+
+    watchers: {
+        chokidar: {
+            ignored: [
+                /[\\/]node_modules[\\/]/,
+                /[\\/]\.git[\\/]/,
+                /[\\/]\.nuxt[\\/]/,
+                /[\\/]sanity[\\/]/,
+                /[\\/]api[\\/]/,
+                /[\\/]coverage[\\/]/,
+                /[\\/]tests[\\/]/,
+                /[\\/]scripts[\\/]/,
+                /[\\/]docs[\\/]/,
+            ],
+        },
+    },
+
+    vite: {
+        optimizeDeps: {
+            include: ['lucide-vue-next', 'fuse.js', '@sanity/image-url'],
+        },
+        server: {
+            watch: {
+                ignored: [
+                    '**/sanity/**',
+                    '**/api/**',
+                    '**/coverage/**',
+                    '**/tests/**',
+                    '**/scripts/**',
+                    '**/docs/**',
+                ],
+            },
+        },
+    },
+
     sanity: {
         projectId: process.env.NUXT_PUBLIC_SANITY_PROJECT_ID || 'rbrk7xv9',
         dataset: process.env.NUXT_PUBLIC_SANITY_DATASET || 'staging',
