@@ -32,23 +32,23 @@ const vistosRecientes = computed<Producto[]>(() =>
 <template>
     <section
         v-if="vistosRecientes.length > 0"
-        class="space-y-5 pt-8 border-t-2 border-brand-texto"
+        class="space-y-5 pt-8 border-t border-zinc-200"
         aria-labelledby="recently-viewed-heading"
         data-testid="recently-viewed-section"
     >
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2.5">
-                <div class="p-2 bg-white border-2 border-brand-texto">
-                    <Clock class="w-5 h-5 text-brand-secundario" aria-hidden="true" />
+                <div class="p-2 rounded-lg bg-brand-secundario text-white border-2 border-brand-texto shadow-hard-sm">
+                    <Clock class="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div>
                     <h2
                         id="recently-viewed-heading"
-                        class="font-display font-extrabold text-2xl text-brand-texto"
+                        class="font-display font-extrabold text-xl sm:text-2xl text-brand-texto"
                     >
                         Vistos recientemente
                     </h2>
-                    <p class="font-sans text-xs text-zinc-600">
+                    <p class="font-sans text-xs text-zinc-500">
                         Guardado únicamente en este navegador
                     </p>
                 </div>
@@ -56,7 +56,7 @@ const vistosRecientes = computed<Producto[]>(() =>
 
             <button
                 type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-zinc-100 text-brand-texto font-mono text-xs font-bold uppercase border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                class="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-display text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
                 data-testid="clear-history-button"
                 @click="clearHistory"
             >
@@ -65,7 +65,7 @@ const vistosRecientes = computed<Producto[]>(() =>
             </button>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <ProductCard
                 v-for="item in vistosRecientes"
                 :key="item._id"

@@ -1,7 +1,7 @@
 <!--
   @file PrimaryButton.vue
-  @description Botón atómico reutilizable con estética "Taller Urbano Neo-Pop"
-  (borde sólido de 2px, sombra dura desplazada y soporte para estados de carga y deshabilitado).
+  @description Botón atómico reutilizable con estética táctil "Neo-Pop Limpio con Carácter de Taller"
+  (borde sólido de 2px, sombra táctil desplazada y respuesta de pulsación mecánica al hacer clic).
   @satisfies RF-01, RF-06, RF-07, RNF-05
 -->
 <script setup lang="ts">
@@ -45,7 +45,7 @@ const variantClasses = computed<string>(() => {
         :disabled="disabled || loading"
         :aria-busy="loading"
         :class="[
-            'inline-flex items-center justify-center gap-2 px-4 py-2.5 font-display font-bold text-sm border-2 border-brand-texto shadow-hard transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0',
+            'min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-display font-bold text-sm border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0',
             variantClasses,
             fullWidth ? 'w-full' : 'w-auto',
         ]"

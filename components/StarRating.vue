@@ -91,7 +91,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
 
 <template>
     <div
-        class="p-4 bg-white border-2 border-brand-texto shadow-hard-sm space-y-3"
+        class="p-5 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-3"
         data-testid="star-rating"
     >
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -106,7 +106,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
                             v-if="!readonly"
                             type="button"
                             :disabled="enviado || enviando"
-                            class="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario disabled:cursor-default transition-transform hover:scale-110"
+                            class="p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 disabled:cursor-default transition-transform hover:scale-110"
                             :aria-label="`Calificar con ${n} de 5 estrellas`"
                             :data-testid="`star-button-${n}`"
                             @mouseenter="hoverEstrella = n"
@@ -118,7 +118,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
                                 :class="
                                     estrellaActiva(n)
                                         ? 'fill-brand-acento text-brand-texto'
-                                        : 'fill-transparent text-zinc-400'
+                                        : 'fill-transparent text-zinc-300'
                                 "
                                 aria-hidden="true"
                             />
@@ -129,7 +129,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
                             :class="
                                 estrellaActiva(n)
                                     ? 'fill-brand-acento text-brand-texto'
-                                    : 'fill-transparent text-zinc-400'
+                                    : 'fill-transparent text-zinc-300'
                             "
                             aria-hidden="true"
                         />
@@ -137,7 +137,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
                 </fieldset>
 
                 <span
-                    class="font-mono font-bold text-sm text-brand-texto"
+                    class="font-mono font-bold text-sm text-zinc-900"
                     data-testid="rating-average"
                 >
                     {{ promedioMostrado }}
@@ -146,7 +146,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
 
             <span
                 v-if="(ratingCount ?? 0) > 0"
-                class="font-mono text-xs text-zinc-600"
+                class="font-sans text-xs font-medium text-zinc-500"
                 data-testid="rating-count"
             >
                 {{ ratingCount }} {{ ratingCount === 1 ? 'reseña' : 'reseñas' }}
@@ -156,32 +156,32 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
         <!-- Desglose por nivel de estrella (RF-06) -->
         <div
             v-if="mostrarDesglose && (ratingCount ?? 0) > 0"
-            class="pt-2 border-t border-zinc-200 space-y-1.5"
+            class="pt-3 border-t border-zinc-100 space-y-1.5"
             data-testid="rating-breakdown"
         >
             <div
                 v-for="fila in nivelesDesglose"
                 :key="fila.nivel"
-                class="flex items-center gap-2 font-mono text-xs"
+                class="flex items-center gap-2.5 font-sans text-xs"
             >
-                <span class="w-16 flex items-center gap-1 font-bold text-brand-texto">
+                <span class="w-12 flex items-center gap-1 font-semibold text-zinc-700">
                     <span>{{ fila.nivel }}</span>
-                    <Star class="w-3 h-3 fill-brand-acento text-brand-texto" aria-hidden="true" />
+                    <Star class="w-3.5 h-3.5 fill-brand-acento text-amber-500" aria-hidden="true" />
                 </span>
                 <progress
                     :value="fila.porcentaje"
                     max="100"
-                    class="flex-1 h-2.5 w-full appearance-none bg-zinc-100 border border-brand-texto overflow-hidden [&::-webkit-progress-bar]:bg-zinc-100 [&::-webkit-progress-value]:bg-brand-acento [&::-moz-progress-bar]:bg-brand-acento"
+                    class="flex-1 h-2 w-full appearance-none rounded-full bg-zinc-100 border border-zinc-200 overflow-hidden [&::-webkit-progress-bar]:bg-zinc-100 [&::-webkit-progress-value]:bg-brand-acento [&::-moz-progress-bar]:bg-brand-acento"
                     :aria-label="`Porcentaje de calificaciones de ${fila.nivel} estrellas`"
                 />
-                <span class="w-10 text-right text-zinc-600">{{ fila.votos }}</span>
+                <span class="w-10 text-right font-mono text-zinc-500">{{ fila.votos }}</span>
             </div>
         </div>
 
         <!-- Mensajes de confirmación o error -->
         <output
             v-if="enviado"
-            class="inline-flex items-center gap-1.5 font-sans text-xs font-semibold text-emerald-800"
+            class="inline-flex items-center gap-1.5 font-sans text-xs font-semibold text-emerald-700"
             data-testid="rating-success"
         >
             <CheckCircle2 class="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -190,7 +190,7 @@ const manejarSeleccion = async (valor: number): Promise<void> => {
 
         <p
             v-if="error"
-            class="font-sans text-xs font-semibold text-rose-700"
+            class="font-sans text-xs font-semibold text-rose-600"
             data-testid="rating-error"
             role="alert"
         >

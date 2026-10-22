@@ -2,22 +2,74 @@
  * @file useCatalog.ts
  * @description Composable principal del catálogo de Lector Pobre para SSG.
  * Consulta productos activos, categorías y configuración global desde Sanity, e integra
- * filtrado por categoría (RF-04), búsqueda difusa desacoplada con Fuse.js (RF-18, RF-23)
- * y paginación configurable (RF-19).
+ * filtrado por categoría (RF-04), búsqueda difusa desacoplada con Fuse.js (RF-18, RF-23),
+ * selección modular de pieza destacada/recomendada y paginación configurable (RF-19).
  * @satisfies RF-01, RF-04, RF-18, RF-19, RF-23
  */
 
-import { computed, ref, watch } from 'vue';
+import { computed, type Ref, ref, watch } from 'vue';
 import { useSearch } from '~/composables/search/useSearch';
 import type { Categoria, ConfiguracionGlobal, Producto } from '~/types/sanity';
+
+export type EstrategiaDestacado = 'aleatorio' | 'popularidad';
 
 export interface UseCatalogOptions {
     pagina?: number;
     categoria?: string;
     productosPorPagina?: number;
+    estrategiaDestacado?: EstrategiaDestacado;
     initialProductos?: Producto[];
     initialCategorias?: Categoria[];
     initialConfig?: Partial<ConfiguracionGlobal>;
+}
+
+/**
+ * Genera un índice pseudoaleatorio empleando Web Crypto API (`crypto.getRandomValues`)
+ * para cumplir las reglas de seguridad de SonarQube (evitando `Math.random()`).
+ */
+export function obtenerIndiceAleatorioSeguro(total: number): number {
+    if (total <= 1) return 0;
+    if (typeof globalThis.crypto?.getRandomValues === 'function') {
+        const buffer = new Uint32Array(1);
+        globalThis.crypto.getRandomValues(buffer);
+        return (buffer[0] ?? 0) % total;
+    }
+    return 0;
+}
+
+/**
+ * Selecciona una pieza destacada del catálogo activo según la estrategia configurada:
+ * - `'aleatorio'` (etapa actual): elige un producto activo disponible al azar.
+ * - `'popularidad'` (preparado para evolución a "más vendido"): ordena por
+ *   `calificacionPromedio` y número de calificaciones (`ratingCount`).
+ * Prioriza productos con stock disponible (`stock > 0`), con respaldo en cualquier activo.
+ */
+export function seleccionarProductoDestacado(
+    listaProductos: Producto[],
+    estrategia: EstrategiaDestacado = 'aleatorio',
+    indiceSemilla?: number
+): Producto | null {
+    const activos = (listaProductos ?? []).filter((p) => p.activo !== false);
+    if (activos.length === 0) return null;
+
+    const conStock = activos.filter((p) => p.stock > 0);
+    const candidatos = conStock.length > 0 ? conStock : activos;
+
+    if (estrategia === 'popularidad') {
+        const ordenados = [...candidatos].sort((a, b) => {
+            const promA = a.calificacionPromedio ?? 0;
+            const promB = b.calificacionPromedio ?? 0;
+            if (promB !== promA) return promB - promA;
+            return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+        });
+        return ordenados[0] ?? null;
+    }
+
+    const idx =
+        typeof indiceSemilla === 'number'
+            ? Math.abs(indiceSemilla) % candidatos.length
+            : obtenerIndiceAleatorioSeguro(candidatos.length);
+    return candidatos[idx] ?? candidatos[0] ?? null;
 }
 
 /**
@@ -75,6 +127,7 @@ export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
     urlInstagram,
     urlFacebook,
     urlTikTok,
+    urlYouTube,
     paletaActiva,
     paletaCustomPrimario,
     paletaCustomSecundario,
@@ -88,6 +141,23 @@ export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
     productosPorPagina,
     sinonimos
 }`;
+
+/**
+ * Obtiene una semilla aleatoria sincronizada entre SSR y cliente mediante `useState`
+ * de Nuxt para evitar diferencias de hidratación en `productoRecomendado`.
+ */
+function obtenerSemillaDestacadoSSR(): Ref<number> {
+    try {
+        if (typeof useState === 'function') {
+            return useState<number>('catalogo-featured-seed', () =>
+                obtenerIndiceAleatorioSeguro(10000)
+            );
+        }
+    } catch {
+        // Fallback seguro fuera del contexto de Nuxt (pruebas unitarias Vitest)
+    }
+    return ref<number>(obtenerIndiceAleatorioSeguro(10000));
+}
 
 /**
  * Composable reactivo del catálogo con soporte para pruebas unitarias y ejecución SSG en Nuxt.
@@ -126,7 +196,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                         configGlobal.value = val.configGlobal;
                     }
                 },
-                { immediate: true }
+                { immediate: true, flush: 'sync' }
             );
 
             watch(
@@ -134,7 +204,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                 (isPending) => {
                     pending.value = isPending;
                 },
-                { immediate: true }
+                { immediate: true, flush: 'sync' }
             );
 
             watch(
@@ -142,7 +212,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                 (err) => {
                     error.value = err instanceof Error ? err : null;
                 },
-                { immediate: true }
+                { immediate: true, flush: 'sync' }
             );
         } catch {
             // Fallback seguro cuando se invoca en pruebas unitarias sin contexto de Nuxt
@@ -151,6 +221,18 @@ export function useCatalog(options: UseCatalogOptions = {}) {
 
     const categoriaSeleccionada = ref<string>(options.categoria ?? '');
     const paginaActual = ref<number>(options.pagina ?? 1);
+    const estrategiaDestacado = ref<EstrategiaDestacado>(
+        options.estrategiaDestacado ?? 'aleatorio'
+    );
+    const semillaDestacado = obtenerSemillaDestacadoSSR();
+
+    const productoRecomendado = computed<Producto | null>(() =>
+        seleccionarProductoDestacado(
+            productos.value,
+            estrategiaDestacado.value,
+            semillaDestacado.value
+        )
+    );
 
     const search = useSearch({
         catalogoProductos: productos,
@@ -219,6 +301,9 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         productos,
         categorias,
         configGlobal,
+        productoRecomendado,
+        productoDestacado: productoRecomendado,
+        estrategiaDestacado,
         categoriaSeleccionada,
         seleccionarCategoria,
         searchQuery,

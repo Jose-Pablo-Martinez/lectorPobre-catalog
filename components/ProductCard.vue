@@ -1,8 +1,9 @@
 <!--
   @file ProductCard.vue
-  @description Tarjeta molecular de producto con relación de aspecto 1:1, soporte de imagen
-  de Sanity o placeholder vectorial limpio, indicador de stock en esquina superior, calificación
-  promedio, precio en tipografía monoespaciada y botón directo para agregar a la Lista de Pedido.
+  @description Tarjeta molecular de producto con estética "Neo-Pop Limpio con Carácter de Taller",
+  relación de aspecto 1:1, soporte de imagen de Sanity o placeholder vectorial limpio, indicador
+  de stock táctil, calificación promedio con estrella en Amarillo Cempasúchil, precio en tipografía
+  monoespaciada y botón táctil directo para agregar a la Lista de Pedido.
   @satisfies RF-01, RF-03, RF-06, RF-14, RF-16, RF-17
 -->
 <script setup lang="ts">
@@ -70,14 +71,14 @@ const manejarAgregar = (): void => {
 
 <template>
     <article
-        class="tarjeta-producto group flex flex-col bg-white text-brand-texto border-2 border-brand-texto shadow-hard overflow-hidden transition-transform duration-200 hover:-translate-y-1"
+        class="tarjeta-producto group bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 flex flex-col"
         data-testid="product-card"
     >
         <!-- Marco 1:1 de imagen con badges flotantes -->
-        <div class="relative aspect-square w-full bg-zinc-100 border-b-2 border-brand-texto overflow-hidden">
+        <div class="aspect-square bg-zinc-50 relative overflow-hidden border-b border-zinc-100">
             <a
                 :href="detalleHref"
-                class="block w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-primario"
+                class="block w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-secundario"
                 :aria-label="`Ver detalles de ${producto.nombre}`"
             >
                 <img
@@ -92,11 +93,11 @@ const manejarAgregar = (): void => {
                 />
                 <div
                     v-else
-                    class="w-full h-full flex flex-col items-center justify-center gap-2 p-6 text-zinc-500 bg-brand-fondo/60"
+                    class="w-full h-full flex flex-col items-center justify-center gap-2 p-6 text-zinc-400 bg-zinc-50"
                     data-testid="product-image-placeholder"
                 >
-                    <ImageIcon class="w-12 h-12 stroke-[1.75]" aria-hidden="true" />
-                    <span class="font-mono text-xs uppercase tracking-wider text-center font-semibold">
+                    <ImageIcon class="w-12 h-12 stroke-[1.5]" aria-hidden="true" />
+                    <span class="font-sans text-xs font-medium tracking-wide text-center">
                         Pieza de Taller
                     </span>
                 </div>
@@ -110,10 +111,10 @@ const manejarAgregar = (): void => {
                 />
             </div>
 
-            <!-- Badge de Calificación flotante superior derecho -->
+            <!-- Badge de Calificación flotante superior derecho con estrella Amarillo Cempasúchil -->
             <div
                 v-if="typeof producto.calificacionPromedio === 'number' && producto.calificacionPromedio > 0"
-                class="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 bg-white border-2 border-brand-texto font-mono text-xs font-bold text-brand-texto"
+                class="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 bg-white/95 border border-brand-texto shadow-hard-sm font-mono text-xs font-bold text-brand-texto"
                 :aria-label="`Calificación promedio ${producto.calificacionPromedio} de 5`"
             >
                 <Star class="w-3.5 h-3.5 fill-brand-acento text-brand-texto shrink-0" aria-hidden="true" />
@@ -122,19 +123,19 @@ const manejarAgregar = (): void => {
         </div>
 
         <!-- Cuerpo de la tarjeta -->
-        <div class="flex flex-col flex-1 justify-between p-4 gap-3">
+        <div class="flex flex-col flex-1 justify-between p-3.5 sm:p-4 gap-3">
             <div class="space-y-1.5">
                 <span
                     v-if="producto.categoria?.nombre"
-                    class="inline-block font-mono text-xs font-bold uppercase tracking-wider text-brand-secundario"
+                    class="inline-block font-mono text-[11px] font-bold uppercase tracking-wider text-brand-secundario"
                 >
                     {{ producto.categoria.nombre }}
                 </span>
 
-                <h3 class="font-display font-bold text-lg leading-snug text-brand-texto line-clamp-2">
+                <h3 class="font-display font-bold text-sm sm:text-base text-brand-texto group-hover:text-brand-primario transition-colors line-clamp-2">
                     <a
                         :href="detalleHref"
-                        class="hover:text-brand-primario transition-colors focus-visible:outline-none focus-visible:underline"
+                        class="focus-visible:outline-none focus-visible:underline"
                     >
                         {{ producto.nombre }}
                     </a>
@@ -148,11 +149,11 @@ const manejarAgregar = (): void => {
                 </p>
             </div>
 
-            <div class="pt-2 border-t-2 border-zinc-200 space-y-3">
+            <div class="pt-2.5 border-t border-zinc-100 space-y-2.5">
                 <div class="flex items-baseline justify-between gap-2">
                     <span class="font-mono text-xs uppercase text-zinc-500 font-medium">Precio</span>
                     <span
-                        class="font-mono font-bold text-lg text-brand-texto"
+                        class="font-mono font-bold text-sm sm:text-base text-brand-texto"
                         data-testid="product-price"
                     >
                         {{ precioFormateado }}
@@ -164,7 +165,7 @@ const manejarAgregar = (): void => {
                     :disabled="agotado"
                     :aria-disabled="agotado"
                     :class="[
-                        'w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 font-display font-bold text-sm border-2 border-brand-texto transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario focus-visible:ring-offset-1',
+                        'min-h-[44px] w-full inline-flex items-center justify-center gap-2 rounded-lg py-2 px-3 text-xs sm:text-sm font-bold font-display transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario',
                         clasesBotonAgregar,
                     ]"
                     data-testid="add-to-order-button"

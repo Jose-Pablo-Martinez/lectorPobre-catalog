@@ -31,8 +31,8 @@ const cartDrawerOpen = ref(false);
 let hydrated = false;
 
 /**
- * Calcula las clases visuales del botón "Agregar a mi lista de pedido" según su estado,
- * evitando ternarios anidados en plantillas Vue.
+ * Calcula las clases visuales táctiles del botón "Agregar a mi lista de pedido" según su estado,
+ * estandarizando la respuesta mecánica con el botón de WhatsApp y evitando ternarios anidados.
  */
 export function obtenerClasesBotonPedido(
     agotado: boolean,
@@ -41,12 +41,12 @@ export function obtenerClasesBotonPedido(
 ): string {
     const shadowClass = sombra === 'hard' ? 'shadow-hard' : 'shadow-hard-sm';
     if (agotado) {
-        return 'bg-zinc-200 text-zinc-500 cursor-not-allowed opacity-75';
+        return 'bg-zinc-200 text-zinc-500 border-2 border-zinc-400 cursor-not-allowed';
     }
     if (recienAgregado) {
-        return `bg-emerald-400 text-brand-texto ${shadowClass}`;
+        return `bg-emerald-400 text-brand-texto border-2 border-brand-texto ${shadowClass}`;
     }
-    return `bg-brand-primario text-white ${shadowClass} hover:opacity-95 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`;
+    return `bg-brand-primario text-white border-2 border-brand-texto ${shadowClass} hover:opacity-95 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`;
 }
 
 function isValidCartItem(entry: unknown): entry is CartItem {

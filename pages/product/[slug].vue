@@ -1,6 +1,6 @@
 <!--
   @file [slug].vue
-  @description Vista de detalle de producto (`/product/[slug]`).
+  @description Vista de detalle de producto (`/product/[slug]`) con estética comercial limpia.
   Presenta galería 1:1 con miniaturas, verificación de stock en tiempo real (`useStock`, RF-03),
   precio, descripción, botón de agregar a la Lista de Pedido, botón de compra directa por WhatsApp
   (`WhatsAppButton`, RF-17), sistema de calificación por estrellas con desglose (`StarRating`, RF-06),
@@ -130,7 +130,7 @@ if (props.initialProducto === undefined) {
                     catalogoProductos.value = val.catalogo;
                 }
             },
-            { immediate: true }
+            { immediate: true, flush: 'sync' }
         );
     } catch {
         // Fallback seguro en entorno de pruebas unitarias
@@ -285,7 +285,7 @@ try {
         <nav aria-label="Ruta de navegación">
             <a
                 href="/"
-                class="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-brand-acento text-brand-texto font-mono text-xs font-bold uppercase border-2 border-brand-texto shadow-hard-sm transition-colors"
+                class="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-display text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                 data-testid="back-to-catalog-link"
             >
                 <ArrowLeft class="w-4 h-4" aria-hidden="true" />
@@ -300,7 +300,7 @@ try {
         >
             <!-- Columna izquierda: Galería 1:1 y miniaturas -->
             <div class="lg:col-span-6 space-y-4">
-                <div class="aspect-square w-full bg-white border-2 border-brand-texto shadow-hard overflow-hidden flex items-center justify-center">
+                <div class="aspect-square w-full bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex items-center justify-center">
                     <img
                         v-if="imagenActivaUrl"
                         :src="imagenActivaUrl"
@@ -313,11 +313,11 @@ try {
                     />
                     <div
                         v-else
-                        class="w-full h-full flex flex-col items-center justify-center gap-3 p-8 bg-brand-fondo/60 text-zinc-500"
+                        class="w-full h-full flex flex-col items-center justify-center gap-3 p-8 bg-zinc-50 text-zinc-400"
                         data-testid="detail-image-placeholder"
                     >
                         <ImageIcon class="w-16 h-16 stroke-[1.5]" aria-hidden="true" />
-                        <span class="font-mono text-sm uppercase font-bold tracking-wider">
+                        <span class="font-sans text-sm font-medium tracking-wide">
                             Ilustración del Taller Lector Pobre
                         </span>
                     </div>
@@ -334,10 +334,10 @@ try {
                         v-for="(img, idx) in galeriaImagenes"
                         :key="idx"
                         type="button"
-                        class="aspect-square bg-white border-2 border-brand-texto overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                        class="aspect-square bg-white rounded-lg border border-zinc-200 overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40"
                         :class="
                             idx === indiceImagenActiva
-                                ? 'ring-2 ring-brand-primario shadow-hard-sm'
+                                ? 'ring-2 ring-brand-secundario border-brand-secundario shadow-sm'
                                 : 'opacity-75 hover:opacity-100'
                         "
                         :aria-label="`Ver imagen ${idx + 1} de ${producto.nombre}`"
@@ -358,12 +358,12 @@ try {
 
             <!-- Columna derecha: Información, stock, compra y calificación -->
             <div class="lg:col-span-6 space-y-6">
-                <div class="p-6 bg-white border-2 border-brand-texto shadow-hard space-y-5">
+                <div class="p-6 sm:p-7 bg-white rounded-2xl border border-zinc-200 shadow-sm space-y-5">
                     <!-- Categoría y badge de stock en tiempo real (RF-03) -->
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <span
                             v-if="producto.categoria?.nombre"
-                            class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-fondo border-2 border-brand-texto font-mono text-xs font-bold uppercase text-brand-secundario"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secundario/10 border border-brand-secundario/20 font-sans text-xs font-semibold text-brand-secundario"
                             data-testid="detail-category"
                         >
                             <Tag class="w-3.5 h-3.5" aria-hidden="true" />
@@ -381,7 +381,7 @@ try {
                     <!-- Título y precio -->
                     <div class="space-y-2">
                         <h1
-                            class="font-display font-extrabold text-2xl sm:text-3xl text-brand-texto leading-tight"
+                            class="font-display font-extrabold text-2xl sm:text-3xl text-zinc-900 leading-tight"
                             data-testid="detail-title"
                         >
                             {{ producto.nombre }}
@@ -398,7 +398,7 @@ try {
                     <!-- Descripción completa -->
                     <p
                         v-if="producto.descripcion"
-                        class="font-sans text-sm sm:text-base text-zinc-700 leading-relaxed pt-2 border-t border-zinc-200"
+                        class="font-sans text-sm sm:text-base text-zinc-600 leading-relaxed pt-3 border-t border-zinc-100"
                         data-testid="detail-description"
                     >
                         {{ producto.descripcion }}
@@ -413,25 +413,25 @@ try {
                         <span
                             v-for="tag in producto.palabrasClave"
                             :key="tag"
-                            class="px-2 py-0.5 bg-zinc-100 border border-brand-texto font-mono text-[11px] text-zinc-700"
+                            class="px-2.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 font-sans text-xs text-zinc-600"
                         >
                             #{{ tag }}
                         </span>
                     </div>
 
                     <!-- Selector de cantidad y botones de acción (Lista de Pedido + WhatsApp directo) -->
-                    <div class="pt-4 border-t-2 border-brand-texto space-y-3">
+                    <div class="pt-4 border-t border-zinc-200 space-y-3">
                         <div
                             v-if="!agotado"
                             class="flex items-center justify-between gap-4"
                         >
-                            <span class="font-mono text-xs font-bold uppercase text-brand-texto">
+                            <span class="font-sans text-xs font-semibold text-zinc-700">
                                 Cantidad:
                             </span>
-                            <div class="inline-flex items-center border-2 border-brand-texto bg-zinc-50">
+                            <div class="inline-flex items-center rounded-lg border border-zinc-300 bg-zinc-50 overflow-hidden">
                                 <button
                                     type="button"
-                                    class="px-3 py-1.5 hover:bg-zinc-200 transition-colors"
+                                    class="px-3 py-1.5 hover:bg-zinc-200 text-zinc-700 transition-colors"
                                     aria-label="Disminuir cantidad"
                                     data-testid="detail-decrease-qty"
                                     @click="disminuirCantidad"
@@ -439,7 +439,7 @@ try {
                                     <Minus class="w-4 h-4" aria-hidden="true" />
                                 </button>
                                 <span
-                                    class="px-4 py-1 font-mono text-sm font-bold border-x-2 border-brand-texto"
+                                    class="px-4 py-1 font-mono text-sm font-bold text-zinc-900 border-x border-zinc-300"
                                     data-testid="detail-qty-value"
                                 >
                                     {{ cantidadSeleccionada }}
@@ -447,7 +447,7 @@ try {
                                 <button
                                     type="button"
                                     :disabled="cantidadSeleccionada >= stockActual"
-                                    class="px-3 py-1.5 hover:bg-zinc-200 disabled:opacity-40 transition-colors"
+                                    class="px-3 py-1.5 hover:bg-zinc-200 text-zinc-700 disabled:opacity-40 transition-colors"
                                     aria-label="Aumentar cantidad"
                                     data-testid="detail-increase-qty"
                                     @click="aumentarCantidad"
@@ -463,7 +463,7 @@ try {
                             :disabled="agotado"
                             :aria-disabled="agotado"
                             :class="[
-                                'w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 font-display font-bold text-base border-2 border-brand-texto transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario',
+                                'min-h-[48px] w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg font-display font-bold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario',
                                 clasesBotonDetallePedido,
                             ]"
                             data-testid="detail-add-to-order"
@@ -482,7 +482,7 @@ try {
                             </template>
                         </button>
 
-                        <!-- Botón directo de WhatsApp (RF-17) -->
+                        <!-- Botón directo de WhatsApp (RF-17) - Diseño visual intacto -->
                         <WhatsAppButton
                             :href="urlWhatsApp"
                             :disabled="agotado"
@@ -510,10 +510,10 @@ try {
         <!-- Estado de producto no encontrado -->
         <div
             v-else
-            class="p-8 bg-white border-2 border-brand-texto shadow-hard text-center space-y-3"
+            class="p-8 bg-white rounded-2xl border border-zinc-200 shadow-sm text-center space-y-3"
             data-testid="product-not-found"
         >
-            <h1 class="font-display font-extrabold text-2xl text-brand-texto">
+            <h1 class="font-display font-bold text-2xl text-zinc-900">
                 Pieza no encontrada
             </h1>
             <p class="font-sans text-sm text-zinc-600">

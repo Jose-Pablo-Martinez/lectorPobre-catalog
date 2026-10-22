@@ -1,7 +1,7 @@
 <!--
   @file StockIndicator.vue
-  @description Badge atómico neobrutalista que muestra el estado de disponibilidad de un producto
-  ("En Stock", "En Stock - Pocas unidades" o "Agotado") empleando iconografía vectorial de Lucide.
+  @description Badge atómico táctil del taller que muestra el estado de disponibilidad de un producto
+  ("En Stock", "En Stock · Pocas unidades" o "Agotado") empleando iconografía vectorial de Lucide.
   @satisfies RF-03, RF-14
 -->
 <script setup lang="ts">
@@ -42,11 +42,11 @@ const etiquetaTexto = computed<string>(() => {
 const clasesBadge = computed<string>(() => {
     switch (estado.value) {
         case 'cargando':
-            return 'bg-white text-brand-texto';
+            return 'bg-zinc-100 text-zinc-800';
         case 'agotado':
             return 'bg-rose-100 text-rose-950';
         case 'bajo':
-            return 'bg-brand-acento text-brand-texto';
+            return 'bg-amber-100 text-amber-950';
         case 'disponible':
         default:
             return 'bg-emerald-100 text-emerald-950';

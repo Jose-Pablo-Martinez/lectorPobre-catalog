@@ -32,6 +32,8 @@ export default {
         },
       },
       boxShadow: {
+        soft: '0 2px 8px rgba(0, 0, 0, 0.06)',
+        'soft-md': '0 8px 20px rgba(0, 0, 0, 0.1)',
         hard: '4px 4px 0px var(--color-brand-texto, #18181b)',
         'hard-sm': '2px 2px 0px var(--color-brand-texto, #18181b)',
         'hard-lg': '6px 6px 0px var(--color-brand-texto, #18181b)',

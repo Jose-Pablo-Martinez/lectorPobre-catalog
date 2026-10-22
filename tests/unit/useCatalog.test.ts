@@ -5,7 +5,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { useCatalog } from '~/composables/useCatalog';
+import {
+    seleccionarProductoDestacado,
+    useCatalog,
+} from '~/composables/useCatalog';
 import type { Categoria, Producto } from '~/types/sanity';
 
 const CATEGORIAS_MOCK: Categoria[] = [
@@ -81,13 +84,23 @@ const PRODUCTOS_MOCK: Producto[] = [
 
 describe('UT-VUE-01, UT-VUE-02, UT-VUE-03: Composable useCatalog', () => {
     it('UT-VUE-01: expone solo productos activos por defecto', () => {
-        const { productosFiltrados } = useCatalog({
+        const { productosFiltrados, productoDestacado } = useCatalog({
             initialProductos: PRODUCTOS_MOCK,
             initialCategorias: CATEGORIAS_MOCK,
         });
 
         expect(productosFiltrados.value).toHaveLength(2);
         expect(productosFiltrados.value.some((p) => p._id === 'prod-3')).toBe(false);
+        expect(productoDestacado.value).not.toBeNull();
+        expect(productoDestacado.value?.activo).toBe(true);
+
+        // Validar selector modular por popularidad y catálogo vacío
+        const porPopularidad = seleccionarProductoDestacado(
+            PRODUCTOS_MOCK,
+            'popularidad'
+        );
+        expect(porPopularidad?._id).toBe('prod-1');
+        expect(seleccionarProductoDestacado([], 'aleatorio')).toBeNull();
     });
 
     it('UT-VUE-02: filtra correctamente por categoría seleccionada', () => {

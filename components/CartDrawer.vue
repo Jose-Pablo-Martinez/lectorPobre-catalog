@@ -93,29 +93,29 @@ onBeforeUnmount(() => {
     >
         <!-- Fondo semitransparente -->
         <div
-            class="fixed inset-0 bg-black/60 transition-opacity"
+            class="fixed inset-0 bg-zinc-900/50 backdrop-blur-[1px] transition-opacity"
             aria-hidden="true"
             @click="closeCart"
         />
 
         <!-- Panel del cotizador -->
         <aside
-            class="relative z-10 w-full max-h-[88vh] md:max-h-none md:max-w-md bg-brand-fondo text-brand-texto border-t-2 md:border-t-0 md:border-l-2 border-brand-texto shadow-hard-lg flex flex-col justify-between overflow-hidden"
+            class="relative z-10 w-full max-h-[88vh] md:max-h-none md:max-w-md bg-zinc-50 text-zinc-900 rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-zinc-200 shadow-xl flex flex-col justify-between overflow-hidden"
         >
             <!-- Encabezado -->
-            <header class="flex items-center justify-between px-5 py-4 bg-white border-b-2 border-brand-texto">
+            <header class="flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-200">
                 <div class="flex items-center gap-2.5">
-                    <div class="p-2 bg-brand-acento border-2 border-brand-texto">
-                        <ShoppingBag class="w-5 h-5 text-brand-texto" aria-hidden="true" />
+                    <div class="p-2 rounded-lg bg-brand-secundario/10 text-brand-secundario">
+                        <ShoppingBag class="w-5 h-5" aria-hidden="true" />
                     </div>
                     <div>
                         <h2
                             id="cart-drawer-title"
-                            class="font-display font-extrabold text-lg leading-tight"
+                            class="font-display font-bold text-lg text-zinc-900 leading-tight"
                         >
                             Mi Lista de Pedido
                         </h2>
-                        <p class="font-mono text-xs text-zinc-600">
+                        <p class="font-sans text-xs text-zinc-500">
                             {{ totalItems }} {{ totalItems === 1 ? 'pieza seleccionada' : 'piezas seleccionadas' }}
                         </p>
                     </div>
@@ -123,7 +123,7 @@ onBeforeUnmount(() => {
 
                 <button
                     type="button"
-                    class="p-2 bg-white hover:bg-zinc-100 border-2 border-brand-texto transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                    class="p-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40"
                     aria-label="Cerrar lista de pedido"
                     data-testid="close-cart-button"
                     @click="closeCart"
@@ -133,14 +133,14 @@ onBeforeUnmount(() => {
             </header>
 
             <!-- Cuerpo con lista de productos -->
-            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+            <div class="flex-1 overflow-y-auto p-5 space-y-3">
                 <div
                     v-if="items.length === 0"
-                    class="py-12 px-4 text-center bg-white border-2 border-brand-texto shadow-hard-sm space-y-3"
+                    class="py-12 px-4 text-center bg-white rounded-xl border border-zinc-200 shadow-sm space-y-3"
                     data-testid="cart-empty-state"
                 >
                     <ShoppingBag class="w-12 h-12 mx-auto text-zinc-400 stroke-[1.5]" aria-hidden="true" />
-                    <p class="font-display font-bold text-base text-brand-texto">
+                    <p class="font-display font-bold text-base text-zinc-900">
                         Tu lista de pedido está vacía
                     </p>
                     <p class="font-sans text-sm text-zinc-600 max-w-xs mx-auto">
@@ -152,11 +152,11 @@ onBeforeUnmount(() => {
                     <li
                         v-for="item in items"
                         :key="item.id"
-                        class="flex gap-3 p-3 bg-white border-2 border-brand-texto shadow-hard-sm"
+                        class="flex gap-3 p-3.5 bg-white rounded-xl border border-zinc-200 shadow-sm"
                         data-testid="cart-item"
                     >
                         <!-- Miniatura 1:1 -->
-                        <div class="w-16 h-16 shrink-0 aspect-square bg-zinc-100 border-2 border-brand-texto flex items-center justify-center overflow-hidden">
+                        <div class="w-16 h-16 shrink-0 aspect-square bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-center overflow-hidden">
                             <img
                                 v-if="obtenerMiniatura(item.imagenPrincipal)"
                                 :src="obtenerMiniatura(item.imagenPrincipal) ?? ''"
@@ -174,12 +174,12 @@ onBeforeUnmount(() => {
                         <div class="flex-1 min-w-0 flex flex-col justify-between gap-2">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <span class="block font-mono text-[11px] uppercase font-bold text-brand-secundario">
+                                    <span class="block text-[11px] uppercase tracking-wider font-semibold text-brand-secundario">
                                         {{ item.categoria }}
                                     </span>
                                     <a
                                         :href="`/product/${item.slug}`"
-                                        class="font-display font-bold text-sm text-brand-texto hover:text-brand-primario line-clamp-1"
+                                        class="font-display font-bold text-sm text-zinc-900 hover:text-brand-primario line-clamp-1"
                                         @click="closeCart"
                                     >
                                         {{ item.nombre }}
@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
 
                                 <button
                                     type="button"
-                                    class="p-1 text-zinc-500 hover:text-rose-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                                    class="p-1 text-zinc-400 hover:text-rose-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 rounded"
                                     :aria-label="`Quitar ${item.nombre} de la lista`"
                                     data-testid="remove-cart-item"
                                     @click="removeItem(item.id)"
@@ -199,10 +199,10 @@ onBeforeUnmount(() => {
 
                             <div class="flex items-center justify-between gap-2 pt-1">
                                 <!-- Selector de cantidad -->
-                                <div class="inline-flex items-center border-2 border-brand-texto bg-zinc-50">
+                                <div class="inline-flex items-center rounded-lg border border-zinc-200 bg-zinc-50 overflow-hidden">
                                     <button
                                         type="button"
-                                        class="px-2 py-1 hover:bg-zinc-200 transition-colors focus-visible:outline-none"
+                                        class="px-2 py-1 hover:bg-zinc-200 text-zinc-700 transition-colors focus-visible:outline-none"
                                         :aria-label="`Disminuir cantidad de ${item.nombre}`"
                                         data-testid="decrease-qty"
                                         @click="updateQuantity(item.id, item.cantidad - 1)"
@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
                                         <Minus class="w-3.5 h-3.5" aria-hidden="true" />
                                     </button>
                                     <span
-                                        class="px-2.5 py-0.5 font-mono text-xs font-bold border-x-2 border-brand-texto"
+                                        class="px-2.5 py-0.5 font-mono text-xs font-bold text-zinc-900 border-x border-zinc-200"
                                         data-testid="item-qty"
                                     >
                                         {{ item.cantidad }}
@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
                                     <button
                                         type="button"
                                         :disabled="item.cantidad >= item.stockMax"
-                                        class="px-2 py-1 hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none"
+                                        class="px-2 py-1 hover:bg-zinc-200 text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none"
                                         :aria-label="`Aumentar cantidad de ${item.nombre}`"
                                         data-testid="increase-qty"
                                         @click="updateQuantity(item.id, item.cantidad + 1)"
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
                                     </button>
                                 </div>
 
-                                <span class="font-mono font-bold text-sm text-brand-texto">
+                                <span class="font-mono font-bold text-sm text-zinc-900">
                                     {{ formatearPrecioMXN(item.precio * item.cantidad) }}
                                 </span>
                             </div>
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
             <!-- Pie con resumen y CTA de WhatsApp -->
             <footer
                 v-if="items.length > 0"
-                class="p-5 bg-white border-t-2 border-brand-texto space-y-4"
+                class="p-5 bg-white border-t border-zinc-200 space-y-4"
             >
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
                             Total estimado del pedido
                         </span>
                         <span
-                            class="font-mono font-extrabold text-xl text-brand-texto"
+                            class="font-mono font-extrabold text-xl text-zinc-900"
                             data-testid="cart-total"
                         >
                             {{ formatearPrecioMXN(totalAmount) }}
@@ -267,7 +267,7 @@ onBeforeUnmount(() => {
 
                     <button
                         type="button"
-                        class="w-full py-2 font-mono text-xs font-bold uppercase tracking-wider text-zinc-600 hover:text-rose-700 border-2 border-transparent hover:border-brand-texto transition-colors"
+                        class="w-full py-2 rounded-lg font-sans text-xs font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                         data-testid="clear-cart-button"
                         @click="clearCart"
                     >

@@ -78,10 +78,10 @@ const manejarSubmit = async (): Promise<void> => {
         <!-- Encabezado y selector de orden -->
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-                <MessageSquare class="w-5 h-5 text-brand-primario" aria-hidden="true" />
+                <MessageSquare class="w-5 h-5 text-brand-secundario" aria-hidden="true" />
                 <h2
                     id="comments-heading"
-                    class="font-display font-bold text-xl text-brand-texto"
+                    class="font-display font-bold text-xl text-zinc-900"
                 >
                     Comentarios de clientes ({{ comentariosAprobados.length }})
                 </h2>
@@ -89,14 +89,14 @@ const manejarSubmit = async (): Promise<void> => {
 
             <div
                 v-if="comentariosAprobados.length > 1"
-                class="flex items-center gap-2 font-mono text-xs"
+                class="flex items-center gap-2 font-sans text-xs"
             >
-                <ArrowUpDown class="w-3.5 h-3.5 text-brand-texto" aria-hidden="true" />
-                <label for="comment-sort" class="font-bold uppercase">Ordenar:</label>
+                <ArrowUpDown class="w-3.5 h-3.5 text-zinc-500" aria-hidden="true" />
+                <label for="comment-sort" class="font-semibold text-zinc-600">Ordenar:</label>
                 <select
                     id="comment-sort"
                     v-model="orden"
-                    class="px-2.5 py-1 bg-white border-2 border-brand-texto font-mono text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                    class="px-3 py-1.5 bg-white rounded-lg border border-zinc-300 font-sans text-xs font-medium text-zinc-700 shadow-sm focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none"
                     data-testid="comment-sort-select"
                 >
                     <option value="recientes">Más recientes primero</option>
@@ -114,15 +114,15 @@ const manejarSubmit = async (): Promise<void> => {
             <li
                 v-for="com in comentariosAprobados"
                 :key="com._id"
-                class="p-4 bg-white border-2 border-brand-texto shadow-hard-sm space-y-1.5"
+                class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-1.5"
                 data-testid="comment-item"
             >
-                <p class="font-sans text-sm text-brand-texto leading-relaxed">
+                <p class="font-sans text-sm text-zinc-800 leading-relaxed">
                     {{ com.texto }}
                 </p>
                 <span
                     v-if="com.fechaCreacion ?? com._createdAt"
-                    class="block font-mono text-xs text-zinc-500"
+                    class="block font-sans text-xs text-zinc-500"
                 >
                     {{ formatearFecha(com.fechaCreacion ?? com._createdAt) }}
                 </span>
@@ -130,7 +130,7 @@ const manejarSubmit = async (): Promise<void> => {
         </ul>
         <p
             v-else
-            class="p-4 bg-white border-2 border-brand-texto font-sans text-sm text-zinc-600"
+            class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm font-sans text-sm text-zinc-600"
             data-testid="no-comments-message"
         >
             Aún no hay comentarios publicados para esta pieza. Sé la primera persona en dejar tu opinión.
@@ -138,7 +138,7 @@ const manejarSubmit = async (): Promise<void> => {
 
         <!-- Formulario para dejar comentario -->
         <form
-            class="p-5 bg-white border-2 border-brand-texto shadow-hard space-y-4"
+            class="p-5 sm:p-6 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-4"
             novalidate
             data-testid="comment-form"
             @submit.prevent="manejarSubmit"
@@ -146,7 +146,7 @@ const manejarSubmit = async (): Promise<void> => {
             <div class="space-y-1">
                 <label
                     for="comment-textarea"
-                    class="block font-display font-bold text-base text-brand-texto"
+                    class="block font-display font-bold text-base text-zinc-900"
                 >
                     Deja un comentario sobre este producto
                 </label>
@@ -162,11 +162,11 @@ const manejarSubmit = async (): Promise<void> => {
                     rows="3"
                     :maxlength="COMMENT_MAX_LENGTH"
                     placeholder="Escribe qué te pareció el diseño, acabado o materiales..."
-                    class="w-full p-3 bg-brand-fondo/40 text-brand-texto font-sans text-sm border-2 border-brand-texto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario"
+                    class="w-full p-3 bg-zinc-50 text-zinc-900 rounded-lg font-sans text-sm border border-zinc-300 focus:bg-white focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none transition-all"
                     data-testid="comment-textarea"
                 />
 
-                <div class="flex items-center justify-between font-mono text-xs text-zinc-600">
+                <div class="flex items-center justify-between font-sans text-xs text-zinc-500">
                     <span>Mínimo 3 caracteres</span>
                     <span data-testid="comment-char-counter">
                         {{ caracteresRestantes }} / {{ COMMENT_MAX_LENGTH }} caracteres restantes
@@ -176,7 +176,7 @@ const manejarSubmit = async (): Promise<void> => {
 
             <div
                 v-if="error"
-                class="flex items-center gap-2 p-3 bg-rose-100 border-2 border-brand-texto text-rose-900 font-sans text-xs font-semibold"
+                class="flex items-center gap-2 p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-800 font-sans text-xs font-semibold"
                 role="alert"
                 data-testid="comment-error"
             >
@@ -186,7 +186,7 @@ const manejarSubmit = async (): Promise<void> => {
 
             <output
                 v-if="enviado"
-                class="flex items-center gap-2 p-3 bg-emerald-100 border-2 border-brand-texto text-emerald-950 font-sans text-xs font-semibold"
+                class="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-800 font-sans text-xs font-semibold"
                 data-testid="comment-success"
             >
                 <CheckCircle2 class="w-4 h-4 shrink-0" aria-hidden="true" />

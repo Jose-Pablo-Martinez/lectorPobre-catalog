@@ -112,28 +112,28 @@ const productosSimilares = computed<Producto[]>(() => {
 <template>
     <section
         v-if="productosSimilares.length > 0"
-        class="space-y-5 pt-8 border-t-2 border-brand-texto"
+        class="space-y-5 pt-8 border-t border-zinc-200"
         aria-labelledby="similar-products-heading"
         data-testid="similar-products-section"
     >
         <div class="flex items-center gap-2.5">
-            <div class="p-2 bg-brand-acento border-2 border-brand-texto">
-                <Layers class="w-5 h-5 text-brand-texto" aria-hidden="true" />
+            <div class="p-2 rounded-lg bg-brand-acento text-brand-texto border-2 border-brand-texto shadow-hard-sm">
+                <Layers class="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
                 <h2
                     id="similar-products-heading"
-                    class="font-display font-extrabold text-2xl text-brand-texto"
+                    class="font-display font-extrabold text-xl sm:text-2xl text-brand-texto"
                 >
                     Piezas similares del taller
                 </h2>
-                <p class="font-sans text-xs text-zinc-600">
+                <p class="font-sans text-xs text-zinc-500">
                     Recomendadas por temática, técnica artesanal y categoría
                 </p>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <ProductCard
                 v-for="item in productosSimilares"
                 :key="item._id"
