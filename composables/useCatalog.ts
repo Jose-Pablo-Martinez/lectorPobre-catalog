@@ -73,6 +73,34 @@ export function seleccionarProductoDestacado(
 }
 
 /**
+ * Genera una leyenda de "caja blanca" (explicabilidad algorítmica) que detalla
+ * de manera transparente al usuario la razón por la que se recomienda la pieza.
+ *
+ * @param estrategia Estrategia de selección ('aleatorio' | 'popularidad').
+ * @param esPrimeraVisita Si el usuario carece de historial de navegación previo en la tienda.
+ * @param producto Objeto del producto recomendado (opcional, para enriquecer con calificaciones).
+ */
+export function obtenerExplicacionRecomendacion(
+    estrategia: EstrategiaDestacado = 'aleatorio',
+    esPrimeraVisita = false,
+    producto?: Producto | null
+): string {
+    if (estrategia === 'popularidad') {
+        const calificacion = producto?.calificacionPromedio;
+        if (typeof calificacion === 'number' && calificacion > 0) {
+            return `Popular ahora en la tienda (${calificacion.toFixed(1)} ★): pieza favorita de nuestra comunidad por sus altas calificaciones.`;
+        }
+        return 'Popular ahora en la tienda (lo más vendido): pieza destacada por el interés y preferencia de la comunidad.';
+    }
+
+    if (esPrimeraVisita) {
+        return 'Recomendado por ser tu primera vez: pieza destacada del taller seleccionada para darte la bienvenida.';
+    }
+
+    return 'Descubrimiento del taller: sugerencia aleatoria para explorar piezas únicas de nuestro catálogo.';
+}
+
+/**
  * Proyección GROQ compartida de campos de `producto` para evitar duplicación de consultas
  * entre la vista de catálogo y la vista de detalle.
  */
@@ -304,6 +332,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         productoRecomendado,
         productoDestacado: productoRecomendado,
         estrategiaDestacado,
+        obtenerExplicacionRecomendacion,
         categoriaSeleccionada,
         seleccionarCategoria,
         searchQuery,

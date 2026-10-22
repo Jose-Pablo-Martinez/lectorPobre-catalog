@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+    obtenerExplicacionRecomendacion,
     seleccionarProductoDestacado,
     useCatalog,
 } from '~/composables/useCatalog';
@@ -101,6 +102,21 @@ describe('UT-VUE-01, UT-VUE-02, UT-VUE-03: Composable useCatalog', () => {
         );
         expect(porPopularidad?._id).toBe('prod-1');
         expect(seleccionarProductoDestacado([], 'aleatorio')).toBeNull();
+
+        // Validar leyenda de caja blanca (explicabilidad de la recomendación)
+        const explicacionPrimeraVez = obtenerExplicacionRecomendacion('aleatorio', true);
+        expect(explicacionPrimeraVez).toContain('primera vez');
+
+        const explicacionDescubrimiento = obtenerExplicacionRecomendacion('aleatorio', false);
+        expect(explicacionDescubrimiento).toContain('Descubrimiento del taller');
+
+        const explicacionPopular = obtenerExplicacionRecomendacion(
+            'popularidad',
+            false,
+            porPopularidad
+        );
+        expect(explicacionPopular).toContain('Popular ahora en la tienda');
+        expect(explicacionPopular).toContain('4.8 ★');
     });
 
     it('UT-VUE-02: filtra correctamente por categoría seleccionada', () => {

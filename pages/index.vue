@@ -15,6 +15,7 @@ import {
     Check,
     ChevronLeft,
     ChevronRight,
+    CircleAlert,
     Filter,
     Image as ImageIcon,
     Search,
@@ -28,6 +29,7 @@ import RecentlyViewed from '~/components/RecentlyViewed.vue';
 import type { Suggestion } from '~/composables/search/types';
 import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import { useCatalog } from '~/composables/useCatalog';
+import { useRecentlyViewed } from '~/composables/useRecentlyViewed';
 import { useSanityImage } from '~/composables/useSanityImage';
 import { formatearPrecioMXN } from '~/composables/useWhatsApp';
 
@@ -36,6 +38,8 @@ const {
     categorias,
     configGlobal,
     productoRecomendado,
+    estrategiaDestacado,
+    obtenerExplicacionRecomendacion,
     categoriaSeleccionada,
     seleccionarCategoria,
     searchQuery,
@@ -52,11 +56,34 @@ const {
 
 const { urlFor } = useSanityImage();
 const { addItem } = useCart();
+const { hasHistory } = useRecentlyViewed();
 
 const mostrarDropdownSugerencias = ref(false);
 const indiceSugerenciaActiva = ref(-1);
 const errorImagenDestacado = ref(false);
 const recienAgregadoDestacado = ref(false);
+
+const motivoRecomendacion = computed<string>(() =>
+    obtenerExplicacionRecomendacion(
+        estrategiaDestacado.value,
+        !hasHistory.value,
+        productoRecomendado.value
+    )
+);
+
+const mostrarExplicacionRecomendado = ref(false);
+
+const conmutarExplicacionRecomendado = (): void => {
+    mostrarExplicacionRecomendado.value = !mostrarExplicacionRecomendado.value;
+};
+
+const abrirExplicacionHover = (): void => {
+    mostrarExplicacionRecomendado.value = true;
+};
+
+const cerrarExplicacionHover = (): void => {
+    mostrarExplicacionRecomendado.value = false;
+};
 
 const umbralStockBajo = computed<number>(
     () => configGlobal.value?.umbralStockBajo ?? 5
@@ -287,6 +314,56 @@ try {
                     >
                         {{ productoRecomendado.categoria.nombre }}
                     </span>
+                </div>
+
+                <!-- Disparador interactivo y tooltip de explicabilidad de caja blanca -->
+                <div class="relative inline-block">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-brand-secundario transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario rounded px-2 py-1 -ml-1 cursor-pointer"
+                        :aria-expanded="mostrarExplicacionRecomendado"
+                        aria-describedby="featured-recommendation-tooltip"
+                        data-testid="featured-reason-trigger"
+                        @mouseenter="abrirExplicacionHover"
+                        @mouseleave="cerrarExplicacionHover"
+                        @focus="abrirExplicacionHover"
+                        @blur="cerrarExplicacionHover"
+                        @click="conmutarExplicacionRecomendado"
+                        @keydown.escape="cerrarExplicacionHover"
+                    >
+                        <CircleAlert class="w-4 h-4 text-brand-secundario shrink-0" aria-hidden="true" />
+                        <span class="underline decoration-zinc-300 decoration-dashed underline-offset-4 hover:decoration-brand-secundario">
+                            Descubre por qué se recomienda
+                        </span>
+                    </button>
+
+                    <!-- Tooltip flotante con la explicación de caja blanca (hover en escritorio, click/touch en móvil) -->
+                    <Transition
+                        enter-active-class="transition duration-150 ease-out"
+                        enter-from-class="opacity-0 translate-y-1"
+                        enter-to-class="opacity-100 translate-y-0"
+                        leave-active-class="transition duration-100 ease-in"
+                        leave-from-class="opacity-100 translate-y-0"
+                        leave-to-class="opacity-0 translate-y-1"
+                    >
+                        <div
+                            v-if="mostrarExplicacionRecomendado"
+                            id="featured-recommendation-tooltip"
+                            role="tooltip"
+                            class="absolute z-20 left-0 top-full mt-2 w-72 sm:w-80 p-3.5 bg-white border-2 border-brand-texto shadow-hard-sm rounded-xl text-xs text-zinc-700 leading-relaxed pointer-events-auto"
+                            data-testid="featured-product-reason"
+                        >
+                            <div class="flex items-start gap-2.5">
+                                <CircleAlert class="w-4 h-4 text-brand-secundario shrink-0 mt-0.5" aria-hidden="true" />
+                                <div class="space-y-1">
+                                    <p class="font-bold text-brand-texto font-display">
+                                        Transparencia del Taller
+                                    </p>
+                                    <p class="text-zinc-600">{{ motivoRecomendacion }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </Transition>
                 </div>
 
                 <div class="space-y-2">
