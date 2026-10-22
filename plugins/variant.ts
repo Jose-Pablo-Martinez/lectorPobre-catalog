@@ -6,7 +6,7 @@
  * @satisfies RF-16
  */
 
-import { buildSanityImageUrl } from '~/composables/useSanityImage';
+import { buildSanityImageUrl, fetchGlobalConfigSafe } from '~/composables/useSanityImage';
 import type { ConfiguracionGlobal } from '~/types/sanity';
 
 export const VARIANTES_PERMITIDAS = ['clasico', 'moderno', 'minimalista'] as const;
@@ -41,24 +41,10 @@ export interface VariantPluginDeps {
 export async function ejecutarPluginVariante(
     deps: VariantPluginDeps = {}
 ): Promise<{ claseVariante: string; estilosExtra: Array<{ innerHTML: string }> }> {
-    let configData: Partial<ConfiguracionGlobal> | null = null;
-
-    try {
-        if (deps.fetchConfig) {
-            configData = await deps.fetchConfig();
-        } else {
-            const sanity = useSanity();
-            configData = await sanity.fetch<Partial<ConfiguracionGlobal> | null>(
-                `*[_type == "configuracionGlobal"][0]{
-                    varianteVisual,
-                    patronDecorativoActivo,
-                    patronDecorativo
-                }`
-            );
-        }
-    } catch {
-        // Fallback a 'moderno' si Sanity no responde
-    }
+    const configData = await fetchGlobalConfigSafe(
+        'varianteVisual, patronDecorativoActivo, patronDecorativo',
+        deps.fetchConfig
+    );
 
     const claseVariante = resolverClaseVariante(configData?.varianteVisual);
     const estilosExtra: Array<{ innerHTML: string }> = [];

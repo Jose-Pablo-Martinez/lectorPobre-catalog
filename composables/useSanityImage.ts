@@ -7,13 +7,16 @@
  */
 
 import { createImageUrlBuilder } from '@sanity/image-url';
-import type { SanityImage } from '~/types/sanity';
+import type { ConfiguracionGlobal, SanityImage } from '~/types/sanity';
 
 export interface SanityImageOptions {
     width?: number;
     height?: number;
     quality?: number;
 }
+
+const DEFAULT_PROJECT_ID = 'rbrk7xv9';
+const DEFAULT_DATASET = 'staging';
 
 /**
  * Construye una URL de Sanity CDN a partir de un objeto `SanityImage`.
@@ -26,8 +29,8 @@ export interface SanityImageOptions {
  */
 export function buildSanityImageUrl(
     source: SanityImage | null | undefined,
-    projectId = 'rbrk7xv9',
-    dataset = 'staging',
+    projectId = DEFAULT_PROJECT_ID,
+    dataset = DEFAULT_DATASET,
     options: SanityImageOptions = {}
 ): string | null {
     if (!source?.asset?._ref) {
@@ -35,9 +38,14 @@ export function buildSanityImageUrl(
     }
 
     try {
+        const effectiveProjectId =
+            projectId.trim().length > 0 ? projectId : DEFAULT_PROJECT_ID;
+        const effectiveDataset =
+            dataset.trim().length > 0 ? dataset : DEFAULT_DATASET;
+
         const builder = createImageUrlBuilder({
-            projectId: projectId || 'rbrk7xv9',
-            dataset: dataset || 'staging',
+            projectId: effectiveProjectId,
+            dataset: effectiveDataset,
         });
 
         let imageBuilder = builder.image(source).auto('format');
@@ -59,11 +67,31 @@ export function buildSanityImageUrl(
 }
 
 /**
+ * Consulta de forma segura campos de `configuracionGlobal` en Sanity para los plugins de build time.
+ */
+export async function fetchGlobalConfigSafe(
+    projectionFields: string,
+    customFetcher?: () => Promise<Partial<ConfiguracionGlobal> | null>
+): Promise<Partial<ConfiguracionGlobal> | null> {
+    try {
+        if (customFetcher) {
+            return await customFetcher();
+        }
+        const sanity = useSanity();
+        return await sanity.fetch<Partial<ConfiguracionGlobal> | null>(
+            `*[_type == "configuracionGlobal"][0]{ ${projectionFields} }`
+        );
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Composable para transformar referencias `SanityImage` en URLs optimizadas del CDN.
  */
 export function useSanityImage() {
-    let projectId = 'rbrk7xv9';
-    let dataset = 'staging';
+    let projectId = DEFAULT_PROJECT_ID;
+    let dataset = DEFAULT_DATASET;
 
     try {
         const sanity = useSanity();

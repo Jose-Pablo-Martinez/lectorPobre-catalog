@@ -7,6 +7,7 @@
  * @satisfies RF-15
  */
 
+import { fetchGlobalConfigSafe } from '~/composables/useSanityImage';
 import type { ConfiguracionGlobal } from '~/types/sanity';
 
 export const PALETA_IDENTIDAD: Readonly<Record<string, string>> = {
@@ -49,6 +50,10 @@ export const PALETAS_PREDEFINIDAS: Record<string, Record<string, string>> = {
     },
 };
 
+function pickHexToken(customValue: string | undefined, fallbackValue: string): string {
+    return customValue && customValue.trim().length > 0 ? customValue : fallbackValue;
+}
+
 /**
  * Resuelve el mapa de custom properties CSS correspondiente a la configuración global de Sanity.
  * Si la paleta es `'custom'`, emplea los campos `paletaCustom*` con respaldo en `identidad`.
@@ -63,16 +68,26 @@ export function resolverTokensPaleta(
 
     if (nombrePaleta === 'custom') {
         return {
-            '--color-brand-primario':
-                config?.paletaCustomPrimario || PALETA_IDENTIDAD['--color-brand-primario'],
-            '--color-brand-secundario':
-                config?.paletaCustomSecundario || PALETA_IDENTIDAD['--color-brand-secundario'],
-            '--color-brand-acento':
-                config?.paletaCustomAcento || PALETA_IDENTIDAD['--color-brand-acento'],
-            '--color-brand-fondo':
-                config?.paletaCustomFondo || PALETA_IDENTIDAD['--color-brand-fondo'],
-            '--color-brand-texto':
-                config?.paletaCustomTexto || PALETA_IDENTIDAD['--color-brand-texto'],
+            '--color-brand-primario': pickHexToken(
+                config?.paletaCustomPrimario,
+                PALETA_IDENTIDAD['--color-brand-primario']
+            ),
+            '--color-brand-secundario': pickHexToken(
+                config?.paletaCustomSecundario,
+                PALETA_IDENTIDAD['--color-brand-secundario']
+            ),
+            '--color-brand-acento': pickHexToken(
+                config?.paletaCustomAcento,
+                PALETA_IDENTIDAD['--color-brand-acento']
+            ),
+            '--color-brand-fondo': pickHexToken(
+                config?.paletaCustomFondo,
+                PALETA_IDENTIDAD['--color-brand-fondo']
+            ),
+            '--color-brand-texto': pickHexToken(
+                config?.paletaCustomTexto,
+                PALETA_IDENTIDAD['--color-brand-texto']
+            ),
         };
     }
 
@@ -98,27 +113,10 @@ export interface PalettePluginDeps {
  * Ejecuta la lógica de inicialización de paleta con dependencias inyectables para pruebas.
  */
 export async function ejecutarPluginPaleta(deps: PalettePluginDeps = {}): Promise<string> {
-    let configData: Partial<ConfiguracionGlobal> | null = null;
-
-    try {
-        if (deps.fetchConfig) {
-            configData = await deps.fetchConfig();
-        } else {
-            const sanity = useSanity();
-            configData = await sanity.fetch<Partial<ConfiguracionGlobal> | null>(
-                `*[_type == "configuracionGlobal"][0]{
-                    paletaActiva,
-                    paletaCustomPrimario,
-                    paletaCustomSecundario,
-                    paletaCustomAcento,
-                    paletaCustomFondo,
-                    paletaCustomTexto
-                }`
-            );
-        }
-    } catch {
-        // Fallback a la paleta por defecto ('identidad') si Sanity no responde
-    }
+    const configData = await fetchGlobalConfigSafe(
+        'paletaActiva, paletaCustomPrimario, paletaCustomSecundario, paletaCustomAcento, paletaCustomFondo, paletaCustomTexto',
+        deps.fetchConfig
+    );
 
     const tokens = resolverTokensPaleta(configData);
     const cssRule = generarCssVariablesRoot(tokens);
