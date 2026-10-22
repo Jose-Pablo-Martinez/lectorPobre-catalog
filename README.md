@@ -487,6 +487,12 @@ La documentación técnica completa se encuentra en la carpeta [`docs/`](docs/):
 | [`DEVELOPMENT_GUIDELINES.md`](docs/DEVELOPMENT_GUIDELINES.md) | Estándares de código y guía de estilo |
 | [`VyV_LectorPobre.md`](docs/VyV_LectorPobre.md) | Plan de Verificación y Validación (V&V) |
 | [`implementationPlan.md`](docs/implementationPlan.md) | Plan de implementación por fases |
+| [`Analisis_Busqueda_Recomendacion_LectorPobre.md`](docs/Analisis_Busqueda_Recomendacion_LectorPobre.md) | ADR de búsqueda difusa y recomendaciones basadas en contenido |
+| [`COMO_ANADIR_CLUSTERING.md`](docs/COMO_ANADIR_CLUSTERING.md) | Guía para añadir clustering K-Means sobre `product-vectors.json` |
+
+#### Evolución Condicional de la Arquitectura (ERS §7.5.2 / RNF-08)
+
+La arquitectura actual sin servidor permanente ni base de datos dedicada (SSG + Fuse.js en cliente + recomendaciones TF-IDF precalculadas en build time) cubre catálogos de hasta ~2,000 productos con costo operativo $0. Una **migración a servidor y base de datos dedicados** no está planificada y **solo se considerará si es estrictamente necesario** (p. ej. catálogo sostenido muy superior a 2,000 productos con incumplimiento medido de RNF-07, búsqueda semántica por embeddings en vivo o filtrado colaborativo con cuentas de usuario). En ese escenario, las interfaces desacopladas `SearchEngine` (`composables/search/types.ts`) y `RecommendationStrategy` (`scripts/recommendations/types.ts`) actúan como único punto de reemplazo sin modificar los componentes Vue.
 
 ---
 
