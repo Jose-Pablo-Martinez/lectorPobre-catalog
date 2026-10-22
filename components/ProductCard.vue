@@ -1,0 +1,188 @@
+<!--
+  @file ProductCard.vue
+  @description Tarjeta molecular de producto con relación de aspecto 1:1, soporte de imagen
+  de Sanity o placeholder vectorial limpio, indicador de stock en esquina superior, calificación
+  promedio, precio en tipografía monoespaciada y botón directo para agregar a la Lista de Pedido.
+  @satisfies RF-01, RF-03, RF-06, RF-14, RF-16, RF-17
+-->
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { Check, Image as ImageIcon, ShoppingBag, Star } from 'lucide-vue-next';
+import StockIndicator from '~/components/StockIndicator.vue';
+import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
+import { useSanityImage } from '~/composables/useSanityImage';
+import { formatearPrecioMXN } from '~/composables/useWhatsApp';
+import type { Producto } from '~/types/sanity';
+
+export interface ProductCardProps {
+    producto: Producto;
+    umbralStockBajo?: number;
+}
+
+const props = withDefaults(defineProps<ProductCardProps>(), {
+    umbralStockBajo: 5,
+});
+
+const emit = defineEmits<{
+    (e: 'agregar', producto: Producto): void;
+}>();
+
+const { urlFor } = useSanityImage();
+const { addItem } = useCart();
+
+const errorImagen = ref(false);
+const recienAgregado = ref(false);
+
+const imagenUrl = computed<string | null>(() => {
+    if (errorImagen.value || !props.producto.imagenPrincipal) {
+        return null;
+    }
+    return urlFor(props.producto.imagenPrincipal, { width: 600, height: 600 });
+});
+
+const detalleHref = computed<string>(() => {
+    const slug = props.producto.slug?.current ?? props.producto._id;
+    return `/product/${slug}`;
+});
+
+const agotado = computed<boolean>(() => props.producto.stock <= 0);
+
+const precioFormateado = computed<string>(() =>
+    formatearPrecioMXN(props.producto.precio, 'Cotizar')
+);
+
+const clasesBotonAgregar = computed<string>(() =>
+    obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard-sm')
+);
+
+const manejarAgregar = (): void => {
+    if (agotado.value) return;
+    const exito = addItem(props.producto, 1);
+    if (exito) {
+        emit('agregar', props.producto);
+        recienAgregado.value = true;
+        setTimeout(() => {
+            recienAgregado.value = false;
+        }, 1200);
+    }
+};
+</script>
+
+<template>
+    <article
+        class="tarjeta-producto group flex flex-col bg-white text-brand-texto border-2 border-brand-texto shadow-hard overflow-hidden transition-transform duration-200 hover:-translate-y-1"
+        data-testid="product-card"
+    >
+        <!-- Marco 1:1 de imagen con badges flotantes -->
+        <div class="relative aspect-square w-full bg-zinc-100 border-b-2 border-brand-texto overflow-hidden">
+            <a
+                :href="detalleHref"
+                class="block w-full h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-primario"
+                :aria-label="`Ver detalles de ${producto.nombre}`"
+            >
+                <img
+                    v-if="imagenUrl"
+                    :src="imagenUrl"
+                    :alt="producto.nombre"
+                    loading="lazy"
+                    width="600"
+                    height="600"
+                    class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    @error="errorImagen = true"
+                />
+                <div
+                    v-else
+                    class="w-full h-full flex flex-col items-center justify-center gap-2 p-6 text-zinc-500 bg-brand-fondo/60"
+                    data-testid="product-image-placeholder"
+                >
+                    <ImageIcon class="w-12 h-12 stroke-[1.75]" aria-hidden="true" />
+                    <span class="font-mono text-xs uppercase tracking-wider text-center font-semibold">
+                        Pieza de Taller
+                    </span>
+                </div>
+            </a>
+
+            <!-- Badge de Stock flotante superior izquierdo -->
+            <div class="absolute top-2.5 left-2.5 z-10">
+                <StockIndicator
+                    :stock="producto.stock"
+                    :umbral-stock-bajo="umbralStockBajo"
+                />
+            </div>
+
+            <!-- Badge de Calificación flotante superior derecho -->
+            <div
+                v-if="typeof producto.calificacionPromedio === 'number' && producto.calificacionPromedio > 0"
+                class="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 bg-white border-2 border-brand-texto font-mono text-xs font-bold text-brand-texto"
+                :aria-label="`Calificación promedio ${producto.calificacionPromedio} de 5`"
+            >
+                <Star class="w-3.5 h-3.5 fill-brand-acento text-brand-texto shrink-0" aria-hidden="true" />
+                <span>{{ producto.calificacionPromedio.toFixed(1) }}</span>
+            </div>
+        </div>
+
+        <!-- Cuerpo de la tarjeta -->
+        <div class="flex flex-col flex-1 justify-between p-4 gap-3">
+            <div class="space-y-1.5">
+                <span
+                    v-if="producto.categoria?.nombre"
+                    class="inline-block font-mono text-xs font-bold uppercase tracking-wider text-brand-secundario"
+                >
+                    {{ producto.categoria.nombre }}
+                </span>
+
+                <h3 class="font-display font-bold text-lg leading-snug text-brand-texto line-clamp-2">
+                    <a
+                        :href="detalleHref"
+                        class="hover:text-brand-primario transition-colors focus-visible:outline-none focus-visible:underline"
+                    >
+                        {{ producto.nombre }}
+                    </a>
+                </h3>
+
+                <p
+                    v-if="producto.descripcion"
+                    class="font-sans text-xs text-zinc-600 line-clamp-2"
+                >
+                    {{ producto.descripcion }}
+                </p>
+            </div>
+
+            <div class="pt-2 border-t-2 border-zinc-200 space-y-3">
+                <div class="flex items-baseline justify-between gap-2">
+                    <span class="font-mono text-xs uppercase text-zinc-500 font-medium">Precio</span>
+                    <span
+                        class="font-mono font-bold text-lg text-brand-texto"
+                        data-testid="product-price"
+                    >
+                        {{ precioFormateado }}
+                    </span>
+                </div>
+
+                <button
+                    type="button"
+                    :disabled="agotado"
+                    :aria-disabled="agotado"
+                    :class="[
+                        'w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 font-display font-bold text-sm border-2 border-brand-texto transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario focus-visible:ring-offset-1',
+                        clasesBotonAgregar,
+                    ]"
+                    data-testid="add-to-order-button"
+                    @click="manejarAgregar"
+                >
+                    <template v-if="agotado">
+                        <span>Agotado</span>
+                    </template>
+                    <template v-else-if="recienAgregado">
+                        <Check class="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>Agregado a mi lista</span>
+                    </template>
+                    <template v-else>
+                        <ShoppingBag class="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>Agregar a mi lista de pedido</span>
+                    </template>
+                </button>
+            </div>
+        </div>
+    </article>
+</template>
