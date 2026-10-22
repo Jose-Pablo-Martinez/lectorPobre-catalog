@@ -139,16 +139,16 @@ await upsert({
     urlFacebook:       'https://facebook.com/lectorpobre',
     urlTikTok:         'https://tiktok.com/@lectorpobre',
 
-    // RF-15: palette selection — 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom'
-    paletaActiva:      'claro',
+    // RF-15: palette selection — 'identidad' | 'cenote' | 'luchaLibre' | 'nocheFiesta' | 'meridaPastel' | 'custom'
+    paletaActiva:      'identidad',
     // paletaCustom* fields are only used when paletaActiva === 'custom'.
     // They are left undefined here so the Studio shows the predefined palette by default.
     // To test the custom palette, set paletaActiva to 'custom' and fill these in:
-    // paletaCustomPrimario:    '#6366f1',
-    // paletaCustomSecundario:  '#4f46e5',
-    // paletaCustomAcento:      '#818cf8',
-    // paletaCustomFondo:       '#0f172a',
-    // paletaCustomTexto:       '#f8fafc',
+    // paletaCustomPrimario:    '#e4007c',
+    // paletaCustomSecundario:  '#0091d5',
+    // paletaCustomAcento:      '#ffd000',
+    // paletaCustomFondo:       '#edf8f1',
+    // paletaCustomTexto:       '#18181b',
 
     // RF-16: visual variant and decorative pattern
     varianteVisual:          'moderno',
@@ -157,6 +157,25 @@ await upsert({
 
     umbralStockBajo:   5,             // RF-03, RF-14: show "pocas unidades" alert
     productosPorPagina: 24,           // RF-19: catalog page size
+
+    // RF-23: global search synonyms
+    sinonimos: [
+        {
+            _key: 'seed-sin-1',
+            _type: 'grupoSinonimos',
+            terminos: ['llavero', 'keychain', 'yavero']
+        },
+        {
+            _key: 'seed-sin-2',
+            _type: 'grupoSinonimos',
+            terminos: ['pin', 'broche', 'prendedor', 'badge']
+        },
+        {
+            _key: 'seed-sin-3',
+            _type: 'grupoSinonimos',
+            terminos: ['sticker', 'calcomanía', 'pegatina', 'pegostle']
+        }
+    ],
 });
 ok('Configuración Global creada (singleton id: global-config)');
 
@@ -216,6 +235,7 @@ const productos = [
         stock:       12,
         precio:      85,
         activo:      true,
+        palabrasClave: ['gato', 'kawaii', 'resina', 'pastel', 'michi', 'hecho a mano'],
         ratingSum:   0,
         ratingCount: 0,
     },
@@ -229,6 +249,7 @@ const productos = [
         stock:       3,              // ← por debajo del umbral (5) → "pocas unidades" RF-14
         precio:      120,
         activo:      true,
+        palabrasClave: ['totoro', 'ghibli', 'anime', 'metal', 'pelicula', 'bosque'],
         ratingSum:   0,
         ratingCount: 0,
     },
@@ -243,6 +264,7 @@ const productos = [
         stock:       28,
         precio:      65,
         activo:      true,
+        palabrasClave: ['goku', 'dragon ball', 'anime', 'manga', 'ultra instinto', 'saiyajin'],
         ratingSum:   0,
         ratingCount: 0,
     },
@@ -256,6 +278,7 @@ const productos = [
         stock:       0,              // ← sin stock → botón de contacto deshabilitado RF-03
         precio:      55,
         activo:      true,
+        palabrasClave: ['hongo', 'mushroom', 'retro', 'pixel art', '8 bits', 'arcade'],
         ratingSum:   0,
         ratingCount: 0,
     },
@@ -270,6 +293,7 @@ const productos = [
         stock:       45,
         precio:      40,
         activo:      true,
+        palabrasClave: ['anime', 'mix', 'vinilo', 'impermeable', 'otaku', 'pack'],
         ratingSum:   0,
         ratingCount: 0,
     },
@@ -283,6 +307,7 @@ const productos = [
         stock:       60,
         precio:      25,
         activo:      false,          // ← inactivo → no aparece en el catálogo público RF-13
+        palabrasClave: ['libros', 'lectura', 'bookish', 'vintage', 'literatura'],
         ratingSum:   0,
         ratingCount: 0,
     },

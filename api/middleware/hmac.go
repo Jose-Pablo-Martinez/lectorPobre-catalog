@@ -1,15 +1,15 @@
-// Package middleware implements HTTP security controls for LectorPobre serverless functions.
-// Satisfies: RNF-04 (HMAC webhook signature verification — §9.10).
-// TODO(Phase 5): Implement full HMAC verification. Issue #13.
+// Package middleware implementa los controles de seguridad HTTP para las funciones serverless de LectorPobre.
+// Satisface: RNF-04 (Verificación de firma HMAC en webhooks — §9.10).
+// TODO(Fase 5): Implementar la verificación HMAC completa. Issue #13.
 package middleware
 
-// VerifyHMAC verifies the HMAC-SHA256 signature of an incoming webhook payload.
-// The signature is expected in the "Sanity-Webhook-Signature" header.
-// Returns true only if the computed signature matches the provided one.
-// Tested by: UT-GO-24 (valid), UT-GO-25 (invalid), UT-GO-26 (empty) — VyV §3.3.
+// VerifyHMAC verifica la firma HMAC-SHA256 de una carga útil de webhook entrante.
+// La firma se espera en el encabezado "Sanity-Webhook-Signature".
+// Retorna true únicamente si la firma calculada coincide con la proporcionada.
+// Probado por: UT-GO-24 (válida), UT-GO-25 (inválida), UT-GO-26 (vacía) — VyV §3.3.
 func VerifyHMAC(payload []byte, signature string, secret string) bool {
-	// TODO(RNF-04, §9.10): Implement — compute HMAC-SHA256(payload, secret),
-	// compare with provided signature using crypto/hmac.Equal to prevent timing attacks.
-	// Return false immediately if signature is empty.
+	// TODO(RNF-04, §9.10): Implementar — calcular HMAC-SHA256(payload, secret),
+	// comparar con la firma recibida usando crypto/hmac.Equal para prevenir ataques de temporización.
+	// Retornar false de inmediato si la firma está vacía.
 	return false
 }

@@ -10,7 +10,7 @@
 
 ---
 
-**LectorPobre** is a product catalog web platform for an arts and crafts company (keychains, pins, stickers, and books in the future). It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
+**LectorPobre** is a product catalog web platform for an independent art and craft studio specializing in **handmade and semi-artisanal items (custom-designed keychains, art prints, stickers, pins, and accessories made by the owner and lead artist. Note: It is NOT a bookstore / bookshop)**. It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
 
 The platform allows customers to browse products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. An admin panel secured with JWT authentication allows the store owner to manage the entire catalog through Sanity Studio without writing code.
 

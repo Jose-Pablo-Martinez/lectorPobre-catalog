@@ -23,6 +23,11 @@ export default {
           fondo: 'var(--color-brand-fondo)',
           texto: 'var(--color-brand-texto)',
         },
+      },
+      boxShadow: {
+        'hard': '4px 4px 0px #18181b',
+        'hard-sm': '2px 2px 0px #18181b',
+        'hard-lg': '6px 6px 0px #18181b',
       }
     },
   },

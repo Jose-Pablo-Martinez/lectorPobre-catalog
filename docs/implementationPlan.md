@@ -16,7 +16,7 @@ El plan se divide en **8 fases (0–7)** ordenadas por dependencias. Cada fase t
 | 0 | Prerrequisitos | Instalaciones manuales y cuentas | Node.js 20, Go 1.22+, Vercel CLI, cuenta Sanity.io, cuenta Vercel |
 | 1 | Scaffolding + CI/CD | Organización, docs, configs, automatización | Estructura de carpetas, README, `.gitignore`, Vercel pipeline, Lighthouse CI |
 | 2 | Modelo de datos Sanity | Esquemas, Studio, datos de prueba | Esquemas Sanity, Sanity Studio configurado, dataset de staging y producción |
-| 3 | Release 1 — Frontend Completo | Nuxt SSG con catálogo, paleta, variantes, carrito de referencia | Catálogo SSG, SEO, WhatsApp, redes sociales, paleta dinámica con 4+ predefinidas + custom (RF-15), variantes visuales con patrones decorativos (RF-16), lista de artículos con exportación PDF/PNG (RF-21, RF-22, RF-23) |
+| 3 | Release 1 — Frontend Completo | Nuxt SSG con catálogo, paleta y variantes | Catálogo SSG, SEO, WhatsApp, redes sociales, paleta dinámica (RF-15), variantes visuales (RF-16), **búsqueda avanzada y recomendaciones basadas en contenido (RF-18 ampliado, RF-21, RF-22, RF-23)** |
 | 4 | Despliegue Continuo | Vercel + Webhooks de rebuild | CDN global, webhooks de Sanity → Vercel, dominio propio |
 | 5 | Backend Serverless — Funciones Go | Lógica dinámica segura | Handlers comentar, calificar, buscar, webhook con Go |
 | 6 | Panel de Administración | Login, gestión de catálogo | Autenticación JWT, rutas protegidas, CRUD via Sanity Studio |
@@ -30,7 +30,9 @@ Las siguientes decisiones aplican a todo el plan:
 
 | Decisión | Resolución | Impacto |
 |---|---|---|
-| Búsqueda (RF-18) | **Client-side sobre dataset hidratado** en Nuxt | Evita función serverless adicional para el Release 1; más rápida en catálogos pequeños/medianos |
+| Búsqueda (RF-18) | **Client-side sobre dataset hidratado** en Nuxt, ahora con **búsqueda difusa (Fuse.js)**, autocompletado y sinónimos tras adaptador `SearchEngine` | Evita función serverless adicional; costo $0; ver §3.12 y ERS §7.4 |
+| Recomendaciones (RF-21) | **Basadas en contenido (TF-IDF + similitud coseno) calculadas en build time**; sin datos de usuarios | Sin servidor ni BD; clustering queda como evolución futura con arquitectura preparada (ERS §7.5.1) |
+| Evolución de arquitectura | Migración a servidor/BD dedicados **solo si es estrictamente necesario** | No planificada; condiciones en ERS §7.5.2 |
 | Stock en tiempo real (RF-03) | **Consulta directa del frontend a API pública de Sanity** (sin token secreto) | Sin función Go intermedia para lectura; más eficiente y reduce cold starts |
 | Autenticación de administrador | **JWT firmado de corta duración** (< 24h) validado en cada función Go protegida | Compatibilidad con modelo stateless de serverless (RNF-04) |
 | Moderación de comentarios | **Estado de borrador** en Sanity; solo se publican al aprobarse desde Studio | Decisión a confirmar con el cliente (Tema Abierto #1 del ERS) |
@@ -222,7 +224,24 @@ lectorpobre/
 │   ├── useStock.ts             # RF-03, RNF-03
 │   ├── useRating.ts            # RF-06
 │   ├── useComment.ts           # RF-07
-│   └── useCatalog.ts           # RF-01, RF-04, RF-18
+│   ├── useCatalog.ts           # RF-01, RF-04, RF-18
+│   ├── useRecentlyViewed.ts    # RF-22 (localStorage)
+│   └── search/                 # RF-18, RNF-08 (adaptador desacoplado)
+│       ├── types.ts            # Interfaz SearchEngine
+│       ├── fuseEngine.ts       # Implementación con Fuse.js
+│       ├── normalize.ts        # Acentos, minúsculas, stopwords, sinónimos
+│       └── useSearch.ts        # Composable de búsqueda + autocompletado
+│
+├── scripts/                    # Scripts de build (se ejecutan en nuxt generate)
+│   └── recommendations/        # RF-21, RNF-08 (pipeline por etapas)
+│       ├── types.ts            # RecommendationStrategy, contrato de salida
+│       ├── normalize.ts        # Etapa 1: normalización
+│       ├── vectorize.ts        # Etapa 2: TF-IDF -> product-vectors.json
+│       ├── similarity.ts       # Etapa 3: similitud coseno (top-N)
+│       ├── strategies/
+│       │   ├── contentBased.ts # Estrategia actual
+│       │   └── fallbackRules.ts# Categoría/precio/calificación
+│       └── build.ts            # Orquestador -> recommendations.json, search-index.json
 │
 ├── pages/                      # Site routes (SSG, file-based routing)
 │   ├── index.vue               # Main catalog (RF-01, RF-04, RF-19)
@@ -415,16 +434,18 @@ NUXT_PUBLIC_PLAUSIBLE_DOMAIN=lectorpobre.com
 
 ### 1.3 Inicialización de Proyectos
 
+> **Nota:** El proyecto usa **pnpm** como gestor de paquetes en lugar de npm por su mayor velocidad, aislamiento estricto de dependencias y menor consumo de espacio en disco. Instalar pnpm globalmente si no está disponible (Windows: `iwr https://get.pnpm.io/install.ps1 -useb | iex`).
+
 ```bash
-# 1. Inicializar proyecto Nuxt.js 3
-npx nuxi@latest init ./ --package-manager npm
+# 1. Inicializar proyecto Nuxt.js 3 (con pnpm como gestor)
+pnpm dlx nuxi@latest init ./ --package-manager pnpm
 
 # 2. Instalar dependencias del frontend
-npm install @nuxtjs/tailwindcss @nuxtjs/sanity
-npm install -D vitest @vue/test-utils @vitest/coverage-v8 playwright @playwright/test msw
+pnpm add @nuxtjs/tailwindcss @nuxtjs/sanity
+pnpm add -D vitest @vue/test-utils @vitest/coverage-v8 playwright @playwright/test msw
 
 # 3. Inicializar Tailwind
-npx tailwindcss init
+pnpm dlx tailwindcss init
 
 # 4. Inicializar módulo Go
 mkdir api && cd api
@@ -433,7 +454,7 @@ go get github.com/stretchr/testify
 cd ..
 
 # 5. Inicializar Sanity Studio en el proyecto
-npm create sanity@latest -- --project TU_PROJECT_ID --dataset production --output-path sanity/
+pnpm create sanity@latest -- --project TU_PROJECT_ID --dataset production --output-path sanity/
 ```
 
 ### 1.4 GitHub Actions — CI Pipeline
@@ -579,10 +600,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 ### 1.7 Verificación
 
-- [ ] `pnpm run dev` arranca el servidor de Nuxt en modo desarrollo
+- [ ] `npm run dev` arranca el servidor de Nuxt en modo desarrollo
 - [ ] `cd api && go build ./...` compila sin errores
 - [ ] `cd api && go test ./...` pasa (stubs)
-- [ ] `pnpm run test` pasa (tests vacíos iniciales)
+- [ ] `npm run test` pasa (tests vacíos iniciales)
 - [ ] Push a `develop` activa el workflow de CI
 - [ ] La estructura de carpetas coincide con el árbol definido arriba
 - [ ] Primer commit: `chore(repo): scaffold project structure, CI/CD pipeline and documentation`
@@ -628,16 +649,15 @@ export const producto = defineType({
         }),
         defineField({ name: 'precio', type: 'number' }),          // Opcional, para el mensaje de WhatsApp
         defineField({ name: 'activo', type: 'boolean', initialValue: true }),
-        // ── Contadores atómicos de calificación (RF-06) ──────────────────────────────────────────
-        // El promedio NO se persiste; se calcula en GROQ: round(ratingSum / ratingCount, 1).
-        // Todos los contadores se actualizan con patch.inc desde el handler Go (sin condición de carrera).
-        defineField({ name: 'ratingSum',    type: 'number', readOnly: true, initialValue: 0 }), // Suma total de estrellas
-        defineField({ name: 'ratingCount',  type: 'number', readOnly: true, initialValue: 0 }), // Número total de calificaciones
-        defineField({ name: 'rating1Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 1★
-        defineField({ name: 'rating2Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 2★
-        defineField({ name: 'rating3Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 3★
-        defineField({ name: 'rating4Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 4★
-        defineField({ name: 'rating5Count', type: 'number', readOnly: true, initialValue: 0 }), // Calificaciones de 5★
+        defineField({ name: 'calificacionPromedio', type: 'number', readOnly: true }), // Calculado
+        defineField({ name: 'totalCalificaciones', type: 'number', readOnly: true }),  // Calculado
+        defineField({                                                      // RF-23: palabras clave de búsqueda
+            name: 'palabrasClave',
+            title: 'Palabras clave de búsqueda',
+            type: 'array',
+            of: [{ type: 'string' }],
+            options: { layout: 'tags' }
+        }),
     ],
     preview: {
         select: { title: 'nombre', subtitle: 'categoria.nombre', media: 'imagenPrincipal' }
@@ -703,8 +723,7 @@ export const calificacion = defineType({
 #### `sanity/schemas/configuracionGlobal.ts`
 
 ```typescript
-// Satisfies: RF-05 (Redes sociales), RF-15 (Paleta colores — predefinidas + custom),
-//            RF-16 (Variantes visuales + patrones decorativos), RF-17 (WhatsApp)
+// Satisfies: RF-05 (Redes sociales), RF-15 (Paleta colores), RF-16 (Variantes visuales), RF-17 (WhatsApp)
 export const configuracionGlobal = defineType({
     name: 'configuracionGlobal',
     title: 'Configuración Global del Sitio',
@@ -719,26 +738,27 @@ export const configuracionGlobal = defineType({
         defineField({                                                      // RF-15
             name: 'paletaActiva',
             type: 'string',
-            options: { list: ['claro', 'oscuro', 'oceano', 'atardecer', 'custom'] },
-            initialValue: 'claro'
+            options: { list: ['identidad', 'luchaLibre', 'cenote', 'bugambilia', 'barroMaya', 'custom'] },
+            initialValue: 'identidad'
         }),
-        // RF-15: campos para paleta personalizada (solo se usan cuando paletaActiva === 'custom')
-        defineField({ name: 'paletaCustomPrimario',   type: 'string', description: 'Color primario hex. Ej: #3b82f6' }),
-        defineField({ name: 'paletaCustomSecundario',  type: 'string', description: 'Color secundario hex.' }),
-        defineField({ name: 'paletaCustomAcento',      type: 'string', description: 'Color de acento hex.' }),
-        defineField({ name: 'paletaCustomFondo',       type: 'string', description: 'Color de fondo hex.' }),
-        defineField({ name: 'paletaCustomTexto',       type: 'string', description: 'Color de texto hex.' }),
         defineField({                                                      // RF-16
             name: 'varianteVisual',
             type: 'string',
             options: { list: ['clasico', 'moderno', 'minimalista'] },
             initialValue: 'moderno'
         }),
-        // RF-16: patrón decorativo temático (Halloween, Navidad, etc.)
-        defineField({ name: 'patronDecorativoActivo', type: 'boolean', initialValue: false }),
-        defineField({ name: 'patronDecorativo', type: 'image', description: 'Imagen de patrón repetible (ej. murciélagos, copos de nieve)' }),
         defineField({ name: 'umbralStockBajo', type: 'number', initialValue: 5 }),    // RF-03, RF-14
         defineField({ name: 'productosPorPagina', type: 'number', initialValue: 24 }), // RF-19
+        defineField({                                                      // RF-23: sinónimos globales
+            name: 'sinonimos',
+            title: 'Sinónimos de búsqueda',
+            type: 'array',
+            of: [{
+                type: 'object',
+                name: 'grupoSinonimos',
+                fields: [{ name: 'terminos', type: 'array', of: [{ type: 'string' }], options: { layout: 'tags' } }]
+            }]
+        }),
     ],
     // Solo puede existir un documento de configuración global
     __experimental_actions: ['update', 'publish'],
@@ -783,7 +803,13 @@ export interface Producto {
     precio?: number;
     activo: boolean;
     calificacionPromedio?: number;
-    totalCalificaciones?: number;
+    ratingCount?: number;
+    rating1Count?: number;
+    rating2Count?: number;
+    rating3Count?: number;
+    rating4Count?: number;
+    rating5Count?: number;
+    palabrasClave?: string[]; // RF-23: búsqueda y recomendaciones
 }
 
 export interface Categoria {
@@ -800,17 +826,11 @@ export interface ConfiguracionGlobal {
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
-    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
-    paletaCustomPrimario?: string;
-    paletaCustomSecundario?: string;
-    paletaCustomAcento?: string;
-    paletaCustomFondo?: string;
-    paletaCustomTexto?: string;
+    paletaActiva: 'identidad' | 'cenote' | 'luchaLibre' | 'nocheFiesta' | 'meridaPastel' | 'custom';
     varianteVisual: 'clasico' | 'moderno' | 'minimalista';
-    patronDecorativoActivo: boolean;
-    patronDecorativo?: SanityImage;
     umbralStockBajo: number;
     productosPorPagina: number;
+    sinonimos?: Array<{ terminos: string[] }>; // RF-23: sinónimos de búsqueda
 }
 ```
 
@@ -836,40 +856,33 @@ Crear al menos 10 productos de prueba en el dataset `staging` con:
 > [!NOTE]
 > Siguiendo el **Modelo en V**, los tests de integración de datos se definen y ejecutan inmediatamente después de implementar los esquemas, antes de pasar a la Fase 3. Esto garantiza que el contrato de datos entre Sanity y el frontend sea correcto desde el inicio.
 
-Estos tests requieren conexión real al dataset `staging` de Sanity, por lo que se clasifican como **tests de integración** y se aislan del comando `pnpm run test` (pruebas unitarias puras). Se ubican en `tests/integration/` y se ejecutan con un script dedicado, replicando el patrón ya usado para Go en §5.7 (`-tags=integration`).
-
-**Casos de prueba a crear en `tests/integration/sanity-schemas.integration.test.ts`:**
-
-- **IT-SANITY-01 (verificación de tipos por CI):** Los tipos TypeScript en `types/sanity.ts` no son verificables en tiempo de ejecución (*type erasure*). La verificación se realiza como un paso de CI (`sanity typegen generate` + `git diff --exit-code`) que falla el build si el archivo generado difiere del comiteado. No se implementa como caso de Vitest.
-- **IT-SANITY-02:** Verificar que la consulta GROQ `*[_type == "producto" && activo == true]` retorna documentos con los campos esperados (`_id`, `nombre`, `slug.current`, `stock`, `categoria.nombre`) contra el dataset `staging`.
-- **IT-SANITY-03:** Verificar que el documento `configuracionGlobal` puede consultarse correctamente y contiene los campos `paletaActiva` y `varianteVisual` con valores válidos.
+Crear los siguientes tests en `tests/unit/sanity-schemas.test.ts`:
+- Verificar que los tipos TypeScript generados en `types/sanity.ts` coincidan con los schemas de Sanity (IT-SANITY-01).
+- Verificar que las consultas GROQ básicas (`*[_type == "product"]`) retornan la estructura de campos esperada contra el dataset `staging` (IT-SANITY-02).
+- Verificar que un documento `globalConfig` con `activepalette` y `visualVariant` puede ser consultado correctamente (IT-SANITY-03).
 
 ```bash
-# Pruebas unitarias puras (sin dependencias externas) — usadas en CI por defecto
-pnpm run test
-
-# Pruebas de integración con Sanity staging — requieren VITE_SANITY_PROJECT_ID en entorno
-pnpm run test:integration
+npm run test -- tests/unit/sanity-schemas.test.ts
 ```
 
 ### 2.7 Verificación
 
 - [ ] `cd sanity && npx sanity dev` arranca Sanity Studio sin errores
 - [ ] Los 5 tipos de documento aparecen en el Studio
-- [ ] Se pueden crear y editar productos, categorías y la configuración global desde el Studio
-- [ ] El dataset de staging tiene al menos 10 productos con datos completos e imágenes
-- [ ] El paso de CI `sanity typegen generate` + `git diff --exit-code` pasa sin diferencias en `types/sanity.ts`
-- [ ] Tests de integración pasan: `pnpm run test:integration` (requiere acceso a staging)
+- [ ] Se pueden crear y editar productos, categorías y la configuración global
+- [ ] El dataset de staging tiene al menos 10 productos con datos completos
+- [ ] Los tipos TypeScript en `types/sanity.ts` coinciden con los schemas de Sanity
+- [ ] Tests de integración de datos pasan (`npm run test -- tests/unit/sanity-schemas.test.ts`)
 - [ ] Commit: `feat(sanity): define data schemas, studio config, staging seed data and integration tests`
 
 ---
 
 ## Fase 3 — Release 1 — Frontend Completo
 
-**Objetivo:** Implementar el frontend completo con Nuxt.js SSG consumiendo datos reales de Sanity, incluyendo personalización de paleta de colores con paletas predefinidas y personalizadas (RF-15), variantes visuales con patrones decorativos (RF-16), y lista de artículos con exportación PDF/PNG y vinculación con WhatsApp (RF-21, RF-22, RF-23). Al finalizar esta fase, el catálogo público es completamente funcional como sitio estático con todas sus funcionalidades de presentación.
+**Objetivo:** Implementar el frontend completo con Nuxt.js SSG consumiendo datos reales de Sanity, incluyendo personalización de paleta de colores (RF-15) y variantes visuales (RF-16). Al finalizar esta fase, el catálogo público es completamente funcional como sitio estático con todas sus funcionalidades de presentación.
 
-**Duración estimada:** 5–7 sesiones de trabajo  
-**Satisface:** RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23 · RNF-01, RNF-02, RNF-05
+**Duración estimada:** 4–5 sesiones de trabajo (+ 5–7 días para búsqueda avanzada y recomendaciones, sección 3.12; MVP en 2–3 días)  
+**Satisface:** RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23 · RNF-01, RNF-02, RNF-05, RNF-07, RNF-08
 
 ### 3.1 Sistema de Diseño (`assets/css/global.css` + `tailwind.config.ts`)
 
@@ -951,17 +964,17 @@ export default defineNuxtConfig({
 });
 ```
 
-### 3.3 Composable del Catálogo (`composables/useCatalog.ts`)
+### 3.3 Composable del Catálogo (`composables/useCatalogo.ts`)
 
 ```typescript
 /**
- * @file useCatalog.ts
+ * @file useCatalogo.ts
  * @description Composable que expone el catálogo de productos para el SSG.
  * Los datos son consultados en build time y pre-renderizados en HTML estático.
  * @satisfies RF-01 (Catálogo), RF-04 (Categorías), RF-18 (Búsqueda client-side), RF-19 (Paginación)
  */
 
-export function useCatalog(config: { pagina?: number; categoria?: string } = {}) {
+export function useCatalogo(config: { pagina?: number; categoria?: string } = {}) {
     const sanity = useSanityClient();
 
     // Consulta ejecutada en build time (SSG) o en cliente para SSR ligero
@@ -972,18 +985,18 @@ export function useCatalog(config: { pagina?: number; categoria?: string } = {})
         config.categoria ? { categoria: config.categoria } : {}
     );
 
-    // Búsqueda client-side sobre los datos ya cargados (RF-18)
+    // Búsqueda (RF-18): delegada en el composable useSearch (sección 3.12),
+    // que usa el adaptador SearchEngine (Fuse.js por defecto). Se conserva el
+    // filtrado básico solo como respaldo mientras el índice difuso no ha cargado.
     const query = ref('');
+    const { resultados, sugerencias, cargarIndice } = useSearch(productos, query);
     const productosFiltrados = computed(() =>
         query.value
-            ? productos.value?.filter(p =>
-                p.nombre.toLowerCase().includes(query.value.toLowerCase()) ||
-                p.descripcion?.toLowerCase().includes(query.value.toLowerCase())
-            )
+            ? resultados.value
             : productos.value
     );
 
-    return { productos, productosFiltrados, query };
+    return { productos, productosFiltrados, query, sugerencias, cargarIndice };
 }
 ```
 
@@ -1003,7 +1016,7 @@ useSeoMeta({
     ogTitle: 'LectorPobre — Catálogo de Productos',
 });
 
-const { productosFiltrados, query } = useCatalog();
+const { productosFiltrados, query } = useCatalogo();
 const { data: categorias } = useSanityFetch<Categoria[]>(
     `*[_type == "categoria"] | order(orden asc) { _id, nombre, slug }`
 );
@@ -1116,21 +1129,15 @@ const props = defineProps<Props>();
 <script setup lang="ts">
 /**
  * @file pages/producto/[slug].vue
- * @description Página de detalle de producto con stock en tiempo real,
- *              calificación con desglose por estrella y listado de comentarios.
- * @satisfies RF-02 (Detalle), RF-03 (Stock real), RF-06 (Calificación + desglose),
- *            RF-07 (Comentarios + listado filtrable), RF-17 (WhatsApp), RF-20 (SEO/OG), RNF-03
+ * @description Página de detalle de producto con stock en tiempo real.
+ * @satisfies RF-02 (Detalle), RF-03 (Stock real), RF-06 (Calificación),
+ *            RF-07 (Comentarios), RF-17 (WhatsApp), RF-20 (SEO/OG), RNF-03
  */
 
 const route = useRoute();
 const { data: producto } = await useSanityFetch<Producto>(
-    `*[_type == "producto" && slug.current == $slug && activo == true][0]
-     {
-       _id, nombre, descripcion, imagenPrincipal, imagenes, categoria->{nombre}, stock, precio,
-       "calificacionPromedio": select(ratingCount > 0 => round(ratingSum / ratingCount, 1), null),
-       ratingCount,
-       rating1Count, rating2Count, rating3Count, rating4Count, rating5Count
-     }`,
+    `*[_type == "producto" && slug.current == $slug][0]
+     { _id, nombre, descripcion, imagenPrincipal, imagenes, categoria->{nombre}, stock, calificacionPromedio }`,
     { slug: route.params.slug }
 );
 
@@ -1176,37 +1183,19 @@ const urlWhatsApp = computed(() =>
 
                 <p class="text-gray-600 dark:text-gray-400">{{ producto.descripcion }}</p>
 
-                <!-- Calificación global + contador de reseñas (RF-06) -->
-                <!-- Ej: ★ 4.8 · 150 reseñas -->
+                <!-- Calificación (RF-06) -->
                 <SistemaEstrellas
                     :producto-id="producto._id"
                     :calificacion-promedio="producto.calificacionPromedio"
-                    :rating-count="producto.ratingCount"
-                />
-
-                <!-- Desglose de calificaciones por estrella (RF-06) -->
-                <!-- Ej: 5★: 120 votos | 4★: 20 votos | ... -->
-                <DesgloseCalificaciones
-                    :rating1="producto.rating1Count"
-                    :rating2="producto.rating2Count"
-                    :rating3="producto.rating3Count"
-                    :rating4="producto.rating4Count"
-                    :rating5="producto.rating5Count"
-                    :total="producto.ratingCount"
                 />
 
                 <!-- Botón WhatsApp (RF-17) -->
                 <BotonWhatsApp :href="urlWhatsApp" />
 
-                <!-- Formulario combinado: calificación + comentario (RF-06 + RF-07) -->
-                <!-- Anti-duplicación via localStorage: lectorpobre-calificado-{id} y lectorpobre-comentado-{id} -->
+                <!-- Comentarios (RF-07) -->
                 <FormularioComentario :producto-id="producto._id" />
             </div>
         </div>
-
-        <!-- Listado de comentarios aprobados (RF-07) -->
-        <!-- Filtros: por fecha (más reciente / más antiguo) y por puntuación (mayor a menor / menor a mayor) -->
-        <ListaComentarios :producto-id="producto._id" />
     </div>
 </template>
 ```
@@ -1238,133 +1227,58 @@ export default defineNuxtConfig({
 Crear los siguientes componentes con su funcionalidad básica:
 - `IndicadorStock.vue` — muestra estado de stock (RF-03)
 - `BotonWhatsApp.vue` — enlace a WhatsApp (RF-17)
-- `SistemaEstrellas.vue` — muestra calificación promedio + contador de reseñas (RF-06); incluye anti-duplicación via `localStorage`
-- `DesgloseCalificaciones.vue` — panel con barras de progreso para cada estrella (1★–5★) y sus conteos (RF-06)
-- `FormularioComentario.vue` — **formulario combinado**: selección de estrellas + campo de texto de comentario en un solo paso; valida y bloquea si el usuario ya comentó (via `localStorage`); sin enviar aún (RF-06 + RF-07)
-- `ListaComentarios.vue` — sección navegable de comentarios aprobados con filtros por fecha y puntuación, paginados o con scroll infinito (RF-07)
+- `SistemaEstrellas.vue` — muestra calificación promedio (UI solo, sin lógica de envío aún)
+- `FormularioComentario.vue` — formulario con validación client-side (sin envío aún)
 - `BotonPrimario.vue` — botón reutilizable
-- `BotonAgregarLista.vue` — botón "Agregar a la lista" para tarjetas y detalle (RF-21)
-- `BadgeCarrito.vue` — indicador en el header con cantidad de artículos en la lista (RF-21)
 
 ### 3.9 Personalización de Paleta de Colores (RF-15)
 
-Implementar el sistema de paleta dinámica que lee `paletaActiva` y los campos de paleta personalizada de `configuracionGlobal` en Sanity y aplica los tokens CSS correspondientes en el build.
-
-**Paletas predefinidas (mínimo 4):**
-- `claro` — Modo claro (default)
-- `oscuro` — Modo oscuro
-- `oceano` — Temática azul-verde (tonos frios)
-- `atardecer` — Temática naranja-rosa (tonos cálidos)
-
-Además, el administrador puede definir una **paleta personalizada** (`custom`) proporcionando valores hexadecimales desde Sanity Studio que sobreescriben los tokens de cualquier paleta base.
+Implementar el sistema de paleta dinámica que lee `paletaActiva` de `configuracionGlobal` en Sanity y aplica los tokens CSS correspondientes en el build.
 
 ```typescript
 // plugins/paleta.ts — Plugin de Nuxt ejecutado en build time
-// Satisfies: RF-15 (Personalización de paleta de colores — predefinidas + custom)
+// Satisfies: RF-15 (Personalización de paleta de colores)
 export default defineNuxtPlugin(async () => {
-    const { data: config } = await useSanityFetch<{
-        paletaActiva: string;
-        paletaCustomPrimario?: string;
-        paletaCustomSecundario?: string;
-        paletaCustomAcento?: string;
-        paletaCustomFondo?: string;
-        paletaCustomTexto?: string;
-    }>(
-        `*[_type == "configuracionGlobal"][0]{
-            paletaActiva,
-            paletaCustomPrimario, paletaCustomSecundario,
-            paletaCustomAcento, paletaCustomFondo, paletaCustomTexto
-        }`
+    const { data: config } = await useSanityFetch<{ paletaActiva: string }>(
+        `*[_type == "configuracionGlobal"][0]{ paletaActiva }`
     );
 
     const paletas: Record<string, Record<string, string>> = {
-        claro: {
-            '--color-brand-500': '#3b82f6', '--color-brand-600': '#2563eb', '--color-brand-700': '#1d4ed8',
-            '--color-bg': '#ffffff', '--color-text': '#1f2937', '--color-surface': '#f9fafb',
-        },
-        oscuro: {
-            '--color-brand-500': '#60a5fa', '--color-brand-600': '#3b82f6', '--color-brand-700': '#2563eb',
-            '--color-bg': '#111827', '--color-text': '#f9fafb', '--color-surface': '#1f2937',
-        },
-        oceano: {
-            '--color-brand-500': '#06b6d4', '--color-brand-600': '#0891b2', '--color-brand-700': '#0e7490',
-            '--color-bg': '#f0fdfa', '--color-text': '#134e4a', '--color-surface': '#ccfbf1',
-        },
-        atardecer: {
-            '--color-brand-500': '#f97316', '--color-brand-600': '#ea580c', '--color-brand-700': '#c2410c',
-            '--color-bg': '#fffbeb', '--color-text': '#78350f', '--color-surface': '#fef3c7',
-        },
+        identidad:    { '--color-brand-primario': '#e4007c', '--color-brand-secundario': '#0091d5', '--color-brand-acento': '#ffd000', '--color-brand-fondo': '#edf8f1', '--color-brand-texto': '#18181b' },
+        cenote:       { '--color-brand-primario': '#0d9488', '--color-brand-secundario': '#ccfbf1', '--color-brand-acento': '#f43f5e', '--color-brand-fondo': '#f0fdf4', '--color-brand-texto': '#0f172a' },
+        luchaLibre:   { '--color-brand-primario': '#1d4ed8', '--color-brand-secundario': '#3b82f6', '--color-brand-acento': '#ffd000', '--color-brand-fondo': '#fffbeb', '--color-brand-texto': '#18181b' },
+        nocheFiesta:  { '--color-brand-primario': '#ff007f', '--color-brand-secundario': '#00e5ff', '--color-brand-acento': '#ffd000', '--color-brand-fondo': '#0f172a', '--color-brand-texto': '#f8fafc' },
+        meridaPastel: { '--color-brand-primario': '#15803d', '--color-brand-secundario': '#e4007c', '--color-brand-acento': '#f59e0b', '--color-brand-fondo': '#faf7f2', '--color-brand-texto': '#1c1917' },
     };
 
-    const activa = config.value?.paletaActiva ?? 'claro';
-    let tokens = { ...(paletas[activa] ?? paletas.claro) };
-
-    // RF-15: si paletaActiva === 'custom', usar los valores hex del administrador
-    if (activa === 'custom') {
-        const c = config.value;
-        tokens = {
-            '--color-brand-500': c?.paletaCustomPrimario ?? '#3b82f6',
-            '--color-brand-600': c?.paletaCustomSecundario ?? '#2563eb',
-            '--color-brand-700': c?.paletaCustomAcento ?? '#1d4ed8',
-            '--color-bg': c?.paletaCustomFondo ?? '#ffffff',
-            '--color-text': c?.paletaCustomTexto ?? '#1f2937',
-            '--color-surface': c?.paletaCustomFondo ?? '#f9fafb',
-        };
-    }
-
+    const tokens = paletas[config.value?.paletaActiva ?? 'identidad'];
+    // Inyectar los tokens en el :root durante el SSG — el CSS custom property
+    // es leído por tailwind.config.ts en tiempo de ejecución (RF-15, §6.5 Guidelines)
     useHead({
         style: [{ children: `:root { ${Object.entries(tokens).map(([k, v]) => `${k}:${v}`).join(';')} }` }]
     });
 });
 ```
 
-El administrador cambia la paleta desde `configuracionGlobal` en Sanity Studio → el webhook dispara un rebuild → la nueva paleta se aplica en el siguiente deploy. Para paletas personalizadas, el administrador selecciona `custom` e introduce los valores hexadecimales en los campos dedicados.
+El administrador cambia la paleta desde `configuracionGlobal` en Sanity Studio → el webhook dispara un rebuild → la nueva paleta se aplica en el siguiente deploy.
 
-### 3.10 Variantes Visuales y Patrones Decorativos (RF-16)
+### 3.10 Variantes Visuales (RF-16)
 
-Implementar 3 variantes visuales controladas por `varianteVisual` en `configuracionGlobal`, más un sistema de **patrones decorativos** que permite al administrador subir imágenes (p. ej. murciélagos para Halloween, copos de nieve para Navidad) que se aplican como overlay repetible sobre el catálogo.
+Implementar 3 variantes visuales controladas por `varianteVisual` en `configuracionGlobal`. Cada variante es una clase en el elemento `<html>` que el plugin lee en build time:
 
 ```typescript
 // plugins/variante.ts — Plugin de Nuxt ejecutado en build time
-// Satisfies: RF-16 (Variantes visuales + patrones decorativos del catálogo)
+// Satisfies: RF-16 (Variantes visuales del catálogo)
 export default defineNuxtPlugin(async () => {
-    const { data: config } = await useSanityFetch<{
-        varianteVisual: string;
-        patronDecorativoActivo: boolean;
-        patronDecorativo?: { asset: { _ref: string } };
-    }>(
-        `*[_type == "configuracionGlobal"][0]{
-            varianteVisual,
-            patronDecorativoActivo,
-            patronDecorativo { asset { _ref } }
-        }`
+    const { data: config } = await useSanityFetch<{ varianteVisual: string }>(
+        `*[_type == "configuracionGlobal"][0]{ varianteVisual }`
     );
 
-    // La variante se aplica como clase en <html>
-    const variante = config.value?.varianteVisual ?? 'moderno';
+    // La variante se aplica como clase en <html> para que los estilos sean
+    // intercambiables desde CSS con [.variante-*] selectors
     useHead({
-        htmlAttrs: { class: `variante-${variante}` }
+        htmlAttrs: { class: `variante-${config.value?.varianteVisual ?? 'moderno'}` }
     });
-
-    // RF-16: patrón decorativo como overlay CSS repetible
-    if (config.value?.patronDecorativoActivo && config.value?.patronDecorativo) {
-        const patronUrl = urlFor(config.value.patronDecorativo).width(200).format('webp').url();
-        useHead({
-            style: [{
-                children: `body::before {
-                    content: '';
-                    position: fixed;
-                    inset: 0;
-                    z-index: 0;
-                    pointer-events: none;
-                    background-image: url('${patronUrl}');
-                    background-repeat: repeat;
-                    background-size: 120px;
-                    opacity: 0.06;
-                }`
-            }]
-        });
-    }
 });
 ```
 
@@ -1383,175 +1297,7 @@ Definir en `assets/css/global.css` los estilos de cada variante:
 .variante-minimalista { @apply font-mono; }
 ```
 
-> **Patrones decorativos:** El administrador sube una imagen de patrón en Sanity Studio (campo `patronDecorativo`), activa el toggle `patronDecorativoActivo`, y tras el rebuild la imagen se aplica como fondo repetible semi-transparente sobre todo el catálogo. Esto permite decoraciones temáticas (Halloween, Navidad, etc.) sin modificar código.
-```
-
-### 3.11 Lista de Artículos / Carrito de Referencia (RF-21, RF-22, RF-23)
-
-#### 3.11.1 Composable `useCarrito.ts`
-
-```typescript
-/**
- * @file composables/useCarrito.ts
- * @description Composable para gestionar la lista de artículos (carrito de referencia).
- * Persiste en localStorage del navegador. No tiene función de pago.
- * @satisfies RF-21 (Lista de artículos), RF-23 (Vinculación WhatsApp)
- */
-
-export interface ItemCarrito {
-    productoId: string;
-    nombre: string;
-    precio: number;
-    cantidad: number;
-    imagenUrl?: string;
-    slug: string;
-}
-
-const STORAGE_KEY = 'lectorpobre-carrito';
-
-export function useCarrito() {
-    const items = useState<ItemCarrito[]>('carrito', () => {
-        if (import.meta.client) {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            return saved ? JSON.parse(saved) : [];
-        }
-        return [];
-    });
-
-    /** Sincroniza con localStorage en cada cambio */
-    function persistir() {
-        if (import.meta.client) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value));
-        }
-    }
-
-    function agregar(producto: Omit<ItemCarrito, 'cantidad'>) {
-        const existente = items.value.find(i => i.productoId === producto.productoId);
-        if (existente) {
-            existente.cantidad++;
-        } else {
-            items.value.push({ ...producto, cantidad: 1 });
-        }
-        persistir();
-    }
-
-    function eliminar(productoId: string) {
-        items.value = items.value.filter(i => i.productoId !== productoId);
-        persistir();
-    }
-
-    function cambiarCantidad(productoId: string, cantidad: number) {
-        const item = items.value.find(i => i.productoId === productoId);
-        if (item) {
-            item.cantidad = Math.max(1, cantidad);
-            persistir();
-        }
-    }
-
-    function vaciar() {
-        items.value = [];
-        persistir();
-    }
-
-    const total = computed(() =>
-        items.value.reduce((sum, i) => sum + i.precio * i.cantidad, 0)
-    );
-
-    const cantidadTotal = computed(() =>
-        items.value.reduce((sum, i) => sum + i.cantidad, 0)
-    );
-
-    /** RF-23: genera el texto del resumen para enviar por WhatsApp */
-    function generarResumenTexto(): string {
-        const lineas = items.value.map(i =>
-            `\u2022 ${i.nombre} x${i.cantidad} - $${(i.precio * i.cantidad).toFixed(2)}`
-        );
-        return `\ud83d\udcdd Mi lista de LectorPobre:\n${lineas.join('\n')}\n\n\ud83d\udcb0 Total: $${total.value.toFixed(2)}`;
-    }
-
-    return { items, agregar, eliminar, cambiarCantidad, vaciar, total, cantidadTotal, generarResumenTexto };
-}
-```
-
-#### 3.11.2 Página del Carrito (`pages/lista.vue`)
-
-Página dedicada a la lista de artículos con tabla itemizada, controles de cantidad, botón de descarga PDF/PNG (RF-22) y botón de envío por WhatsApp (RF-23). Inspiración funcional: carrito de Steam.
-
-```vue
-<script setup lang="ts">
-/**
- * @file pages/lista.vue
- * @description Página de lista de artículos (carrito de referencia).
- * @satisfies RF-21 (Lista), RF-22 (Exportación PDF/PNG), RF-23 (WhatsApp)
- */
-
-useSeoMeta({
-    title: 'Mi Lista de Artículos | LectorPobre',
-    description: 'Revisa tu lista de artículos deseados. Descarga un resumen o envíalo por WhatsApp.',
-});
-
-const { items, eliminar, cambiarCantidad, vaciar, total, cantidadTotal, generarResumenTexto } = useCarrito();
-
-const { data: config } = useSanityFetch<ConfiguracionGlobal>(
-    `*[_type == "configuracionGlobal"][0]{ numeroWhatsApp }`
-);
-
-// RF-23: URL de WhatsApp con resumen de la lista completa
-const urlWhatsAppLista = computed(() => {
-    const numero = config.value?.numeroWhatsApp ?? '';
-    const texto = encodeURIComponent(generarResumenTexto());
-    return `https://wa.me/${numero}?text=${texto}`;
-});
-</script>
-```
-
-#### 3.11.3 Exportación PDF/PNG (RF-22)
-
-Instalar dependencias client-side para generación de documentos:
-
-```bash
-pnpm add jspdf html2canvas
-```
-
-```typescript
-/**
- * @file composables/useExportarResumen.ts
- * @description Genera PDF o PNG del resumen de la lista de artículos.
- * La generación ocurre enteramente en el navegador (client-side).
- * @satisfies RF-22 (Exportación de resumen PDF/PNG)
- */
-
-export function useExportarResumen() {
-    /**
-     * Exporta el contenido del elemento HTML referenciado como PDF o PNG.
-     * @param elementRef - Ref al elemento HTML que contiene la tabla de la lista.
-     * @param formato - 'pdf' | 'png'
-     */
-    async function exportar(elementRef: HTMLElement, formato: 'pdf' | 'png') {
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(elementRef, { scale: 2, useCORS: true });
-
-        if (formato === 'png') {
-            const link = document.createElement('a');
-            link.download = `lectorpobre-lista-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        } else {
-            const { jsPDF } = await import('jspdf');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgData = canvas.toDataURL('image/png');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const imgHeight = (canvas.height * pageWidth) / canvas.width;
-            pdf.addImage(imgData, 'PNG', 0, 10, pageWidth, imgHeight);
-            pdf.save(`lectorpobre-lista-${Date.now()}.pdf`);
-        }
-    }
-
-    return { exportar };
-}
-```
-
-### 3.12 Tests Unitarios de Frontend (Modelo en V)
+### 3.11 Tests Unitarios de Frontend (Modelo en V)
 
 > [!NOTE]
 > Siguiendo el **Modelo en V**, cada componente y composable se acompaña de su test unitario en el mismo paso de desarrollo, no al final de la fase. La siguiente tabla indica qué tests del Plan de V&V corresponden a cada sección ya implementada:
@@ -1565,37 +1311,143 @@ export function useExportarResumen() {
 | 3.8 Componentes restantes (`StockIndicator`, `WhatsAppButton`, `StarRating`, `CommentForm`) | UT-VUE-08 a UT-VUE-13 | `tests/unit/components.test.ts` |
 | 3.9 Plugin de paleta (`plugins/palette.ts`) | UT-VUE-14, UT-VUE-15 (paleta aplicada al `:root`) | `tests/unit/palette.test.ts` |
 | 3.10 Plugin de variante (`plugins/variant.ts`) | UT-VUE-17 (clase de variante en `<html>`) | `tests/unit/variant.test.ts` |
-| 3.11.1 `useCarrito.ts` | UT-VUE-18, UT-VUE-19 (agregar/eliminar/cantidad/localStorage) | `tests/unit/useCarrito.test.ts` |
-| 3.11.3 `useExportarResumen.ts` | UT-VUE-20 (generación PDF/PNG) | `tests/unit/useExportarResumen.test.ts` |
+| 3.12 Búsqueda avanzada y recomendaciones | UT-BUS-01 a UT-BUS-10, UT-REC-01 a UT-REC-12, UT-VUE-18 a UT-VUE-21 (ver V&V §3.7) | `tests/unit/search/*.test.ts`, `tests/unit/recommendations/*.test.ts`, `tests/unit/recentlyViewed.test.ts` |
 
 ```bash
 # Ejecutar al terminar cada sección correspondiente:
 npm run test
 ```
 
+### 3.12 Búsqueda Avanzada y Recomendaciones Basadas en Contenido (RF-18 ampliado, RF-21, RF-22, RF-23, RNF-07, RNF-08)
+
+> [!NOTE]
+> **Alcance añadido en v1.1 del ERS** (no planificado originalmente). Se implementa dentro de la Fase 3 porque sólo depende del catálogo SSG y de los datos de Sanity ya definidos. Costo operativo adicional: $0. Decisión y análisis: [Analisis_Busqueda_Recomendacion_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/Analisis_Busqueda_Recomendacion_LectorPobre.md) y ERS §7.4.
+
+> [!IMPORTANT]
+> **Regla de diseño:** la implementación debe dejar abierta la puerta a un futuro *clustering* y a un eventual cambio de motor o de arquitectura (ERS §7.5). Por eso se exigen: interfaces desacopladas, pipeline por etapas, vectores como artefacto intermedio y contrato versionado con `clusterId` opcional.
+
+**Duración estimada:** 5–7 días (MVP 2–3 días: 3.12.1 + 3.12.5 + fallback del 3.12.3)
+
+#### 3.12.1 Dependencias
+
+```bash
+pnpm add fuse.js
+# Sin dependencias adicionales para TF-IDF: implementación propia (opcional: natural / ml-distance)
+```
+
+#### 3.12.2 Capa de búsqueda desacoplada (`composables/search/`)
+
+1. `types.ts` — define el contrato (RNF-08):
+
+```typescript
+export interface SearchableProduct {
+    _id: string; nombre: string; descripcion?: string;
+    categoria: string; palabrasClave?: string[];
+}
+export interface SearchResult { id: string; score: number }
+export interface Suggestion { type: 'producto' | 'categoria'; label: string; id?: string; slug?: string }
+
+export interface SearchEngine {
+    load(): Promise<void>;                              // carga diferida del índice
+    search(query: string, limit?: number): SearchResult[];
+    suggest(prefix: string, limit?: number): Suggestion[];
+}
+```
+
+2. `normalize.ts` — minúsculas, eliminación de acentos (`normalize('NFD')`), *stopwords* en español y expansión de sinónimos (`configuracionGlobal.sinonimos`, RF-23). **Se comparte con el script de recomendaciones** para consistencia.
+3. `fuseEngine.ts` — implementación con Fuse.js: `threshold ≈ 0.35`, `ignoreLocation: true`, pesos por campo (nombre 0.5, palabrasClave 0.25, categoria 0.15, descripcion 0.1), `includeScore: true`.
+4. `useSearch.ts` — composable (`query`, `resultados`, `sugerencias`, `cargarIndice`). El índice (`/data/search-index.json`) se carga **de forma diferida** al enfocar el campo de búsqueda (`@focus`), no en la carga inicial (RNF-07).
+5. Estado vacío: si `resultados` está vacío, la UI muestra productos sugeridos (mejor calificados o de categorías afines).
+6. El motor se inyecta mediante un `provide`/factory; sustituirlo por MiniSearch implica agregar `miniSearchEngine.ts` sin tocar la UI.
+
+#### 3.12.3 Pipeline de recomendaciones en build time (`scripts/recommendations/`)
+
+Etapas independientes, cada una con entrada y salida tipadas:
+
+| Etapa | Archivo | Entrada → Salida | Nota de extensibilidad |
+|---|---|---|---|
+| 1. Normalización | `normalize.ts` | Productos → tokens | Reutiliza `composables/search/normalize.ts` |
+| 2. Vectorización | `vectorize.ts` | Tokens → vectores TF-IDF (+ one-hot de categoría + precio normalizado) | **Persiste `product-vectors.json` (solo build, no se publica)**: entrada de un futuro *clustering* |
+| 3. Similitud | `similarity.ts` | Vectores → top-N vecinos por coseno (N = 6) | Matriz completa O(n²); trivial hasta 2000 productos |
+| 4. (Futuro) Agrupación | `clustering.ts` *(no implementar aún)* | Vectores → `clusterId` | Hook documentado, ver 3.12.6 |
+
+```typescript
+// scripts/recommendations/types.ts
+export interface RecommendationOutput {
+    schemaVersion: 1;
+    algorithm: string;                       // 'tfidf-cosine'
+    generatedAt: string;
+    items: Record<string, {
+        clusterId: string | null;            // null hoy; reservado para clustering futuro
+        similar: { id: string; score: number }[];
+    }>;
+}
+
+export interface RecommendationStrategy {
+    readonly name: string;
+    compute(products: ProductDocument[], ctx: PipelineContext): RecommendationOutput;
+}
+```
+
+- `strategies/contentBased.ts` — estrategia principal (TF-IDF + coseno, pesos: texto 0.6, categoría 0.25, precio 0.15).
+- `strategies/fallbackRules.ts` — respaldo: misma categoría con precio cercano, luego mejor calificados; se usa si hay < 2 productos o contenido insuficiente.
+- `build.ts` — orquestador: consulta Sanity (GROQ), ejecuta el pipeline y escribe `public/data/recommendations.json` y `public/data/search-index.json`.
+- Integración en `package.json`: `"pregenerate": "tsx scripts/recommendations/build.ts"` (y `prebuild`). Los archivos de `public/data/` se agregan a `.gitignore` porque se regeneran en cada build.
+- **Ningún dato de usuarios se utiliza** (decisión DD-05).
+
+#### 3.12.4 UI de similares y vistos recientemente
+
+- `components/ProductosSimilares.vue` — en `pages/producto/[slug].vue`; lee `recommendations.json`, filtra el producto actual y despriorizando agotados cruzando con `useStock` (RF-03). Cumple regla de iconografía del proyecto (sin emojis, ver `contextoIADisenio.md`).
+- `composables/useRecentlyViewed.ts` + `components/VistosRecientemente.vue` — `localStorage` (clave `lp:recentlyViewed`, máx. 6 elementos, tolerante a productos inexistentes y a `localStorage` no disponible), con acción "Limpiar historial".
+- Autocompletado en el campo de búsqueda del header (`role="combobox"`, navegación con teclado, `aria-live`).
+- Estado vacío de búsqueda con productos sugeridos.
+
+#### 3.12.5 Datos en Sanity (RF-23)
+
+- `producto.palabrasClave` y `configuracionGlobal.sinonimos` ya definidos en Fase 2 (secciones 2.1).
+- Cargar los sinónimos iniciales provistos por el cliente (Tema Abierto 8 del ERS).
+
+#### 3.12.6 Preparación para *clustering* futuro (obligatoria, no implementa clustering)
+
+- [ ] `product-vectors.json` se genera en cada build y no depende de la etapa de similitud.
+- [ ] El orquestador `build.ts` ejecuta etapas desde un arreglo (`stages: PipelineStage[]`), de modo que añadir `clustering.ts` sea registrar una etapa más.
+- [ ] `recommendations.json` incluye `schemaVersion` y `clusterId: null`.
+- [ ] La UI consume únicamente el contrato `RecommendationOutput`; no conoce el algoritmo.
+- [ ] `docs/` incluye una nota "Cómo añadir clustering" (K-Means sobre `product-vectors.json`, `ml-kmeans`, selección de K, escritura de `clusterId`, estrategia `clusterAware`).
+- [ ] Se documenta en el README del repositorio que una **migración a servidor y BD dedicados** solo se considerará si es estrictamente necesario (ERS §7.5.2); los adaptadores `SearchEngine` y `RecommendationStrategy` son el punto de reemplazo.
+
+#### 3.12.7 Verificación de la sección
+
+- [ ] Buscar "yavero" encuentra "llavero"; "acrilico" coincide con "acrílico"
+- [ ] Los resultados se ordenan por relevancia (nombre > palabras clave > categoría > descripción)
+- [ ] Autocompletado funciona con teclado y lectores de pantalla
+- [ ] El índice no se descarga hasta enfocar el buscador (pestaña Network)
+- [ ] Sin resultados: se muestran productos sugeridos
+- [ ] La ficha de producto muestra 4–6 similares, nunca el producto actual
+- [ ] Con un producto sin contenido suficiente se aplica la regla de respaldo sin errores
+- [ ] Cambiar una palabra clave/sinónimo en Sanity → rebuild → cambia la búsqueda/recomendaciones
+- [ ] "Vistos recientemente" persiste en `localStorage` y puede limpiarse
+- [ ] El tiempo de build adicional es < 30 s (medir con catálogo sintético de 2000 productos)
+- [ ] Lighthouse Performance ≥ 90 en móvil con la búsqueda activa
+- [ ] Existe prueba de contrato para `SearchEngine` y `RecommendationStrategy`
+- [ ] Commit: `feat(search): add fuzzy search, content-based recommendations and clustering-ready pipeline [RF-18, RF-21, RF-22, RF-23, RNF-07, RNF-08]`
+
 ### 3.13 Verificación
 
 - [ ] `npm run generate` genera el sitio estático con datos reales de staging
 - [ ] Página principal muestra catálogo de productos con imágenes
 - [ ] Filtrado por categoría funciona
+- [ ] Búsqueda difusa y recomendaciones (sección 3.12) verificadas
 - [ ] Búsqueda client-side filtra correctamente
 - [ ] Página de detalle carga con datos del producto y metadatos OG
 - [ ] Botón WhatsApp tiene URL correcta con número configurado
 - [ ] **Cambiar `paletaActiva` en Sanity Studio → rebuild → la paleta del sitio cambia (RF-15)**
-- [ ] **Las 4 paletas predefinidas (claro, oscuro, océano, atardecer) se ven correctamente**
-- [ ] **Paleta `custom` con valores hex del admin se aplica correctamente (RF-15)**
 - [ ] **Cambiar `varianteVisual` en Sanity Studio → rebuild → el layout del catálogo cambia (RF-16)**
-- [ ] **Subir patrón decorativo + activar toggle → rebuild → el overlay aparece sobre el catálogo (RF-16)**
-- [ ] Las 3 variantes visuales se ven correctamente
-- [ ] **Botón "Agregar a la lista" añade producto al carrito (RF-21)**
-- [ ] **Página `/lista` muestra artículos con nombre, precio, cantidad y total (RF-21)**
-- [ ] **La lista persiste tras recargar la página (localStorage) (RF-21)**
-- [ ] **Botón "Descargar resumen" genera PDF y PNG correctos (RF-22)**
-- [ ] **Botón "Enviar lista por WhatsApp" abre WhatsApp con resumen de todos los artículos (RF-23)**
+- [ ] Las 5 paletas y las 3 variantes visuales se ven correctamente
 - [ ] Lighthouse Performance ≥ 90 en mobile con `npm run generate && npm run preview`
-- [ ] Todos los tests unitarios de la sección 3.12 pasan (`npm run test`)
+- [ ] Todos los tests unitarios de la sección 3.11 pasan (`npm run test`)
 - [ ] CI pipeline pasa
-- [ ] Commit: `feat(frontend): implement release 1 with catalog SSG, palette system, visual variants, decorative patterns, cart with PDF/PNG export and WhatsApp integration [RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23]`
+- [ ] Commit: `feat(frontend): implement release 1 with catalog SSG, palette, visual variants, SEO, advanced search and recommendations [RF-01, RF-02, RF-04, RF-05, RF-15, RF-16, RF-17, RF-18, RF-19, RF-20, RF-21, RF-22, RF-23]`
 
 ---
 
@@ -1871,49 +1723,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 ### 5.3 Handler: `/api/calificar` (RF-06)
 
-```go
-// api/calificar.go
-// Satisfies: RF-06 (Calificación por estrellas), RNF-04 (Seguridad sin estado).
-// Al crear un documento de calificación, realiza un patch.inc atómico en el producto:
-//   - ratingSum  += valor
-//   - ratingCount += 1
-//   - rating{valor}Count += 1   (ej. rating4Count si el usuario votó 4 estrellas)
-// Esto permite derivar en GROQ: promedio = ratingSum / ratingCount
-// y mostrar el desglose por estrella en el frontend sin ningún cálculo adicional.
-
-func Handler(w http.ResponseWriter, r *http.Request) {
-    // ... (misma estructura de guards que /api/comentar: CORS, método, rate limit)
-
-    var payload handlers.CalificacionPayload // { ProductoID string, Valor int (1–5) }
-    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil { /* 400 */ }
-    if payload.Valor < 1 || payload.Valor > 5 { /* 400 CALIFICACION_FUERA_DE_RANGO */ }
-
-    // Campo dinámico para el contador por estrella: "rating1Count" ... "rating5Count"
-    contadorEstrella := fmt.Sprintf("rating%dCount", payload.Valor)
-
-    mutaciones := map[string]interface{}{
-        "mutations": []map[string]interface{}{
-            // 1. Crear el documento de calificación (registro histórico)
-            {"create": map[string]interface{}{
-                "_type":         "calificacion",
-                "valor":         payload.Valor,
-                "producto":      map[string]string{"_type": "reference", "_ref": payload.ProductoID},
-                "fechaCreacion": time.Now().UTC().Format(time.RFC3339),
-            }},
-            // 2. Incrementos atómicos en el producto (patch.inc — sin condición de carrera)
-            {"patch": map[string]interface{}{
-                "id":  payload.ProductoID,
-                "inc": map[string]interface{}{
-                    "ratingSum":      payload.Valor, // Suma la cantidad de estrellas
-                    "ratingCount":    1,             // Incrementa el total de calificaciones
-                    contadorEstrella: 1,             // Incrementa el contador de esa estrella
-                },
-            }},
-        },
-    }
-    // ... enviar mutaciones a Sanity API y retornar 201
-}
-```
+Estructura idéntica a `/api/comentar` adaptada para `CalificacionPayload` con validación de rango (1–5).
 
 ### 5.4 Handler: `/api/buscar` (RF-18, opcional serverless)
 
@@ -2022,11 +1832,7 @@ npm run test
 - [ ] El bundle de JavaScript del frontend NO contiene el `SANITY_WRITE_TOKEN` (SEC-01)
 - [ ] Todos los tests de Go pasan: `cd api && go test ./...`
 - [ ] CI pipeline pasa con los tests nuevos
-- [ ] **Cobertura ≥ 85% de sentencias** en el proyecto global, verificada por SonarQube. Activar el quality gate en CI a partir de este punto (ver `VyV_LectorPobre.md` §10.2). Mientras no existan tests reales (Fases 1–4), el gate **no se activa** para evitar bloqueos en el pipeline.
 - [ ] Commit: `feat(handlers): implement comment, rating handlers with security controls [RF-06, RF-07, RNF-04]`
-
-> [!NOTE]
-> **Documentación de API:** Con 6 endpoints internos consumidos exclusivamente por el frontend Nuxt, la combinación de GoDoc + contratos TypeScript ↔ Go + `DEVELOPMENT_GUIDELINES.md` §8 es suficiente. Si el proyecto escala a más de ~15 endpoints o se expone a consumidores externos, adoptar **Swaggo** (generador OpenAPI 3.0) + **Postman** como herramientas de documentación formal.
 
 ---
 

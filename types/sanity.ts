@@ -1,41 +1,40 @@
 /**
  * @file sanity.ts
- * @description TypeScript interfaces derived from the Sanity schemas defined in sanity/schemaTypes/.
- * These types represent the shape of data AS RETURNED BY GROQ QUERIES to the Nuxt frontend,
- * not necessarily what is stored verbatim in Sanity (e.g. references are dereferenced,
- * computed fields like calificacionPromedio appear here but not in the schema).
+ * @description Interfaces TypeScript derivadas de los esquemas de Sanity definidos en sanity/schemaTypes/.
+ * Estos tipos representan la estructura de los datos TAL COMO SON RETORNADOS POR LAS CONSULTAS GROQ
+ * al frontend Nuxt, no necesariamente como se almacenan literalmente en Sanity (por ejemplo, las referencias
+ * están desreferenciadas y los campos computados como calificacionPromedio aparecen aquí pero no en el esquema).
  *
- * Maintenance: when a schema field is added or removed, update this file accordingly.
- * Future automation: run `pnpm exec sanity typegen generate` (from sanity/) to regenerate
- * this file automatically once schemas are stable. Pair with the CI check in ci.yml (IT-SANITY-01).
+ * Mantenimiento: cuando se agregue o elimine un campo del esquema, actualizar este archivo en consecuencia.
+ * Automatización futura: ejecutar `pnpm exec sanity typegen generate` (desde sanity/) para regenerar
+ * este archivo automáticamente una vez que los esquemas estén estables. Acompañar con la verificación en ci.yml (IT-SANITY-01).
  *
  * @satisfies RF-01, RF-02, RF-04, RF-05, RF-06, RF-07, RF-14, RF-15, RF-16, RF-17, RF-19, RF-21, RF-22, RF-23
  */
 
-// ── Sanity system fields present on every document ────────────────────────────
+// ── Campos de sistema presentes en todo documento de Sanity ───────────────────
 
 /**
- * Fields automatically managed by Sanity on every document.
- * Never declare these manually in a schema — Sanity injects them.
+ * Campos gestionados automáticamente por Sanity en cada documento.
+ * Nunca deben declararse manualmente en un esquema; Sanity los inyecta de forma nativa.
  */
 interface SanityDocument {
-    /** Auto-generated unique identifier (equivalent to a primary key). */
+    /** Identificador único autogenerado (equivalente a una clave primaria). */
     _id: string;
-    /** ISO-8601 creation timestamp, managed by Sanity. */
+    /** Marca de tiempo ISO-8601 de creación, gestionada por Sanity. */
     _createdAt: string;
-    /** ISO-8601 last-update timestamp, managed by Sanity. */
+    /** Marca de tiempo ISO-8601 de última actualización, gestionada por Sanity. */
     _updatedAt: string;
-    /** Internal revision number used by Sanity for optimistic concurrency. */
+    /** Número de revisión interna utilizado por Sanity para concurrencia optimista. */
     _rev: string;
 }
 
-// ── Image type ────────────────────────────────────────────────────────────────
+// ── Tipo de Imagen ────────────────────────────────────────────────────────────
 
 /**
- * Represents a Sanity image asset as stored in the document.
- * The hotspot/crop fields control smart-cropping on the Sanity CDN —
- * they have no effect on how the image is displayed in Vue components;
- * layout and carousel behavior is controlled entirely by CSS/Vue.
+ * Representa un recurso de imagen de Sanity tal como se almacena en el documento.
+ * Los campos hotspot y crop controlan el recorte inteligente en la CDN de Sanity;
+ * no alteran la lógica de los componentes Vue, donde el diseño se controla mediante CSS.
  */
 export interface SanityImage {
     _type: 'image';
@@ -60,105 +59,109 @@ export interface SanityImage {
 // ── Producto ──────────────────────────────────────────────────────────────────
 
 /**
- * Shape of a product document as returned by GROQ queries to the Nuxt frontend.
+ * Estructura de un documento de producto retornado por consultas GROQ al frontend Nuxt.
  *
- * Key differences from the raw Sanity document:
- * - `categoria` is the dereferenced object (nombre + slug), not the raw `{_ref}` pointer.
- *   This requires `categoria->{nombre, slug}` in every GROQ query.
- * - `calificacionPromedio` does NOT exist as a stored field. It is computed inline
- *   in GROQ as `round(ratingSum / ratingCount, 1)` and only present if ratingCount > 0.
- * - `ratingSum` is an internal counter and is NOT included in this interface.
- * - `ratingCount` and `rating1Count`–`rating5Count` ARE exposed to the frontend to power
- *   the review counter ("150 reseñas") and the per-star breakdown panel (RF-06).
+ * Diferencias clave respecto al documento crudo en Sanity:
+ * - `categoria` es el objeto desreferenciado (nombre + slug), no el puntero crudo `{_ref}`.
+ *   Requiere la proyección `categoria->{nombre, slug}` en cada consulta GROQ.
+ * - `calificacionPromedio` NO existe como campo persistido. Se calcula al vuelo
+ *   en GROQ como `round(ratingSum / ratingCount, 1)` y solo está presente si ratingCount > 0.
+ * - `ratingSum` es un contador interno y NO se expone en esta interfaz pública.
+ * - `ratingCount` y `rating1Count`–`rating5Count` SÍ se exponen al frontend para alimentar
+ *   el contador de reseñas ("150 reseñas") y el desglose detallado por estrellas (RF-06).
  *
- * @satisfies RF-01 - Catalog listing.
- * @satisfies RF-02 - Product detail page.
- * @satisfies RF-06 - Star rating: average, total count and per-star breakdown.
- * @satisfies RF-14 - Stock management; use umbralStockBajo from ConfiguracionGlobal to evaluate.
+ * @satisfies RF-01 - Listado en catálogo.
+ * @satisfies RF-02 - Vista de detalle de producto.
+ * @satisfies RF-06 - Calificación por estrellas: promedio, total y desglose por nivel.
+ * @satisfies RF-14 - Gestión de stock; usar umbralStockBajo de ConfiguracionGlobal para evaluar.
  */
 export interface Producto extends SanityDocument {
     _type: 'producto';
-    /** Product display name. Required. Max 120 characters. */
+    /** Nombre comercial del producto. Requerido. Máximo 120 caracteres. */
     nombre: string;
-    /** URL-friendly slug derived from nombre. Base for pages/producto/[slug].vue routing. */
+    /** Slug amigable para URL derivado del nombre. Base para el enrutamiento pages/producto/[slug].vue. */
     slug: { _type: 'slug'; current: string };
-    /** Optional long-form description shown on the detail page. */
+    /** Descripción detallada opcional mostrada en la vista de detalle. */
     descripcion?: string;
-    /** Main product image shown on catalog cards and at the top of the detail page. */
+    /** Imagen principal mostrada en tarjetas de catálogo y cabecera de la vista de detalle. */
     imagenPrincipal?: SanityImage;
-    /** Additional images for the detail page gallery/carousel (Vue component, Fase 3). */
+    /** Imágenes complementarias para la galería o carrusel de la vista de detalle (Fase 3). */
     imagenes?: SanityImage[];
     /**
-     * Dereferenced category. Requires `categoria->{nombre, slug}` in the GROQ query.
-     * The raw `{_type: 'reference', _ref: string}` shape is never used in the frontend.
+     * Categoría desreferenciada. Requiere `categoria->{nombre, slug}` en la consulta GROQ.
+     * La forma cruda `{_type: 'reference', _ref: string}` nunca se utiliza en el frontend.
      */
     categoria: {
         nombre: string;
         slug: { _type: 'slug'; current: string };
     };
-    /** Available units. 0 = contact button disabled. RF-14. */
+    /** Unidades disponibles en stock. 0 = botón de contacto deshabilitado. RF-14. */
     stock: number;
-    /** Optional price used only in the WhatsApp message template. Not an e-commerce price. RF-17. */
+    /** Precio opcional utilizado únicamente en la plantilla del mensaje de WhatsApp. RF-17. */
     precio?: number;
-    /** When false, the product is hidden from all public catalog GROQ queries. RF-13. */
+    /** Si es false, el producto se oculta de todas las consultas públicas del catálogo. RF-13. */
     activo: boolean;
     /**
-     * Average star rating (1.0–5.0), computed in GROQ as round(ratingSum / ratingCount, 1).
-     * null when the product has no ratings yet (ratingCount === 0).
-     * Never stored in Sanity — appears in query results only when projected explicitly.
+     * Promedio de estrellas (1.0–5.0), calculado en GROQ como round(ratingSum / ratingCount, 1).
+     * null cuando el producto aún no tiene calificaciones (ratingCount === 0).
+     * Nunca se almacena en Sanity; aparece solo cuando se proyecta explícitamente en la consulta.
      * RF-06.
      */
     calificacionPromedio?: number | null;
     /**
-     * Total number of ratings received. Shown as "X reseñas" next to the star average.
-     * Updated atomically by the Go rating handler via patch.inc. RF-06.
+     * Total de calificaciones recibidas. Mostrado como "X reseñas" junto al promedio.
+     * Actualizado atómicamente por el handler Go de calificación mediante patch.inc. RF-06.
      */
     ratingCount?: number;
     /**
-     * Per-star counters for the rating breakdown panel ("5★: 120 votos, 4★: 20 votos...").
-     * Each counter is incremented atomically by the Go rating handler via patch.inc
-     * using the field name `rating{valor}Count`. RF-06.
+     * Contadores individuales por estrella para el panel de desglose ("5★: 120 votos, 4★: 20 votos...").
+     * Cada contador se incrementa de manera atómica en el backend Go con patch.inc
+     * usando el nombre de campo `rating{valor}Count`. RF-06.
      */
     rating1Count?: number;
     rating2Count?: number;
     rating3Count?: number;
     rating4Count?: number;
     rating5Count?: number;
+    /**
+     * Palabras clave y etiquetas opcionales para búsqueda difusa y recomendaciones por contenido. RF-23.
+     */
+    palabrasClave?: string[];
 }
 
 // ── Categoria ─────────────────────────────────────────────────────────────────
 
 /**
- * Product category used for filtering in the catalog.
- * @satisfies RF-04 - Category filtering and navigation.
+ * Categoría de producto utilizada para filtrado y navegación en el catálogo.
+ * @satisfies RF-04 - Filtrado por categoría y navegación.
  */
 export interface Categoria extends SanityDocument {
     _type: 'categoria';
     nombre: string;
     slug?: { _type: 'slug'; current: string };
     descripcion?: string;
-    /** Controls display order in the category filter UI. Lower = first. */
+    /** Controla el orden de visualización en los filtros del catálogo. Menor = primero. */
     orden?: number;
 }
 
 // ── Comentario ────────────────────────────────────────────────────────────────
 
 /**
- * User comment on a product, with admin moderation workflow.
- * Only comments with estado === 'aprobado' are shown in the public catalog.
- * The admin approves/rejects from Sanity Studio.
+ * Comentario de usuario sobre un producto con flujo de moderación administrativa.
+ * Solo los comentarios con estado === 'aprobado' se muestran en el catálogo público.
+ * El administrador aprueba o rechaza los comentarios desde Sanity Studio.
  *
- * The public listing in the product detail page supports ordering by:
- * - fechaCreacion desc (most recent first — default)
- * - fechaCreacion asc  (oldest first)
- * Filtering by star rating is done client-side using the associated Calificacion documents.
+ * El listado público en la vista de detalle soporta ordenamiento por:
+ * - fechaCreacion desc (más reciente primero — por defecto)
+ * - fechaCreacion asc (más antiguo primero)
+ * El filtrado por estrellas se realiza en el cliente asociando los documentos de Calificación.
  *
- * @satisfies RF-07 - Text comments with moderation and sortable public listing.
+ * @satisfies RF-07 - Comentarios de texto con moderación y listado público ordenable.
  */
 export interface Comentario extends SanityDocument {
     _type: 'comentario';
     texto: string;
-    /** Raw reference to the parent product. Dereferenced with `producto->` in GROQ when needed. */
+    /** Referencia cruda al producto padre. Desreferenciada con `producto->` en GROQ cuando se requiere. */
     producto: { _type: 'reference'; _ref: string };
     fechaCreacion?: string;
     estado: 'pendiente' | 'aprobado' | 'rechazado';
@@ -167,24 +170,24 @@ export interface Comentario extends SanityDocument {
 // ── Calificacion ──────────────────────────────────────────────────────────────
 
 /**
- * Star rating (1–5) submitted by a user for a product.
- * When created by the Go handler, the handler also issues three atomic patch.inc
- * mutations on the parent product:
- *   - ratingSum    += valor
- *   - ratingCount  += 1
- *   - rating{valor}Count += 1  (e.g. rating4Count for a 4-star rating)
- * This enables the average and the per-star breakdown panel without race conditions.
+ * Calificación por estrellas (1–5) enviada por un usuario para un producto.
+ * Al crearse mediante el handler de Go, se ejecutan tres mutaciones atómicas patch.inc
+ * en el producto correspondiente:
+ *   - ratingSum          += valor
+ *   - ratingCount        += 1
+ *   - rating{valor}Count += 1 (ej. rating4Count para una calificación de 4 estrellas)
+ * Esto permite calcular promedios y desgloses sin condiciones de carrera.
  *
- * Documents of this type are read-only in Sanity Studio (RF-06 — admin cannot
- * create or edit ratings manually). They serve as an audit log only.
+ * Los documentos de este tipo son de solo lectura en Sanity Studio (RF-06).
+ * Funcionan como registro de auditoría inmutable.
  *
- * @satisfies RF-06 - Star rating system with counter and per-star breakdown.
+ * @satisfies RF-06 - Sistema de calificación por estrellas con contador y desglose.
  */
 export interface Calificacion extends SanityDocument {
     _type: 'calificacion';
-    /** Integer between 1 and 5, inclusive. */
+    /** Valor entero entre 1 y 5, inclusive. */
     valor: number;
-    /** Raw reference to the rated product. */
+    /** Referencia cruda al producto calificado. */
     producto: { _type: 'reference'; _ref: string };
     fechaCreacion?: string;
 }
@@ -192,74 +195,82 @@ export interface Calificacion extends SanityDocument {
 // ── ConfiguracionGlobal ───────────────────────────────────────────────────────
 
 /**
- * Singleton document that controls all site-wide settings.
- * Exactly one document of this type exists per dataset.
- * Read at Nuxt build time; changes require a site rebuild (triggered by the Sanity webhook).
+ * Documento singleton que gestiona la configuración general del sitio.
+ * Existe exactamente un único documento de este tipo por dataset.
+ * Se lee durante el build de Nuxt; los cambios requieren un rebuild del sitio (vía webhook de Sanity).
  *
- * @satisfies RF-05 - Social media links.
- * @satisfies RF-15 - Color palette: 4 predefined palettes (claro, oscuro, oceano, atardecer)
- *   + a fully custom palette defined via individual hex color fields.
- * @satisfies RF-16 - Visual variant (layout style) + decorative pattern image applied
- *   as a repeating semi-transparent CSS overlay on the catalog.
- * @satisfies RF-17 - WhatsApp contact and message template.
- * @satisfies RF-19 - Products per page (pagination slice size in GROQ).
- * @satisfies RF-03, RF-14 - Low-stock threshold configuration.
+ * @satisfies RF-05 - Enlaces a redes sociales.
+ * @satisfies RF-15 - Paleta de colores: 5 paletas predefinidas (identidad, cenote, luchaLibre,
+ *   nocheFiesta, meridaPastel) + paleta personalizada mediante campos hex individuales.
+ * @satisfies RF-16 - Variante visual de diseño + patrón decorativo aplicado
+ *   como capa semitransparente repetida sobre el catálogo.
+ * @satisfies RF-17 - Contacto y plantilla de mensaje de WhatsApp.
+ * @satisfies RF-19 - Productos por página (tamaño del bloque de paginación en GROQ).
+ * @satisfies RF-03, RF-14 - Configuración del umbral de stock bajo.
+ * @satisfies RF-23 - Definición global de grupos de sinónimos para búsqueda.
  */
 export interface ConfiguracionGlobal extends SanityDocument {
     _type: 'configuracionGlobal';
     nombreSitio?: string;
-    /** International format without the "+". Example: 5219991234567. RF-17. */
+    /** Formato internacional sin el símbolo "+". Ejemplo: 5219991234567. RF-17. */
     numeroWhatsApp?: string;
-    /** WhatsApp message template. Supports {{nombre}} and {{precio}} as product variables. RF-17. */
+    /** Plantilla de mensaje de WhatsApp. Soporta variables como {{nombre}} y {{precio}}. RF-17. */
     mensajeWhatsApp?: string;
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
 
     /**
-     * Active color palette. Read at build time and injected as CSS custom properties
-     * in plugins/paleta.ts. When set to 'custom', the paletaCustom* fields below are used. RF-15.
+     * Paleta de colores activa. Leída en build time e inyectada como variables CSS
+     * en plugins/paleta.ts. Si se selecciona 'custom', se usan los campos paletaCustom*. RF-15.
      */
-    paletaActiva: 'claro' | 'oscuro' | 'oceano' | 'atardecer' | 'custom';
+    paletaActiva: 'identidad' | 'cenote' | 'luchaLibre' | 'nocheFiesta' | 'meridaPastel' | 'custom';
 
-    // RF-15: custom palette hex values — only consumed when paletaActiva === 'custom'.
-    /** Primary brand color (hex). E.g. '#3b82f6'. */
+    // RF-15: valores hexadecimales para paleta personalizada — solo se usan si paletaActiva === 'custom'.
+    /** Color de marca primario (hex). Ej. '#e4007c'. */
     paletaCustomPrimario?: string;
-    /** Secondary brand color (hex). */
+    /** Color de marca secundario (hex). */
     paletaCustomSecundario?: string;
-    /** Accent color (hex). */
+    /** Color de acento (hex). */
     paletaCustomAcento?: string;
-    /** Page background color (hex). */
+    /** Color de fondo del sitio (hex). */
     paletaCustomFondo?: string;
-    /** Primary text color (hex). */
+    /** Color de texto principal (hex). */
     paletaCustomTexto?: string;
 
     /**
-     * Visual variant that controls card layout style and density. RF-16.
-     * Applied as a CSS class on the catalog container component at build time.
+     * Variante visual que controla la densidad y estilo de las tarjetas del catálogo. RF-16.
+     * Se aplica como clase CSS en el contenedor del catálogo en tiempo de compilación.
      */
     varianteVisual: 'clasico' | 'moderno' | 'minimalista';
 
     /**
-     * When true, patronDecorativo is rendered as a semi-transparent repeating
-     * CSS background overlay on the catalog. RF-16.
+     * Si es true, patronDecorativo se renderiza como una capa de fondo semitransparente
+     * repetida mediante CSS sobre el catálogo. RF-16.
      */
     patronDecorativoActivo: boolean;
     /**
-     * Small image (~200×200 px, PNG with transparent background) used as the
-     * decorative overlay pattern. Only consumed when patronDecorativoActivo is true.
-     * RF-16. Examples: Halloween bats, Christmas snowflakes.
+     * Imagen ligera (~200×200 px, PNG con fondo transparente) usada como patrón decorativo.
+     * Solo se consume cuando patronDecorativoActivo es true. RF-16.
      */
     patronDecorativo?: SanityImage;
 
     /**
-     * When producto.stock <= umbralStockBajo, the frontend shows the "¡Pocas unidades!" alert.
-     * Default: 5. Resolves ERS Open Issue #3. RF-03, RF-14.
+     * Cuando producto.stock <= umbralStockBajo, el frontend muestra la alerta "¡Pocas unidades!".
+     * Valor por defecto: 5. Resuelve Tema Abierto #3 del ERS. RF-03, RF-14.
      */
     umbralStockBajo: number;
     /**
-     * Number of products fetched per page in the catalog GROQ query.
-     * Default: 24. Resolves ERS Open Issue #2. RF-19.
+     * Cantidad de productos consultados por página en la consulta GROQ del catálogo.
+     * Valor por defecto: 24. Resuelve Tema Abierto #2 del ERS. RF-19.
      */
     productosPorPagina: number;
+
+    /**
+     * Grupos globales de sinónimos para expansión en búsqueda difusa y recomendaciones. RF-23.
+     */
+    sinonimos?: Array<{
+        _key?: string;
+        terminos: string[];
+    }>;
 }

@@ -1,7 +1,7 @@
 # Arquitectura Técnica Detallada — Plataforma Web "LectorPobre"
 
 **Patrón arquitectónico:** Jamstack desacoplado (JavaScript, APIs, Markup) con backend "sin servidor" (serverless)
-**Versión:** 2.0 — Documento ampliado a partir de los requisitos, el stack tecnológico y la arquitectura simplificada del proyecto.
+**Versión:** 2.1 — Documento ampliado a partir de los requisitos, el stack tecnológico y la arquitectura simplificada del proyecto. v2.1 incorpora búsqueda avanzada y recomendaciones basadas en contenido (ver §6.6 y §13.1).
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## 1. Resumen ejecutivo
 
-LectorPobre es una plataforma de catálogo de productos que prioriza **rendimiento, SEO y costo operativo mínimo**. Para lograrlo, la arquitectura desacopla completamente tres responsabilidades:
+LectorPobre es una plataforma de catálogo de productos de arte y manualidades (llaveros semiartesanales, prints de arte, stickers y accesorios de autor; no es una librería) que prioriza **rendimiento, SEO y costo operativo mínimo**. Para lograrlo, la arquitectura desacopla completamente tres responsabilidades:
 
 - **Presentación**: un sitio estático pre-renderizado (Nuxt.js/SSG) servido desde una CDN global.
 - **Lógica dinámica**: microservicios serverless en Go, activados únicamente para operaciones puntuales (calificaciones, comentarios, consulta de stock en vivo).
@@ -146,7 +146,10 @@ flowchart TB
 | RF-07 | Comentarios de texto | Frontend → `POST /api/comentar` (Go) → Sanity (escritura, con moderación) |
 | RF-08, RF-09, RF-10 | Login/logout/panel admin | Sanity Studio (autenticación gestionada por el proveedor del CMS) |
 | RF-11 a RF-16 | Edición de catálogo, imágenes, stock, paleta y elementos visuales | Sanity Studio (sin código) — los cambios disparan rebuild vía webhook |
-| RF-18 | Búsqueda por palabra clave | Índice generado en build time (cliente) o función `GET /api/buscar` (Go) si se requiere búsqueda sobre datos no incluidos en el build |
+| RF-18 | Búsqueda por palabra clave (difusa, autocompletado, sinónimos) | Frontend: índice difuso (Fuse.js) generado en build time y cargado de forma diferida; adaptador `SearchEngine`. La función `GET /api/buscar` (Go) queda como alternativa **no prevista** salvo que se requiera búsqueda sobre datos no incluidos en el build |
+| RF-21 | Productos similares (basado en contenido) | Script de build (TF-IDF + similitud coseno) → `recommendations.json` estático en CDN → componente de UI en la ficha de producto |
+| RF-22 | Vistos recientemente | Frontend (composable `useRecentlyViewed` + `localStorage`), sin backend |
+| RF-23 | Palabras clave y sinónimos | Esquemas de Sanity (`producto`, `configuracionGlobal`) consumidos en build time por el índice y el script de recomendaciones |
 | RF-19 | Paginación / carga diferida | Frontend (Nuxt), sobre datos ya compilados o paginados vía API pública |
 | RF-20 | Metadatos dinámicos (SEO/OG) | Generados en build time por Nuxt a partir del contenido de Sanity |
 | RNF-01 | Navegación sin autenticación | Arquitectura Jamstack por diseño (contenido público estático) |
@@ -154,6 +157,8 @@ flowchart TB
 | RNF-04 | Seguridad del backend sin estado | Funciones Go (ver secciones 8 y 9) |
 | RNF-05 | Responsividad móvil | Frontend (Tailwind CSS) |
 | RNF-06 | Analítica externa | Script de terceros cargado desde el frontend (ver 10.9 sobre riesgos de scripts de terceros) |
+| RNF-07 | Búsqueda y recomendación sin servidor permanente ni costo adicional | Cálculo en cliente y en build time; archivos estáticos servidos por CDN (ver 6.6) |
+| RNF-08 | Extensibilidad de búsqueda y recomendación | Interfaces `SearchEngine` y `RecommendationStrategy`, pipeline por etapas, contrato de datos versionado (ver 6.6 y 13.1) |
 
 ---
 
@@ -194,6 +199,72 @@ Dado que el catálogo se pre-renderiza, el stock (dato volátil) requiere una fu
 1. El administrador se autentica contra el proveedor de identidad configurado en Sanity (OAuth o email/contraseña gestionado por Sanity).
 2. Una vez autenticado, opera el panel (RF-11 a RF-16) directamente sobre el dataset.
 3. Los cambios publicados disparan el flujo 6.1 para reflejarse en el sitio público.
+
+### 6.6 Flujo de búsqueda avanzada y recomendaciones (RF-18, RF-21, RF-22, RF-23, RNF-07, RNF-08)
+
+Toda la lógica se ejecuta en **build time** o en el **navegador**. No interviene ningún servidor permanente ni base de datos adicional.
+
+```mermaid
+flowchart LR
+    A["Sanity: cambio de catálogo"] -->|webhook firmado| B["Build en Vercel"]
+    B --> C["Script de recomendaciones"]
+    C --> C1["1. Normalización"]
+    C1 --> C2["2. Vectorización TF-IDF"]
+    C2 --> C3["3. Similitud coseno"]
+    C2 -.->|artefacto intermedio| V["product-vectors.json (solo build)"]
+    C3 --> R["recommendations.json"]
+    C3 -.->|futuro| CL["4. Agrupación (clustering)"]
+    B --> S["search-index.json"]
+    R --> CDN["CDN de Vercel"]
+    S --> CDN
+    CDN --> UI["Navegador"]
+    UI --> SE["SearchEngine (Fuse.js)"]
+    UI --> RS["Sección: Productos similares"]
+    UI --> LS["localStorage: Vistos recientemente"]
+```
+
+**Construcción (build time)**
+1. Tras cada *rebuild*, un script Node/TypeScript (`scripts/recommendations/`) consulta el catálogo vía GROQ.
+2. Ejecuta el pipeline por etapas: normalización de texto (minúsculas, acentos, *stopwords*, sinónimos), vectorización TF-IDF (texto + categoría + palabras clave + rango de precio) y similitud coseno para obtener los 4–6 vecinos más cercanos de cada producto.
+3. Emite `recommendations.json` con el contrato versionado:
+
+```json
+{
+  "schemaVersion": 1,
+  "algorithm": "tfidf-cosine",
+  "generatedAt": "2026-10-21T00:00:00Z",
+  "items": {
+    "<productId>": {
+      "clusterId": null,
+      "similar": [ { "id": "<productId>", "score": 0.82 } ]
+    }
+  }
+}
+```
+
+4. Emite también `search-index.json` (índice difuso serializado) y, como artefacto interno de build, `product-vectors.json` (vectores TF-IDF) reutilizable por una futura etapa de *clustering*.
+5. Con 2000 productos, el cálculo de todos los pares (~2 millones) toma segundos; es compatible con RNF-07.
+
+**Ejecución (client time)**
+1. El catálogo se entrega como HTML estático; el índice de búsqueda **no** forma parte de la carga inicial.
+2. Al enfocar el campo de búsqueda, el cliente carga `search-index.json` de forma diferida y responde con tolerancia a errores, autocompletado y sinónimos.
+3. En la ficha de producto, el cliente lee `recommendations.json` (o su porción inyectada en la página) y cruza con el stock en vivo (RF-03) para despriorizar productos agotados.
+4. El historial de "Vistos recientemente" se guarda y lee únicamente de `localStorage`.
+
+**Contratos de desacoplamiento (RNF-08)**
+
+```typescript
+interface SearchEngine {
+  load(): Promise<void>;
+  search(query: string, limit?: number): SearchResult[];
+  suggest(prefix: string, limit?: number): Suggestion[];
+}
+
+interface RecommendationStrategy {
+  readonly name: string;
+  compute(products: ProductDocument[], ctx: PipelineContext): RecommendationOutput;
+}
+```
 
 ---
 
@@ -333,6 +404,13 @@ Además de Sanity, cualquier clave de servicios de analítica o anti-bot debe tr
 - El principal factor de costo variable son las invocaciones de funciones; por ello, el *rate limiting* (sección 9.5) cumple una doble función: seguridad **y** control de costos.
 - Ante fallos en Sanity (API de lectura), el sitio estático sigue disponible con el último contenido compilado; solo se degradan las funcionalidades dinámicas (stock en vivo, comentarios, calificaciones).
 
+### 13.1 Dimensionamiento y evolución de búsqueda y recomendación
+
+- **Rango previsto del catálogo:** 20–30 productos actuales, ~100 el próximo año, tope esperado de 2000. El diseño (Fuse.js + TF-IDF en build) cubre holgadamente este rango con costo operativo adicional de $0.
+- **Contingencia de motor de búsqueda:** si el catálogo se acerca a ~1000+ productos se reemplaza Fuse.js por MiniSearch implementando `SearchEngine`, sin tocar la UI.
+- **Evolución a *clustering* (puerta abierta):** se añadirá como una etapa adicional del pipeline y una nueva `RecommendationStrategy`, usando `product-vectors.json` y el campo `clusterId` ya reservado en el contrato. Cálculo en build time; no requiere cambios de infraestructura.
+- **Migración a servidor y base de datos dedicados (solo si es estrictamente necesario):** contemplada únicamente si se superan los umbrales descritos en ERS §7.5.2 (catálogo muy superior a 2000 productos, personalización por usuario, búsqueda semántica o ranking en tiempo real). Los adaptadores `SearchEngine` y `RecommendationStrategy` aíslan la UI de esa eventual migración. No está planificada.
+
 ---
 
 ## 14. Glosario
@@ -347,6 +425,9 @@ Además de Sanity, cualquier clave de servicios de analítica o anti-bot debe tr
 | Cold start | Tiempo de arranque de una función serverless tras estar inactiva, antes de poder procesar una petición |
 | Denial of wallet | Ataque orientado a generar costos económicos excesivos explotando modelos de pago por uso |
 | CSP | Content Security Policy: cabecera HTTP que restringe qué recursos puede cargar/ejecutar una página |
+| TF-IDF | Ponderación de términos por frecuencia en el documento y rareza en el catálogo |
+| Similitud coseno | Medida de parecido entre vectores; base de la recomendación basada en contenido |
+| Clustering | Agrupación automática de productos por similitud (evolución futura, no incluida) |
 
 ---
 

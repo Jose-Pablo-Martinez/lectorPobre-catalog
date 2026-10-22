@@ -884,15 +884,15 @@ func TestComentarHandler_TextoVacio_Retorna400(t *testing.T) {
 
 describe('TarjetaProducto', () => {
     it('muestra el nombre y la imagen del producto', () => {
-        const producto = crearProductoMock({ nombre: 'Libro Test', imagenUrl: '/img/test.jpg' });
+        const producto = crearProductoMock({ nombre: 'Llavero Test', imagenUrl: '/img/test.jpg' });
         const wrapper = mount(TarjetaProducto, { props: { producto } });
 
-        expect(wrapper.text()).toContain('Libro Test');
+        expect(wrapper.text()).toContain('Llavero Test');
         expect(wrapper.find('img').attributes('src')).toBe('/img/test.jpg');
     });
 
     it('incluye el enlace de WhatsApp cuando se proporciona el producto', () => {
-        const producto = crearProductoMock({ nombre: 'Libro Test' });
+        const producto = crearProductoMock({ nombre: 'Llavero Test' });
         const wrapper = mount(TarjetaProducto, { props: { producto } });
 
         const enlace = wrapper.find('[data-testid="whatsapp-link"]');
