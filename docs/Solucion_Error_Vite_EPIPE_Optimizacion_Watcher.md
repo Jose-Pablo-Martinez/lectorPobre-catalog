@@ -1,6 +1,6 @@
 # Solución al Error Vite EPIPE y Optimización del Watcher de Nuxt
 
-> **Referencia Técnica:** Incidente de Build Local en Fase 3 / Prevención para Fase 6  
+> **Referencia Técnica:** Incidente de Build Local en Fase 3 / Prevención para el Panel de Control (Release 2, `panelControlImplementacion.md`)  
 > **Archivos Afectados:** `nuxt.config.ts`  
 > **Estado:** Resuelto y Validado  
 
@@ -22,8 +22,8 @@ Este fallo impedía que Vite realizara el pre-empaquetado (*pre-bundling*) adecu
 
 La investigación y análisis forense determinó que la falla se debía a la conjunción de tres factores:
 
-### Factor 1: Archivos `.vue` y `.ts` vacíos (0 bytes) reservados para la Fase 6
-Desde la creación inicial del repositorio, existían archivos vacíos (0 bytes) creados como placeholders estructurales para la Fase 6:
+### Factor 1: Archivos `.vue` y `.ts` vacíos (0 bytes) reservados para el Panel de Control (Release 2)
+Desde la creación inicial del repositorio, existían archivos vacíos (0 bytes) creados como placeholders estructurales para la autenticación y el panel:
 - `layouts/admin.vue`
 - `pages/admin/login.vue` (y subdirectorio `pages/admin/`)
 - `middleware/auth.ts`
@@ -50,7 +50,7 @@ Se actualizaron las configuraciones de `ignore`, `watchers` y `vite` en `nuxt.co
 export default defineNuxtConfig({
     // ...
 
-    // 1. Excluir subdirectorios del monorepo y placeholders vacíos de la Fase 6
+    // 1. Excluir subdirectorios del monorepo y placeholders vacíos del Panel de Control (Release 2)
     ignore: [
         'sanity/**',
         'api/**',
@@ -122,18 +122,18 @@ Tras la implementación de estos ajustes, la ejecución de `pnpm run dev` arroj�
 
 ---
 
-## 5. ⚠️ Guía Mandatoria para la Implementación de la Fase 6
+## 5. ⚠️ Guía Mandatoria para la Implementación del Panel de Control (Release 2)
 
 > [!IMPORTANT]
-> **RECORDATORIO PARA DESARROLLADORES EN FASE 6 (PANEL DE ADMINISTRACIÓN Y AUTENTICACIÓN):**  
-> Una vez que comiences el desarrollo de la Fase 6 e implementes el código real (con etiquetas `<template>` y `<script>`) en los archivos administrativos, **DEBES reactivarlos en Nuxt eliminándolos de la lista `ignore`**.
+> **RECORDATORIO PARA DESARROLLADORES DEL PANEL DE CONTROL (RELEASE 2 — `panelControlImplementacion.md`):**  
+> Si el Panel de Control se desarrolla dentro de esta misma app Nuxt e implementas el código real (con etiquetas `<template>` y `<script>`) en los archivos administrativos, **DEBES reactivarlos en Nuxt eliminándolos de la lista `ignore`**. (Si el panel se aloja en su propio directorio `admin/` como aplicación independiente de Vercel, estos stubs simplemente se migran o descartan).
 
-### Pasos al iniciar la Fase 6:
+### Pasos al reactivar las rutas en Nuxt:
 1. Abrir `nuxt.config.ts`.
 2. Ubicar la sección `ignore`.
 3. **Eliminar únicamente estas 3 líneas:**
    ```typescript
-   // ELIMINAR ESTAS LÍNEAS EN FASE 6:
+   // ELIMINAR ESTAS LÍNEAS AL IMPLEMENTAR EL PANEL EN ESTA APP:
    'layouts/admin.vue',
    'pages/admin/**',
    'middleware/auth.ts',
@@ -151,4 +151,4 @@ Tras la implementación de estos ajustes, la ejecución de `pnpm run dev` arroj�
    'test-results/**',
    ```
 
-Esta separación garantiza que al llegar a la Fase 6 no se pierda tiempo investigando por qué las rutas `/admin` devuelven 404 o no se registran en el enrutador de Nuxt.
+Esta separación garantiza que al desarrollar el Panel de Control no se pierda tiempo investigando por qué las rutas `/admin` devuelven 404 o no se registran en el enrutador de Nuxt.

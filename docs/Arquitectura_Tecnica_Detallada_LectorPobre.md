@@ -1,7 +1,7 @@
 # Arquitectura Técnica Detallada — Plataforma Web "LectorPobre"
 
 **Patrón arquitectónico:** Jamstack desacoplado (JavaScript, APIs, Markup) con backend "sin servidor" (serverless)
-**Versión:** 2.1 — Documento ampliado a partir de los requisitos, el stack tecnológico y la arquitectura simplificada del proyecto. v2.1 incorpora búsqueda avanzada y recomendaciones basadas en contenido (ver §6.6 y §13.1).
+**Versión:** 2.2 — Documento ampliado a partir de los requisitos, el stack tecnológico y la arquitectura simplificada del proyecto. v2.1 incorporó búsqueda avanzada y recomendaciones basadas en contenido (§6.6 y §13.1); v2.2 explicita la separación en dos entregas: Release 1 (tienda pública con administración vía Sanity Studio) y Release 2 (Panel de Control propio en dominio independiente; ver §13.2 y `panelControlImplementacion.md`).
 
 ---
 
@@ -144,8 +144,8 @@ flowchart TB
 | RF-05, RF-17 | Enlaces a redes sociales y WhatsApp | Frontend (enlaces estáticos configurables desde Sanity) |
 | RF-06 | Calificación por estrellas | Frontend → `POST /api/calificar` (Go) → Sanity (escritura) |
 | RF-07 | Comentarios de texto | Frontend → `POST /api/comentar` (Go) → Sanity (escritura, con moderación) |
-| RF-08, RF-09, RF-10 | Login/logout/panel admin | Sanity Studio (autenticación gestionada por el proveedor del CMS) |
-| RF-11 a RF-16 | Edición de catálogo, imágenes, stock, paleta y elementos visuales | Sanity Studio (sin código) — los cambios disparan rebuild vía webhook |
+| RF-08, RF-09, RF-10 | Login/logout/panel admin | **Release 1:** Sanity Studio (autenticación gestionada por Sanity). **Release 2:** Panel de Control propio en dominio separado (ver `panelControlImplementacion.md`) |
+| RF-11 a RF-16 | Edición de catálogo, imágenes, stock, paleta y elementos visuales | **Release 1:** Sanity Studio (sin código) — los cambios disparan rebuild vía webhook. **Release 2:** Panel de Control propio con API de mutaciones |
 | RF-18 | Búsqueda por palabra clave (difusa, autocompletado, sinónimos) | Frontend: índice difuso (Fuse.js) generado en build time y cargado de forma diferida; adaptador `SearchEngine`. La función `GET /api/buscar` (Go) queda como alternativa **no prevista** salvo que se requiera búsqueda sobre datos no incluidos en el build |
 | RF-21 | Productos similares (basado en contenido) | Script de build (TF-IDF + similitud coseno) → `recommendations.json` estático en CDN → componente de UI en la ficha de producto |
 | RF-22 | Vistos recientemente | Frontend (composable `useRecentlyViewed` + `localStorage`), sin backend |
@@ -194,11 +194,14 @@ Dado que el catálogo se pre-renderiza, el stock (dato volátil) requiere una fu
 4. Si todo es válido, Go firma la petición con el **token privado de escritura** (con permisos acotados) y escribe el documento en Sanity, preferentemente en estado de **borrador/pendiente de moderación**.
 5. La función retorna un resultado mínimo (éxito/error) y finaliza su ejecución (no persiste estado).
 
-### 6.5 Flujo de administración (Sanity Studio)
+### 6.5 Flujo de administración
 
-1. El administrador se autentica contra el proveedor de identidad configurado en Sanity (OAuth o email/contraseña gestionado por Sanity).
-2. Una vez autenticado, opera el panel (RF-11 a RF-16) directamente sobre el dataset.
-3. Los cambios publicados disparan el flujo 6.1 para reflejarse en el sitio público.
+- **Release 1 (Sanity Studio):**
+  1. El administrador se autentica contra el proveedor de identidad configurado en Sanity (OAuth o email/contraseña gestionado por Sanity).
+  2. Una vez autenticado, opera el panel (RF-11 a RF-16) directamente sobre el dataset.
+  3. Los cambios publicados disparan el flujo 6.1 (webhook de rebuild) para reflejarse en el sitio público.
+- **Release 2 (Panel de Control propio):**
+  Opera como una aplicación web independiente en un dominio o subdominio separado (p. ej. `admin.lectorpobre.com`), consumiendo una API serverless en Go protegida con JWT/cookie httpOnly que ejecuta mutaciones validadas en Sanity con un token privado de administración. Ver detalle en §13.2 y en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md).
 
 ### 6.6 Flujo de búsqueda avanzada y recomendaciones (RF-18, RF-21, RF-22, RF-23, RNF-07, RNF-08)
 
@@ -410,6 +413,17 @@ Además de Sanity, cualquier clave de servicios de analítica o anti-bot debe tr
 - **Contingencia de motor de búsqueda:** si el catálogo se acerca a ~1000+ productos se reemplaza Fuse.js por MiniSearch implementando `SearchEngine`, sin tocar la UI.
 - **Evolución a *clustering* (puerta abierta):** se añadirá como una etapa adicional del pipeline y una nueva `RecommendationStrategy`, usando `product-vectors.json` y el campo `clusterId` ya reservado en el contrato. Cálculo en build time; no requiere cambios de infraestructura.
 - **Migración a servidor y base de datos dedicados (solo si es estrictamente necesario):** contemplada únicamente si se superan los umbrales descritos en ERS §7.5.2 (catálogo muy superior a 2000 productos, personalización por usuario, búsqueda semántica o ranking en tiempo real). Los adaptadores `SearchEngine` y `RecommendationStrategy` aíslan la UI de esa eventual migración. No está planificada.
+
+### 13.2 Evolución: Panel de Control propio (Release 2)
+
+Para la comodidad del cliente y la centralización de operaciones en un dominio propio, el sistema evolucionará tras el despliegue de la tienda hacia un **Panel de Control propio** (Release 2), manteniendo la arquitectura Jamstack:
+
+- **Despliegue aislado:** proyecto Vercel independiente en subdominio separado (p. ej. `admin.lectorpobre.com`), sin enlaces ni código del panel embebidos en el bundle de la tienda pública.
+- **Seguridad y privacidad:** rutas privadas ocultas (respuesta 404 a peticiones no autenticadas, cabecera `X-Robots-Tag: noindex, nofollow`, `robots.txt` restrictivo).
+- **Gestión de secretos y mínimo privilegio:** el panel utiliza un `SANITY_ADMIN_WRITE_TOKEN` exclusivo (rol de edición completo), completamente desacoplado del token de la tienda pública (que solo tiene permisos para escribir comentarios/calificaciones).
+- **Autenticación sin estado:** validación por bcrypt + JWT firmado de corta duración (8 h) en cookie `httpOnly`, con lista negra de JTI en Vercel KV para invalidación inmediata de tokens en logout (RF-09).
+- **Sincronización:** cada mutación en el panel invoca el webhook de rebuild de la tienda, conservando la velocidad del frontend estático.
+- **Plan de implementación exclusivo:** ver especificación técnica y fases en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md).
 
 ---
 

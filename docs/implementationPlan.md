@@ -3,13 +3,13 @@
 > **Versión:** 1.0
 > **Documentos base:** [ERS_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/ERS_LectorPobre.md) · [Arquitectura_Tecnica_Detallada_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/Arquitectura_Tecnica_Detallada_LectorPobre.md) · [Stack_Tecnologico_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/Stack_Tecnologico_LectorPobre.md) · [DEVELOPMENT_GUIDELINES.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/DEVELOPMENT_GUIDELINES.md) · [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/VyV_LectorPobre.md)
 > **Repositorio destino:** `c:\Users\j_pab\Documents\dev\lectorPobre`
-> **Objetivo:** Implementar la plataforma LectorPobre de forma incremental sobre arquitectura Jamstack, entregando el catálogo público estático como Release 1 (primera entrega desplegable) y la infraestructura preparada para todas las funcionalidades dinámicas (comentarios, calificaciones, panel de administración).
+> **Objetivo:** Implementar la plataforma LectorPobre de forma incremental sobre arquitectura Jamstack, entregando el catálogo público estático como Release 1 (primera entrega desplegable) y la infraestructura preparada para las funcionalidades dinámicas de la tienda (comentarios, calificaciones). La gestión de contenido se realiza **exclusivamente con Sanity Studio**; el Panel de Control propio (con todas las funcionalidades de gestión y métricas) se planifica por separado en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) (Release 2).
 
 ---
 
 ## Resumen Ejecutivo
 
-El plan se divide en **8 fases (0–7)** ordenadas por dependencias. Cada fase tiene entregables concretos y criterios de verificación trazados al ERS. El **Release 1** (Fases 0–4) entrega el catálogo público completamente funcional y desplegado, incluyendo personalización de paleta y variantes visuales. Las fases 5–7 cubren las funcionalidades dinámicas, el panel de administración y el pulido final.
+El plan se divide en **7 fases activas (0, 1, 2, 3, 4, 5 y 7)** ordenadas por dependencias; el número 6 se conserva como fase retirada para no romper referencias cruzadas. Cada fase tiene entregables concretos y criterios de verificación trazados al ERS. Al terminar las 7 fases se despliega la tienda pública (**Release 1**), con el contenido administrado desde **Sanity Studio**. El **Panel de Control propio** (Release 2) queda fuera de este plan y se desarrolla en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) una vez liberada la tienda.
 
 | Fase | Nombre | Alcance | Entregables clave |
 |---|---|---|---|
@@ -19,7 +19,7 @@ El plan se divide en **8 fases (0–7)** ordenadas por dependencias. Cada fase t
 | 3 | Release 1 — Frontend Completo | Nuxt SSG con catálogo, paleta y variantes | Catálogo SSG, SEO, WhatsApp, redes sociales, paleta dinámica (RF-15), variantes visuales (RF-16), **búsqueda avanzada y recomendaciones basadas en contenido (RF-18 ampliado, RF-21, RF-22, RF-23)** |
 | 4 | Despliegue Continuo | Vercel + Webhooks de rebuild | CDN global, webhooks de Sanity → Vercel, dominio propio |
 | 5 | Backend Serverless — Funciones Go | Lógica dinámica segura | Handlers comentar, calificar, buscar, webhook con Go |
-| 6 | Panel de Administración | Login, gestión de catálogo | Autenticación JWT, rutas protegidas, CRUD via Sanity Studio |
+| 6 | ~~Panel de Administración~~ (retirada) | Movida al Release 2 | Ver [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) |
 | 7 | Analítica, Seguridad y Pulido Final | RNF-06, optimizaciones, hardening | Integración de analítica, checklist de seguridad, optimizaciones de rendimiento |
 
 ---
@@ -34,9 +34,9 @@ Las siguientes decisiones aplican a todo el plan:
 | Recomendaciones (RF-21) | **Basadas en contenido (TF-IDF + similitud coseno) calculadas en build time**; sin datos de usuarios | Sin servidor ni BD; clustering queda como evolución futura con arquitectura preparada (ERS §7.5.1) |
 | Evolución de arquitectura | Migración a servidor/BD dedicados **solo si es estrictamente necesario** | No planificada; condiciones en ERS §7.5.2 |
 | Stock en tiempo real (RF-03) | **Consulta directa del frontend a API pública de Sanity** (sin token secreto) | Sin función Go intermedia para lectura; más eficiente y reduce cold starts |
-| Autenticación de administrador | **JWT firmado de corta duración** (< 24h) validado en cada función Go protegida | Compatibilidad con modelo stateless de serverless (RNF-04) |
+| Autenticación de administrador | **Release 1:** la gestiona Sanity Studio (login propio de Sanity). **Release 2:** JWT en el Panel de Control propio | Definida en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) |
 | Moderación de comentarios | **Estado de borrador** en Sanity; solo se publican al aprobarse desde Studio | Decisión a confirmar con el cliente (Tema Abierto #1 del ERS) |
-| Panel de administración | **Sanity Studio** para gestión de contenido (RF-11 a RF-16) + **páginas Nuxt protegidas** para login/logout (RF-08 a RF-10) | Máxima funcionalidad sin desarrollo a medida del CRUD |
+| Panel de administración | **Release 1: solo Sanity Studio** (RF-11 a RF-16); sin panel, login ni gráficas en la tienda. **Release 2:** Panel de Control propio en otro dominio/proyecto (RF-08 a RF-16 + métricas) | Cero desarrollo de panel en este plan; ver [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) |
 | Analítica (RNF-06) | **Plausible Analytics** como default sugerido (privacidad-first, sin cookies, compatible con CSP) | A confirmar con el cliente; fácilmente intercambiable |
 
 ---
@@ -46,20 +46,19 @@ Las siguientes decisiones aplican a todo el plan:
 > [!IMPORTANT]
 > Los siguientes puntos de la arquitectura requieren precisión o decisión de implementación antes de comenzar la fase correspondiente.
 
-### 1. Autenticación del Administrador no está completamente definida
+### 1. Autenticación del Administrador → movida al Panel de Control (Release 2)
 
-La arquitectura §4.2 menciona que las funciones Go actúan como proxy seguro, y el Stack §8.1 menciona JWT como mitigación. Sin embargo, no hay un flujo de autenticación de admin completamente definido. Este plan implementa:
+Este plan **ya no implementa** autenticación de administrador. En el Release 1 el acceso de gestión lo cubre el login nativo de Sanity Studio. El flujo completo (login/logout, JWT, validación server-side por petición) se define en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md).
 
-- **Login:** función Go `/api/auth/login` que valida usuario/contraseña contra un hash almacenado en variable de entorno de Vercel (no en Sanity dataset público). Emite un JWT firmado con `ADMIN_JWT_SECRET`.
-- **Validación por petición:** middleware Go que verifica el JWT en cada función protegida (`/api/admin/*`).
-- **Logout:** función Go `/api/auth/logout` que invalida el token (lista negra en memoria efímera o tiempo de expiración corto).
+> [!NOTE]
+> Los archivos stub de la Fase 1 (`api/auth/login.go`, `api/auth/logout/logout.go`, `pages/admin/login.vue`, `layouts/admin.vue`, `middleware/auth.ts`) y las variables `ADMIN_PASSWORD_HASH` / `ADMIN_JWT_SECRET` son **marcadores reservados para el Panel de Control**; no se implementan ni se requieren en este plan.
 
-### 2. Panel de administración en Nuxt vs. Sanity Studio
+### 2. Panel de administración: Sanity Studio ahora, panel propio después
 
-El ERS define RF-08 a RF-10 (login/logout/panel protegido) y RF-11 a RF-16 (edición de contenido). Este plan los implementa de forma híbrida:
+El ERS define RF-08 a RF-10 (login/logout/panel protegido) y RF-11 a RF-16 (edición de contenido).
 
-- **RF-08, RF-09, RF-10:** páginas Nuxt protegidas con middleware de autenticación client-side + validación server-side en funciones Go.
-- **RF-11 a RF-16:** se delegan en gran medida a **Sanity Studio** (interfaz visual sin código), accesible desde un subdominio o embebido. Los cambios disparan el webhook de rebuild.
+- **Release 1 (este plan):** RF-11 a RF-16 se cubren con **Sanity Studio** (interfaz visual sin código). Los cambios disparan el webhook de rebuild. Sin gráficas ni métricas propias.
+- **Release 2 ([panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md)):** RF-08 a RF-16 más métricas, desde un panel propio en otro dominio.
 
 ### 3. CORS no especificado para el entorno de desarrollo
 
@@ -1475,8 +1474,6 @@ Configurar en el panel de Vercel → Settings → Environment Variables:
 | `NUXT_PUBLIC_SANITY_DATASET` | Preview + Dev | `staging` |
 | `SANITY_WRITE_TOKEN` | All | Token de escritura privado de Sanity |
 | `SANITY_WEBHOOK_SECRET` | All | Secreto HMAC para webhooks |
-| `ADMIN_PASSWORD_HASH` | All | Hash bcrypt de la contraseña del admin |
-| `ADMIN_JWT_SECRET` | All | Secreto para firmar JWT |
 | `ALLOWED_ORIGIN` | Production | `https://lectorpobre.com` |
 | `ALLOWED_ORIGIN` | Preview | `https://[preview-url].vercel.app` |
 | `ALLOWED_ORIGIN` | Development | `http://localhost:3000` |
@@ -1836,141 +1833,26 @@ npm run test
 
 ---
 
-## Fase 6 — Panel de Administración
+## Fase 6 — Panel de Administración (RETIRADA · movida al Release 2)
 
-**Objetivo:** Implementar el flujo de autenticación del administrador y las rutas protegidas del panel, delegando la gestión de contenido a Sanity Studio.
+> [!IMPORTANT]
+> Esta fase **ya no forma parte de este plan**. El Panel de Control (login/logout, rutas protegidas, CRUD completo, stock, imágenes, moderación, configuración global y métricas) se desarrolla como proyecto independiente, **después** del despliegue de la tienda, en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md). El número de fase se conserva para no romper referencias cruzadas (commits, IDs de pruebas, documentación).
 
-**Duración estimada:** 2–3 sesiones de trabajo  
-**Satisface:** RF-08, RF-09, RF-10 · RNF-04 (seguridad sin estado)
+**Gestión de contenido en el Release 1:** se realiza únicamente con **Sanity Studio** (RF-11 a RF-16), sin panel, login ni gráficas propias.
 
-### 6.1 Handler: `/api/auth/login` (RF-08)
+### Operación de Sanity Studio en el Release 1 (guía operativa, no implementación)
 
-```go
-// api/auth/login.go
-// Satisfies: RF-08 (Login de administrador), RNF-04 (JWT de corta duración).
-// Valida las credenciales contra el hash almacenado en variables de entorno de Vercel.
-// NUNCA almacena credenciales en el código fuente ni en el dataset de Sanity.
-```
+1. Desplegar Sanity Studio con `cd sanity && npx sanity deploy` (URL alojada por Sanity, por ejemplo `lectorpobre.sanity.studio`).
+2. Invitar a los usuarios del negocio desde el panel de gestión de Sanity (la autenticación la administra Sanity).
+3. Los cambios publicados en Studio disparan el webhook de rebuild (Fase 4).
 
-El handler:
-1. Recibe `{ usuario, password }` en el body
-2. Compara `password` contra `ADMIN_PASSWORD_HASH` usando `bcrypt.CompareHashAndPassword`
-3. Si es válido, genera un JWT firmado con `ADMIN_JWT_SECRET`, expiración 8h
-4. Retorna `{ ok: true, token: "..." }`
-5. En caso de error: retorna `{ ok: false, error: "credenciales inválidas" }` — **sin indicar si el usuario existe** (RF-08 criterio de aceptación)
+### Verificación operativa
 
-### 6.2 Handler: `/api/auth/logout` (RF-09)
-
-En un modelo stateless, el logout del lado del servidor es una lista negra de JTI (JWT ID) en memoria efímera. Para simplicidad inicial, el logout se implementa **solo del lado del cliente** (eliminar el token del almacenamiento local) con un JWT de expiración corta (8h).
-
-> [!NOTE]
-> Si se requiere invalidación inmediata del token (por ejemplo, ante una brecha de seguridad), se puede implementar una lista negra de JTI en una KV store de Vercel (Vercel KV). Esto puede agregarse en Fase 7 si el cliente lo requiere.
-
-### 6.3 Middleware de Nuxt para Rutas Protegidas (RF-10)
-
-```typescript
-// middleware/auth.ts
-// Satisfies: RF-10 — Panel accesible solo tras autenticación exitosa.
-export default defineNuxtRouteMiddleware((to) => {
-    if (!to.path.startsWith('/admin')) return;
-
-    const token = useCookie('admin_token');
-    if (!token.value) {
-        return navigateTo('/admin/login');
-    }
-
-    // Verificación básica client-side (la verificación real es en cada función Go protegida)
-    try {
-        const payload = JSON.parse(atob(token.value.split('.')[1]));
-        if (payload.exp * 1000 < Date.now()) {
-            token.value = null;
-            return navigateTo('/admin/login');
-        }
-    } catch {
-        return navigateTo('/admin/login');
-    }
-});
-```
-
-### 6.4 Página de Login (`pages/admin/login.vue`)
-
-```vue
-<script setup lang="ts">
-/**
- * @file pages/admin/login.vue
- * @description Página de inicio de sesión del administrador.
- * @satisfies RF-08 (Login), RF-10 (Acceso protegido al panel)
- */
-
-// No indexable públicamente
-useHead({ robots: 'noindex, nofollow' });
-
-useSeoMeta({ title: 'Iniciar Sesión | LectorPobre Admin' });
-
-const usuario = ref('');
-const password = ref('');
-const error = ref('');
-const cargando = ref(false);
-
-async function iniciarSesion() {
-    cargando.value = true;
-    error.value = '';
-
-    const res = await $fetch<{ ok: boolean; token?: string; error?: string }>('/api/auth/login', {
-        method: 'POST',
-        body: { usuario: usuario.value, password: password.value },
-    }).catch(() => ({ ok: false, error: 'Error de conexión' }));
-
-    if (res.ok && res.token) {
-        useCookie('admin_token', { maxAge: 28800, secure: true, sameSite: 'strict' }).value = res.token;
-        await navigateTo('/admin');
-    } else {
-        // Mensaje genérico — no revela si el usuario existe (RF-08 criterio §3.1.3)
-        error.value = 'Credenciales inválidas. Inténtalo de nuevo.';
-        cargando.value = false;
-    }
-}
-</script>
-```
-
-### 6.5 Acceso al Panel de Sanity Studio (RF-11 a RF-16)
-
-1. Desplegar Sanity Studio en un subdominio: `admin.lectorpobre.com`
-   ```bash
-   cd sanity && npx sanity deploy
-   ```
-2. Configurar autenticación de Sanity Studio con los usuarios del negocio
-3. Desde el panel de Nuxt `/admin`, incluir un enlace a Sanity Studio para la gestión de contenido
-4. Los cambios en Studio disparan el webhook de rebuild automáticamente
-
-### 6.6 Tests de Sistema de Autenticación (Modelo en V)
-
-> [!NOTE]
-> Siguiendo el **Modelo en V**, los tests de autenticación se crean al implementar cada handler y componente correspondiente, no al final de la fase.
-
-| Sección implementada | Tests del Plan de V&V a crear | Comando |
-|---|---|---|
-| 6.1 `api/auth/login.go` | UT-GO-25 (login con credenciales válidas → JWT), UT-GO-26 (credenciales inválidas → error genérico sin revelar usuario) | `cd api && go test ./auth/...` |
-| 6.3 `middleware/auth.ts` (Nuxt) | ST-20 (ruta `/admin` sin token redirige a login), ST-21 (JWT expirado redirige a login) | `npm run test -- tests/unit/auth.test.ts` |
-| 6.4 `pages/admin/login.vue` | ST-18 (flujo de login exitoso E2E), ST-19 (login fallido muestra error genérico) | `npx playwright test tests/e2e/auth.spec.ts` |
-
-```bash
-# Al finalizar la fase, todos los tests de autenticación deben pasar:
-cd api && go test ./auth/...
-npm run test -- tests/unit/auth.test.ts
-npx playwright test tests/e2e/auth.spec.ts
-```
-
-### 6.7 Verificación
-
-- [ ] `GET /admin` sin sesión redirige a `/admin/login` (RF-10)
-- [ ] Login con credenciales correctas emite JWT y redirige al panel
-- [ ] Login con credenciales incorrectas muestra error genérico sin revelar si el usuario existe (RF-08)
-- [ ] El JWT expira correctamente después de 8h
 - [ ] Sanity Studio desplegado y accesible para el administrador (RF-11 a RF-14)
 - [ ] Cambios en Studio disparan rebuild automático (< 5 minutos)
-- [ ] Todos los tests de autenticación de la sección 6.6 pasan
-- [ ] Commit: `feat(auth): implement admin login/logout with JWT and protected routes [RF-08, RF-09, RF-10, RNF-04]`
+
+> [!NOTE]
+> Los tests ST-18 a ST-21, UAT-11 y NF-10 del [Plan de V&V](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/VyV_LectorPobre.md) (autenticación) se reasignan al Release 2. UAT-12 a UAT-15 se validan primero contra Sanity Studio.
 
 ---
 
@@ -2041,11 +1923,12 @@ graph LR
     F2 --> F3[Fase 3: Release 1 — Frontend Completo]
     F3 --> F4[Fase 4: Despliegue Continuo]
     F4 --> F5[Fase 5: Backend Serverless Go]
-    F4 --> F6[Fase 6: Panel de Admin]
-    F5 --> F6
-    F6 --> F7[Fase 7: Analítica + Pulido Final]
+    F4 --> F7[Fase 7: Analítica + Pulido Final]
     F5 --> F7
 ```
+
+> [!NOTE]
+> La Fase 6 está retirada. Al completar la Fase 7 se libera la tienda (Release 1); después inicia el Panel de Control descrito en [panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md) (Release 2).
 
 > [!TIP]
 > El CI/CD de Vercel (Fase 1) acompaña **todas las fases posteriores** — cada commit desde la Fase 2 en adelante genera un Preview automático con Lighthouse CI ejecutándose.
@@ -2066,9 +1949,9 @@ graph LR
 | RF-05 | Redes sociales | **3** (Release 1) |
 | RF-06 | Calificación por estrellas | **5** |
 | RF-07 | Comentarios de texto | **5** |
-| RF-08 | Login de administrador | **6** |
-| RF-09 | Logout de administrador | **6** |
-| RF-10 | Panel protegido | **6** |
+| RF-08 | Login de administrador | **Release 2** ([panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md)) |
+| RF-09 | Logout de administrador | **Release 2** |
+| RF-10 | Panel protegido | **Release 2** |
 | RF-11 | Editar información de producto | **2** (Studio) + **4** (webhook) |
 | RF-12 | Modificar imagen de producto | **2** (Studio) |
 | RF-13 | Crear/eliminar productos | **2** (Studio) + **4** (webhook) |
@@ -2082,11 +1965,11 @@ graph LR
 | RNF-01 | Sin autenticación para usuarios generales | **3, 4** |
 | RNF-02 | Rendimiento de interfaz (Lighthouse ≥ 90) | **3, 4, 7** |
 | RNF-03 | Stock en tiempo real | **3, 5** |
-| RNF-04 | Seguridad del backend sin estado | **1** (stubs) + **5** (completo) + **6** |
+| RNF-04 | Seguridad del backend sin estado | **1** (stubs) + **5** (completo) + **Release 2** (rutas de administración) |
 | RNF-05 | Responsividad móvil | **3** |
 | RNF-06 | Analítica de tráfico | **7** |
 
 ---
 
-*Última actualización: Septiembre 2026 · Aplica a LectorPobre ERS v1.0*
+*Última actualización: Octubre 2026 · Aplica a LectorPobre ERS v1.2 · Panel de Control separado en panelControlImplementacion.md*
 *Este plan debe revisarse ante cambios en el ERS, la arquitectura o el stack tecnológico.*

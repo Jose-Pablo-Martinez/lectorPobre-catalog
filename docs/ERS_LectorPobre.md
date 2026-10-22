@@ -1,7 +1,7 @@
 # Especificación de Requisitos de Software (ERS)
 ## Proyecto: Plataforma Web "LectorPobre"
 
-**Versión:** 1.1 (ampliación: búsqueda avanzada y recomendaciones basadas en contenido — ver §7.4 y §7.5)
+**Versión:** 1.2 (división de alcance en dos releases: Release 1 tienda pública con gestión vía Sanity Studio; Release 2 Panel de Control propio — ver `panelControlImplementacion.md`). Incluye la ampliación v1.1: búsqueda avanzada y recomendaciones basadas en contenido (§7.4 y §7.5)
 **Basado en:** `Requisitos_LectorPobre_Final.pdf`, `Arquitectura_Detallada_LectorPobre.pdf`, `Stack_Tecnologico_LectorPobre.pdf`
 **Plantilla de redacción de requisitos:** "El [Sistema / Actor] debe [Acción] [Condición o Complemento]"
 **Principio de atomicidad:** cada requisito describe una única acción, sin detalles de implementación técnica.
@@ -24,6 +24,8 @@ LectorPobre es una plataforma web de **catálogo de productos de arte y manualid
 - A un **administrador** (la dueña y artista principal) gestionar el contenido del catálogo (piezas, imágenes, stock limitado) y la personalización visual del sitio (paleta de colores y elementos gráficos) mediante un panel de control.
 
 El sistema **no** incluye, salvo que se indique lo contrario en futuras iteraciones: pasarela de pago en línea, carrito de compras, gestión de pedidos, ni registro/autenticación de usuarios generales. La conversión de venta se delega a un canal externo (WhatsApp).
+
+> **Alcance por releases (v1.2):** el desarrollo se entrega en dos releases. **Release 1:** tienda pública (plan `implementationPlan.md`); la gestión de contenido del administrador se realiza con **Sanity Studio**. **Release 2:** **Panel de Control propio**, alojado en un dominio distinto al de la tienda, con todas las funcionalidades de gestión y métricas (plan `panelControlImplementacion.md`). Los requisitos del módulo de administración (RF-08 a RF-16) conservan su redacción; cambia únicamente el momento y el medio de su entrega.
 
 ### 1.3 Definiciones, Acrónimos y Abreviaturas
 
@@ -75,7 +77,7 @@ LectorPobre se construye sobre una arquitectura **Jamstack desacoplada**, que se
 1. **Catálogo público**: exploración, búsqueda (tolerante a errores, con autocompletado y sinónimos), categorización, detalle de productos con stock en tiempo real y descubrimiento mediante productos similares y productos vistos recientemente.
 2. **Interacción social**: calificaciones por estrellas y comentarios de texto (opcionales).
 3. **Conversión a venta**: enlace directo a WhatsApp desde la ficha de producto.
-4. **Panel de administración**: autenticación, gestión de catálogo (CRUD parcial), gestión de stock, personalización visual (colores y elementos gráficos).
+4. **Panel de administración** *(Release 2; en el Release 1 la gestión se realiza con Sanity Studio)*: autenticación, gestión de catálogo (CRUD parcial), gestión de stock, personalización visual (colores y elementos gráficos).
 5. **Optimización y alcance**: SEO mediante metadatos dinámicos, integración con redes sociales, analítica de tráfico.
 
 ### 2.3 Características de los Usuarios / Actores
@@ -260,6 +262,8 @@ Cada requisito se presenta con: **Descripción** (texto literal de la fuente), *
 
 #### 3.1.3 Módulo: Panel de Administración
 
+> **Nota de alcance (v1.2):** los requisitos RF-08 a RF-16 se entregan en el **Release 2** desde el Panel de Control propio (`panelControlImplementacion.md`). En el **Release 1**, RF-11 a RF-16 se cubren mediante **Sanity Studio** (con su autenticación gestionada por Sanity) y RF-08 a RF-10 no aplican a la tienda pública. La mención de "dashboard propio" en RF-14 corresponde al Release 2.
+
 **RF-08**
 - **Descripción:** El sistema debe permitir al administrador iniciar sesión ingresando un nombre de usuario y una contraseña válida.
 - **Actor:** Administrador
@@ -434,6 +438,8 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 | RNF-07 | ✔ (búsqueda client-side) | | | ✔ (build + CDN) |
 | RNF-08 | ✔ (interfaces y adaptadores) | | | ✔ (script de build) |
 
+> **Nota (v1.2):** las filas de RF-08 a RF-16 (módulo de administración) se materializan en el Release 2 sobre el Panel de Control propio (funciones Go `/api/admin/*` + Sanity). Hasta entonces el Release 1 las cubre con Sanity Studio. Ver `panelControlImplementacion.md` §7.
+
 ---
 
 ## 5. Resumen de Casos de Uso Principales
@@ -492,6 +498,7 @@ Los RNF se clasifican según categorías de calidad de software (basadas en ISO/
 7. ¿Los productos agotados deben excluirse de la lista de similares (RF-21) o mostrarse con menor prioridad y etiqueta "Agotado"? → Por defecto se muestran con menor prioridad.
 8. ¿Qué sinónimos iniciales deben cargarse en `configuracionGlobal` (RF-23)? → A proveer por el cliente.
 9. ¿Se desea mostrar "Vistos recientemente" (RF-22) en el catálogo, en la ficha de producto o en ambos?
+10. ¿Bajo qué dominio/subdominio se alojará el Panel de Control (Release 2) y qué protección adicional de acceso se desea (restricción por IP, Zero Trust, 2FA)? → Ver `panelControlImplementacion.md` §3.
 
 ### 7.4 Decisiones de Diseño: Búsqueda Avanzada y Recomendaciones (v1.1)
 
