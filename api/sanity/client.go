@@ -1,49 +1,49 @@
-// Package sanity implements the Sanity.io write client for LectorPobre Go functions.
-// The write token is read exclusively from the SANITY_WRITE_TOKEN environment variable.
-// NEVER expose this token in logs, HTTP responses, or source code (RNF-04, §8).
-// TODO(Phase 5): Implement full Sanity write client with Writer interface. Issue #14.
-// Satisfies: RF-06, RF-07 (write path), RNF-04 (token isolation).
+// Package sanity implementa el cliente de escritura de Sanity.io para las funciones Go de LectorPobre.
+// El token de escritura se lee exclusivamente de la variable de entorno SANITY_WRITE_TOKEN.
+// NUNCA exponer este token en logs, respuestas HTTP ni código fuente (RNF-04, §8).
+// TODO(Fase 5): Implementar el cliente completo de escritura en Sanity con la interfaz Writer. Issue #14.
+// Satisface: RF-06, RF-07 (ruta de escritura), RNF-04 (aislamiento de tokens).
 package sanity
 
 import "context"
 
-// Writer defines the interface for all Sanity write operations used by LectorPobre handlers.
-// Using an interface allows unit tests (UT-GO-11 to UT-GO-18) to inject a mock implementation
-// without touching the real Sanity API, keeping those tests Fast and Isolated (FIRST principle).
-// Tested by: IT-01 to IT-07 with real Sanity staging dataset (VyV_LectorPobre.md §4.1).
+// Writer define la interfaz para todas las operaciones de escritura en Sanity utilizadas por los handlers de LectorPobre.
+// El uso de una interfaz permite a los tests unitarios (UT-GO-11 a UT-GO-18) inyectar un mock
+// sin tocar la API real de Sanity, manteniendo los tests rápidos y aislados (principio FIRST).
+// Probado por: IT-01 a IT-07 contra el dataset real de staging de Sanity (VyV_LectorPobre.md §4.1).
 type Writer interface {
-	// CreateComment writes a new comment document in "pending" state to Sanity.
-	// Satisfies: RF-07 (Comments with pre-moderation).
+	// CreateComment escribe un nuevo documento de comentario en estado "pendiente" en Sanity.
+	// Satisface: RF-07 (Comentarios con moderación previa).
 	CreateComment(ctx context.Context, productID string, text string) error
 
-	// CreateRating writes a new rating document to Sanity.
-	// Satisfies: RF-06 (Ratings, range 1-5).
+	// CreateRating escribe un nuevo documento de calificación en Sanity.
+	// Satisface: RF-06 (Calificaciones, rango 1-5).
 	CreateRating(ctx context.Context, productID string, value int) error
 }
 
-// Client is the production implementation of Writer that calls the real Sanity Mutations API.
-// TODO(Phase 5): Implement with net/http, read SANITY_WRITE_TOKEN from env, handle errors.
+// Client es la implementación de producción de Writer que invoca la API Mutations de Sanity.
+// TODO(Fase 5): Implementar con net/http, leer SANITY_WRITE_TOKEN de variables de entorno y manejar errores.
 type Client struct {
-	// TODO: Add projectID, dataset, token fields.
+	// TODO: Agregar campos projectID, dataset, token.
 }
 
-// NewClient creates a new Sanity Client reading credentials from environment variables.
-// Returns an error if required environment variables are missing.
+// NewClient crea una nueva instancia de Client leyendo credenciales desde las variables de entorno.
+// Retorna un error si falta alguna de las variables de entorno requeridas.
 func NewClient() (*Client, error) {
-	// TODO(Phase 5): Read SANITY_WRITE_TOKEN, NUXT_PUBLIC_SANITY_PROJECT_ID,
-	// NUXT_PUBLIC_SANITY_DATASET from os.Getenv. Return error if any are empty.
+	// TODO(Fase 5): Leer SANITY_WRITE_TOKEN, NUXT_PUBLIC_SANITY_PROJECT_ID,
+	// NUXT_PUBLIC_SANITY_DATASET con os.Getenv. Retornar error si alguno está vacío.
 	return &Client{}, nil
 }
 
-// CreateComment implements Writer.CreateComment.
+// CreateComment implementa Writer.CreateComment.
 func (c *Client) CreateComment(ctx context.Context, productID string, text string) error {
-	// TODO(RF-07, Phase 5): Build Sanity mutation payload, POST to mutations API,
-	// handle non-2xx responses generically (never expose Sanity status codes to callers).
+	// TODO(RF-07, Fase 5): Construir payload de mutación de Sanity, hacer POST a la API de mutations,
+	// manejar respuestas distintas de 2xx de forma genérica (nunca exponer códigos de estado internos de Sanity al cliente).
 	return nil
 }
 
-// CreateRating implements Writer.CreateRating.
+// CreateRating implementa Writer.CreateRating.
 func (c *Client) CreateRating(ctx context.Context, productID string, value int) error {
-	// TODO(RF-06, Phase 5): Build Sanity mutation payload, POST to mutations API.
+	// TODO(RF-06, Fase 5): Construir payload de mutación de Sanity y hacer POST a la API de mutations.
 	return nil
 }

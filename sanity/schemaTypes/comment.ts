@@ -1,7 +1,7 @@
 /**
  * @file comment.ts
- * @description Sanity schema for user comments with moderation workflow.
- * @satisfies RF-07 - Text comments with admin moderation via Sanity Studio.
+ * @description Esquema de Sanity para comentarios de usuarios con flujo de moderación.
+ * @satisfies RF-07 - Comentarios de texto con moderación administrativa vía Sanity Studio.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -22,9 +22,9 @@ export const comment = defineType({
             title: 'Producto comentado',
             type: 'reference',
             to: [{ type: 'producto' }],
-            // Reference sits on the "many" side (comment) to avoid write contention
-            // and unbounded growth on the product document — equivalent to a foreign key
-            // on the child table in a relational model.
+            // La referencia se ubica en el lado "muchos" (comentario) para evitar contención de escritura
+            // y crecimiento ilimitado en el documento de producto — equivalente a una clave foránea
+            // en la tabla hija dentro de un modelo relacional.
             validation: Rule => Rule.required()
         }),
         defineField({
@@ -44,8 +44,8 @@ export const comment = defineType({
                 ],
                 layout: 'radio',
             },
-            // Only 'aprobado' comments are shown in the public catalog GROQ query.
-            // Resolves ERS Open Issue #1 (comment moderation strategy).
+            // Solo los comentarios 'aprobado' se muestran en la consulta GROQ pública del catálogo.
+            // Resuelve el Tema Abierto #1 del ERS (estrategia de moderación de comentarios).
             initialValue: 'pendiente',
             validation: Rule => Rule.required()
         }),

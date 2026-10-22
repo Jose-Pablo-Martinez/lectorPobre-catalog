@@ -1,7 +1,7 @@
 /**
  * @file category.ts
- * @description Sanity schema for product categories.
- * @satisfies RF-04 - Category filtering and navigation in the catalog.
+ * @description Esquema de Sanity para categorías de productos.
+ * @satisfies RF-04 - Filtrado por categoría y navegación en el catálogo.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -32,7 +32,7 @@ export const category = defineType({
             name: 'orden',
             title: 'Orden en el menú',
             type: 'number',
-            // Controls display order in the category filter without depending on creation order.
+            // Controla el orden de visualización en el filtro de categorías sin depender del orden de creación.
         }),
     ]
 });

@@ -1,15 +1,15 @@
-// Package handler implements the serverless function for product search.
+// Package handler implementa la función serverless para búsqueda de productos.
 package handler
 
 import "net/http"
 
-// TODO(RF-18): Implement GROQ parameterized query and sanitization. Issue #7.
-// NOTE: Client-side search in Nuxt (Phase 3) covers most use cases.
-// This serverless function activates only if the catalog exceeds hydration thresholds.
+// TODO(RF-18): Implementar consulta parametrizada GROQ y sanitización. Issue #7.
+// NOTA: La búsqueda en el cliente en Nuxt (Fase 3) cubre la gran mayoría de casos de uso.
+// Esta función serverless se activa únicamente si el catálogo supera los umbrales de hidratación.
 
-// Handler processes the search request.
+// Handler procesa la solicitud de búsqueda.
 //
-// Satisfies: RF-18 (Search), RNF-04 (GROQ injection prevention).
+// Satisface: RF-18 (Búsqueda), RNF-04 (Prevención de inyecciones GROQ).
 // Endpoint: GET /api/search
 func Handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

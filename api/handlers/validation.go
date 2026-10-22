@@ -1,32 +1,32 @@
-// Package handlers implements input validation for all LectorPobre serverless handlers.
-// All public functions in this file are covered by unit tests UT-GO-01 to UT-GO-10.
-// TODO(Phase 5): Implement full validation logic. Issue #10.
-// Satisfies: RF-06, RF-07, RF-18, RNF-04 (input sanitization).
+// Package handlers implementa la validación de entradas para todos los handlers serverless de LectorPobre.
+// Todas las funciones públicas de este archivo están cubiertas por los tests unitarios UT-GO-01 a UT-GO-10.
+// TODO(Fase 5): Implementar la lógica completa de validación. Issue #10.
+// Satisface: RF-06, RF-07, RF-18, RNF-04 (sanitización de entradas).
 package handlers
 
 import "errors"
 
-// ValidateComment validates the fields of a CommentPayload.
-// Returns a descriptive error if validation fails, or nil if the payload is valid.
-// Tested by: UT-GO-01 to UT-GO-04 (VyV_LectorPobre.md §3.1).
+// ValidateComment valida los campos de un CommentPayload.
+// Retorna un error descriptivo si la validación falla, o nil si el payload es válido.
+// Probado por: UT-GO-01 a UT-GO-04 (VyV_LectorPobre.md §3.1).
 func ValidateComment(p CommentPayload) error {
-	// TODO(RF-07): Implement — check empty text, max 1000 chars, non-empty productId.
+	// TODO(RF-07): Implementar — verificar texto no vacío, máximo 1000 caracteres y productId no vacío.
 	return errors.New("not implemented")
 }
 
-// ValidateRating validates the fields of a RatingPayload.
-// Returns a descriptive error if the rating value is outside the [1, 5] range.
-// Tested by: UT-GO-05 to UT-GO-07 (VyV_LectorPobre.md §3.1).
-// BVA boundary: valid=[1,5], invalid=[0,6] — see VyV UT-GO-06, UT-GO-07.
+// ValidateRating valida los campos de un RatingPayload.
+// Retorna un error descriptivo si el valor de la calificación está fuera del rango [1, 5].
+// Probado por: UT-GO-05 a UT-GO-07 (VyV_LectorPobre.md §3.1).
+// Fronteras de análisis de valor límite (BVA): válido=[1,5], inválido=[0,6] — ver VyV UT-GO-06, UT-GO-07.
 func ValidateRating(p RatingPayload) error {
-	// TODO(RF-06): Implement — check value in range [1, 5].
+	// TODO(RF-06): Implementar — verificar que el valor se encuentre en el rango [1, 5].
 	return errors.New("not implemented")
 }
 
-// ValidateSearch validates and sanitizes a search query string.
-// Returns an error if the query is empty or contains GROQ metacharacters (§9.11).
-// Tested by: UT-GO-08 to UT-GO-10 (VyV_LectorPobre.md §3.1).
+// ValidateSearch valida y sanitiza una cadena de consulta de búsqueda.
+// Retorna un error si la consulta está vacía o contiene metacaracteres de GROQ (§9.11).
+// Probado por: UT-GO-08 a UT-GO-10 (VyV_LectorPobre.md §3.1).
 func ValidateSearch(q string) error {
-	// TODO(RF-18): Implement — check non-empty, sanitize GROQ injection characters.
+	// TODO(RF-18): Implementar — verificar no vacío, sanitizar caracteres de inyección GROQ.
 	return errors.New("not implemented")
 }

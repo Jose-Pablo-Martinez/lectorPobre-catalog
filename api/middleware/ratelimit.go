@@ -1,28 +1,28 @@
-// Package middleware implements HTTP security controls for LectorPobre serverless functions.
-// Satisfies: RNF-04 (Rate limiting — §9.5).
-// TODO(Phase 5): Implement full rate limiting logic. Issue #12.
+// Package middleware implementa los controles de seguridad HTTP para las funciones serverless de LectorPobre.
+// Satisface: RNF-04 (Limitación de tasa / Rate limiting — §9.5).
+// TODO(Fase 5): Implementar la lógica completa de rate limiting. Issue #12.
 package middleware
 
 import "net/http"
 
-// RateLimiter holds the in-memory IP-based rate limiting state.
-// IMPORTANT: In warm Vercel containers, this map may persist between invocations.
-// In cold starts (new container), all counters reset. This is acceptable for this use case.
-// For strict limiting, use an external store (e.g. Upstash Redis).
+// RateLimiter almacena en memoria el estado del limitador de tasa basado en IP.
+// IMPORTANTE: En contenedores warm de Vercel, este mapa puede persistir entre invocaciones.
+// En cold starts (contenedor nuevo), los contadores se reinician, lo cual es aceptable para este caso de uso.
+// Si se requiriera persistencia estricta, se evaluaría un almacén externo como Upstash Redis.
 type RateLimiter struct {
-	// TODO(Phase 5): Add fields — IP map, mutex, window duration, max requests.
+	// TODO(Fase 5): Agregar campos — mapa de IPs, mutex, duración de ventana, peticiones máximas.
 }
 
-// NewRateLimiter creates a new RateLimiter with default settings (10 requests/minute).
+// NewRateLimiter crea una nueva instancia de RateLimiter con valores por defecto (10 peticiones/minuto).
 func NewRateLimiter() *RateLimiter {
-	// TODO(Phase 5): Initialize map and configure window/limit.
+	// TODO(Fase 5): Inicializar mapa y configurar ventana/límite.
 	return &RateLimiter{}
 }
 
-// Limit checks whether the given request's IP has exceeded the rate limit.
-// Returns true if the request is allowed, false (with HTTP 429 written) if it is rejected.
-// Tested by: UT-GO-22, UT-GO-23 (VyV_LectorPobre.md §3.3).
+// Limit comprueba si la IP de la solicitud entrante ha excedido el límite de tasa permitido.
+// Retorna true si la petición se autoriza, o false (escribiendo HTTP 429) si es rechazada.
+// Probado por: UT-GO-22, UT-GO-23 (VyV_LectorPobre.md §3.3).
 func (rl *RateLimiter) Limit(w http.ResponseWriter, r *http.Request) bool {
-	// TODO(RNF-04, §9.5): Implement — extract IP, check counter, write 429 if exceeded.
+	// TODO(RNF-04, §9.5): Implementar — extraer IP, verificar contador, emitir 429 si se excede.
 	return true
 }
