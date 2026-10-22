@@ -489,6 +489,7 @@ La documentación técnica completa se encuentra en la carpeta [`docs/`](docs/):
 | [`implementationPlan.md`](docs/implementationPlan.md) | Plan de implementación por fases |
 | [`Analisis_Busqueda_Recomendacion_LectorPobre.md`](docs/Analisis_Busqueda_Recomendacion_LectorPobre.md) | ADR de búsqueda difusa y recomendaciones basadas en contenido |
 | [`COMO_ANADIR_CLUSTERING.md`](docs/COMO_ANADIR_CLUSTERING.md) | Guía para añadir clustering K-Means sobre `product-vectors.json` |
+| [`Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md`](docs/Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md) | Resolución de fallo `write EPIPE` en esbuild y optimización de watchers |
 
 #### Evolución Condicional de la Arquitectura (ERS §7.5.2 / RNF-08)
 
