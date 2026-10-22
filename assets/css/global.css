@@ -1,28 +1,83 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-    /* Paleta Oficial Lector Pobre (Rosa Mexicano, Azul Maya, Amarillo, Verde Pastel — RF-15) */
-    --color-brand-primario: #e4007c;    /* Rosa Mexicano */
-    --color-brand-secundario: #0091d5;  /* Azul Maya */
-    --color-brand-acento: #ffd000;      /* Amarillo Cempasúchil / Sol */
-    --color-brand-fondo: #edf8f1;       /* Verde Pastel Colonial / Mérida */
-    --color-brand-texto: #18181b;       /* Negro Tinta Serigráfica */
+  /* Paleta Oficial Lector Pobre (Rosa Mexicano, Azul Maya, Amarillo Cempasúchil, Verde Pastel Mérida — RF-15) */
+  --color-brand-primario: #e4007c;
+  --color-brand-secundario: #0091d5;
+  --color-brand-acento: #ffd000;
+  --color-brand-fondo: #edf8f1;
+  --color-brand-texto: #18181b;
 
-    /* Sombras duras de bloque (Neobrutalismo / Cartel de Lucha Libre) */
-    --shadow-hard: 4px 4px 0px #18181b;
-    --shadow-hard-sm: 2px 2px 0px #18181b;
-    --shadow-hard-lg: 6px 6px 0px #18181b;
+  /* Sombras duras de bloque (Neobrutalismo / Taller Urbano Neo-Pop) */
+  --shadow-hard: 4px 4px 0px #18181b;
+  --shadow-hard-sm: 2px 2px 0px #18181b;
+  --shadow-hard-lg: 6px 6px 0px #18181b;
 
-    /* Tipografía */
-    --font-sans: 'Outfit', system-ui, sans-serif;
+  /* Tipografías */
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', monospace;
 
-    /* Transiciones */
-    --transition-base: 150ms ease-in-out;
+  /* Transiciones */
+  --transition-base: 150ms ease-in-out;
 }
 
-/* Las paletas de color de RF-15 se inyectan dinámicamente desde nuxt.config.ts
-   o un plugin de Nuxt según el valor de paletaActiva en configuracionGlobal de Sanity */
+body {
+  background-color: var(--color-brand-fondo);
+  color: var(--color-brand-texto);
+  font-family: var(--font-sans);
+}
+
+/* RF-16: Variantes visuales del catálogo aplicadas sobre <html> */
+.variante-clasico .tarjeta-producto {
+  @apply rounded-md shadow-none border-2 border-brand-texto;
+}
+.variante-clasico h1,
+.variante-clasico h2,
+.variante-clasico h3 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.variante-moderno .tarjeta-producto {
+  @apply rounded-xl border-2 border-brand-texto shadow-hard transition-transform duration-200 hover:-translate-y-0.5;
+}
+
+.variante-minimalista .tarjeta-producto {
+  @apply rounded-none border-b-2 border-brand-texto shadow-none;
+}
+.variante-minimalista {
+  font-family: var(--font-mono);
+}
+
+/* Animación de entrada suave (RNF-02, WCAG 2.3.3) */
+@keyframes entrada-suave {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tarjeta-entrada {
+  animation: entrada-suave 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-entrada,
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

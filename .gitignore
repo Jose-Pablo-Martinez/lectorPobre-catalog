@@ -30,3 +30,8 @@ Thumbs.db
 coverage/
 playwright-report/
 test-results/
+
+# Artefactos generados en build time (RF-18, RF-21, RNF-08)
+public/data/
+scripts/recommendations/.cache/
+product-vectors.json
