@@ -10,6 +10,8 @@ export default defineNuxtConfig({
     ignore: [
         'sanity/**',
         'api/**',
+        'internal/**',
+        'pkg/**',
         'tests/**',
         'coverage/**',
         'scripts/**',
@@ -29,6 +31,8 @@ export default defineNuxtConfig({
                 /[\\/]\.nuxt[\\/]/,
                 /[\\/]sanity[\\/]/,
                 /[\\/]api[\\/]/,
+                /[\\/]internal[\\/]/,
+                /[\\/]pkg[\\/]/,
                 /[\\/]coverage[\\/]/,
                 /[\\/]tests[\\/]/,
                 /[\\/]scripts[\\/]/,
@@ -46,6 +50,8 @@ export default defineNuxtConfig({
                 ignored: [
                     '**/sanity/**',
                     '**/api/**',
+                    '**/internal/**',
+                    '**/pkg/**',
                     '**/coverage/**',
                     '**/tests/**',
                     '**/scripts/**',
@@ -75,8 +81,13 @@ export default defineNuxtConfig({
             htmlAttrs: { lang: 'es' },
             meta: [
                 { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+                { property: 'og:image', content: '/logo.png' },
+                { name: 'twitter:image', content: '/logo.png' },
             ],
             link: [
+                { rel: 'icon', type: 'image/png', href: '/favicon.png' },
+                { rel: 'shortcut icon', href: '/favicon.ico' },
+                { rel: 'apple-touch-icon', href: '/favicon.png' },
                 { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
                 {
                     rel: 'preconnect',

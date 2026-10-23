@@ -18,7 +18,7 @@
 
 ## Checklist
 
-- [ ] El código compila y los tests pasan localmente (`cd api && go test ./...` y `pnpm run test`)
+- [ ] El código compila y los tests pasan localmente (`go test ./...` y `pnpm run test`)
 - [ ] Se agregó GoDoc o JSDoc a todas las funciones y tipos públicos nuevos
 - [ ] Se referencia el RF/RNF correspondiente en los comentarios del código
 - [ ] No se introdujeron secretos, tokens ni credenciales en el código fuente

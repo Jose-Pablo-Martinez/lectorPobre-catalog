@@ -233,6 +233,8 @@ try {
         ogTitle: 'Lector Pobre | Arte y Artesanías Originales de diseños únicos',
         ogDescription:
             'Llaveros, pines, prints y stickers semi-artesanales de diseños completamente originales sobre lucha libre y cultura pop.',
+        ogImage: '/logo.png',
+        twitterImage: '/logo.png',
         twitterCard: 'summary_large_image',
     });
 } catch {
