@@ -1,7 +1,7 @@
 # Plan de Verificación y Validación (V&V) — LectorPobre
 
-> **Versión:** 1.1
-> **Basado en:** `ERS_LectorPobre.md` (v1.1) · `Arquitectura_Tecnica_Detallada_LectorPobre.md` (v2.0) · `Stack_Tecnologico_LectorPobre.md` (v1.0)
+> **Versión:** 1.0
+> **Basado en:** `ERS_LectorPobre.md` (v1.0) · `Arquitectura_Tecnica_Detallada_LectorPobre.md` (v2.0) · `Stack_Tecnologico_LectorPobre.md` (v1.0)
 > **Estándar de referencia:** IEEE 829 (Documentación de testing) · ISO/IEC 25010 (Calidad de software)
 > **Stack bajo prueba:** Nuxt.js 3 · Vue 3 · Tailwind CSS · Go 1.22+ · Sanity.io · Vercel
 
@@ -49,7 +49,19 @@ El plan cubre las cuatro capas del sistema:
 - Pruebas de carga masiva de la CDN de Vercel (responsabilidad del proveedor).
 - Pruebas de compatibilidad con navegadores obsoletos (IE11, Chrome < 90).
 
----
+### 1.4 Alcance y Secuencia por Releases (v1.1)
+
+El desarrollo y su correspondiente verificación se estructuran en dos entregas:
+
+1. **Release 1 — Tienda Pública ([implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md)):**
+   - Catálogo público, búsqueda, recomendaciones, WhatsApp, redes sociales, calificaciones y comentarios.
+   - La gestión de contenido (RF-11 a RF-16) se valida de forma operacional en **Sanity Studio** (criterios UAT-12 a UAT-15).
+   - Los casos de prueba de login/panel propio (ST-18 a ST-21, UAT-11 y NF-10) **no aplican** a la tienda pública.
+2. **Release 2 — Panel de Control propio ([panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md)):**
+   - Reutiliza este plan de V&V como estándar de verificación.
+   - Ejecuta ST-18 a ST-21, UAT-11 y NF-10 en el dominio del panel.
+   - Re-valida UAT-12 a UAT-15 contra la nueva interfaz y API de administración del panel propio.
+   - Incorpora la suite complementaria con identificadores `PC-*` (pruebas unitarias, de integración y seguridad del panel).
 
 ## 2. Estrategia General de Testing
 
@@ -191,9 +203,6 @@ Herramienta: Vitest + `@vue/test-utils` + mock de `$fetch`
 | UT-VUE-02 | `useStock retorna null inicialmente mientras carga` | Estado inicial antes de la consulta | `stock.value === null` y `cargando.value === true` | RF-03 |
 | UT-VUE-03 | `useStock retorna -1 cuando la consulta falla` | Mock de Sanity lanza error de red | `stock.value === -1` | RF-03, RNF-03 |
 | UT-VUE-04 | `useStock no expone token privado en la petición` | Inspección del request mockeado | El request no contiene header `Authorization` con token de escritura | RNF-04 |
-| UT-VUE-04a | `useStock marca stock bajo con 5 unidades (BVA — umbral exacto)` | `stock = 5` (umbral definido en `implementationPlan.md` §5) | `stockBajo.value === true` | RF-03, RF-14 |
-| UT-VUE-04b | `useStock no marca stock bajo con 6 unidades (BVA — umbral + 1)` | `stock = 6` | `stockBajo.value === false` | RF-03, RF-14 |
-| UT-VUE-04c | `useStock marca stock bajo con 4 unidades (BVA — umbral - 1)` | `stock = 4` | `stockBajo.value === true` | RF-03, RF-14 |
 
 #### 3.4.2 `useComentario.ts`
 
@@ -241,12 +250,25 @@ Herramienta: Vitest + `@vue/test-utils` + mock de `$fetch`
 
 Las pruebas de integración verifican la interacción entre dos o más módulos reales. Se usan dobles de prueba solo para dependencias externas de alto costo (Sanity producción).
 
-**Herramientas:** Go `testing` + servidor HTTP real en puerto aleatorio · Vitest con `msw` (Mock Service Worker) para el frontend  
+**Herramientas:** Go `testing` + servidor HTTP real en puerto aleatorio · Vitest + `@sanity/client` para esquemas de datos · Vitest con `msw` (Mock Service Worker) para el frontend  
 **Entorno:** local (con acceso a Sanity dataset de staging) y CI/CD con dataset de pruebas
 
 ---
 
-### 4.1 Integración: Handlers Go ↔ Sanity.io (Staging)
+### 4.1 Integración: Esquemas Sanity y Tipos TypeScript (Staging)
+
+> Se ejecuta contra el dataset real `staging` mediante `pnpm run test:integration`. Verifica que los contratos de datos y schemas (incluyendo los campos añadidos en v1.1 para búsqueda y recomendaciones) sean consistentes.
+
+| ID | Nombre del test | Flujo | Resultado esperado | RF/RNF |
+|---|---|---|---|---|
+| IT-SANITY-01 | `Tipos TypeScript en types/sanity.ts coinciden con schemas` | Comparación de contratos estáticos y tipos exportados | Compatibilidad estricta de interfaces (`Producto`, `Categoria`, `ConfiguracionGlobal`) | DEVELOPMENT_GUIDELINES |
+| IT-SANITY-02 | `GROQ schema producto retorna campos requeridos y contadores atómicos` | Consulta GROQ a productos activos en staging | `_id`, `nombre`, `slug`, `stock`, `categoria->`, `ratingSum`, `ratingCount`, `rating1Count`–`rating5Count` válidos; `activo=false` excluido | RF-01, RF-02, RF-06, RF-14 |
+| IT-SANITY-03 | `GROQ schema producto soporta palabrasClave para búsqueda difusa (RF-23)` | Consulta GROQ `*[_type=="producto" && defined(palabrasClave)]` | Array de strings con etiquetas para potenciar el buscador y recomendaciones | RF-18, RF-21, RF-23 |
+| IT-SANITY-04 | `GROQ singleton configuracionGlobal consultable con paletas mexicanas y sinonimos` | Consulta GROQ a `configuracionGlobal` | Singleton único; `paletaActiva` en conjunto mexicano; umbrales numéricos > 0; array `sinonimos` con grupos válidos | RF-05, RF-15, RF-16, RF-19, RF-23 |
+
+---
+
+### 4.2 Integración: Handlers Go ↔ Sanity.io (Staging)
 
 > Se usa un **dataset de staging** de Sanity.io para estas pruebas. **Nunca el dataset de producción.**
 
@@ -261,7 +283,7 @@ Las pruebas de integración verifican la interacción entre dos o más módulos 
 
 ---
 
-### 4.2 Integración: Frontend ↔ Handlers Go (Mock Service Worker)
+### 4.3 Integración: Frontend ↔ Handlers Go (Mock Service Worker)
 
 Se usa `msw` para interceptar las peticiones del frontend a `/api/*` sin levantar los handlers Go reales.
 
@@ -275,7 +297,7 @@ Se usa `msw` para interceptar las peticiones del frontend a `/api/*` sin levanta
 
 ---
 
-### 4.3 Integración: Webhook Sanity → Vercel Rebuild
+### 4.4 Integración: Webhook Sanity → Vercel Rebuild
 
 | ID | Nombre del test | Flujo | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -285,7 +307,7 @@ Se usa `msw` para interceptar las peticiones del frontend a `/api/*` sin levanta
 
 ---
 
-### 4.4 Integración: Build Nuxt.js ↔ Sanity.io (Staging)
+### 4.5 Integración: Build Nuxt.js ↔ Sanity.io (Staging)
 
 | ID | Nombre del test | Flujo | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -310,7 +332,7 @@ Las pruebas de sistema validan el comportamiento del sistema completo desplegado
 | ID | Caso de prueba | Pasos | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
 | ST-01 | Página principal carga el catálogo | 1. Navegar a la URL de Preview. 2. Esperar carga. | Tarjetas de producto visibles con nombre e imagen. Tiempo de carga < 3s (LCP). | RF-01, RNF-02 |
-| ST-02 | Filtrado por categoría funciona | 1. Click en categoría "Libros". | Solo productos de la categoría "Libros" visibles. | RF-04 |
+| ST-02 | Filtrado por categoría funciona | 1. Click en categoría "Llaveros". | Solo productos de la categoría "Llaveros" visibles. | RF-04 |
 | ST-03 | Página de detalle de producto carga | 1. Click en un producto. 2. Esperar carga. | URL cambia a `/producto/[slug]`. Nombre, descripción e imagen del producto visibles. | RF-02 |
 | ST-04 | Paginación / carga diferida se activa con muchos productos | Staging con N+1 productos (N = umbral configurado). | Botón "cargar más" o paginación visible y funcional. | RF-19 |
 | ST-05 | Búsqueda por palabra clave filtra productos | 1. Escribir "test" en campo de búsqueda. | Solo productos con "test" en nombre/descripción visibles. | RF-18 |
@@ -357,7 +379,10 @@ Las pruebas de sistema validan el comportamiento del sistema completo desplegado
 
 ---
 
-### 5.6 Flujo: Panel de Administración (RF-08, RF-09, RF-10)
+### 5.6 Flujo: Panel de Administración (RF-08, RF-09, RF-10) — [Release 2: panelControlImplementacion.md]
+
+> [!NOTE]
+> Estos casos de prueba aplican al **Release 2 (Panel de Control propio)**. En el Release 1 la administración se realiza a través de Sanity Studio.
 
 | ID | Caso de prueba | Pasos | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -424,16 +449,10 @@ Las pruebas de aceptación validan que el sistema cumple con los criterios de ac
 |---|---|---|---|
 | UAT-10 | Existe un botón "Comprar por WhatsApp" en la ficha de producto. El enlace abre WhatsApp con un mensaje prellenado que referencia el producto. | Manual con dispositivo real | ❌ |
 
-#### 6.1.3b Lista de Artículos / Carrito de Referencia (RF-21, RF-22, RF-23)
+#### 6.1.4 Panel de Administración (RF-08 a RF-16) — [R1 en Sanity Studio / R2 en Panel propio]
 
-| ID | Criterio de aceptación | Verificación | ¿Automatizable? |
-|---|---|---|---|
-| UAT-17 | El usuario puede agregar productos a una lista de artículos desde la tarjeta de producto y desde la ficha de detalle. La lista muestra nombre, precio, cantidad y subtotal de cada artículo, además del total general. | Visual + Playwright | ✅ |
-| UAT-18 | La lista persiste tras recargar la página (almacenada en `localStorage`). El usuario puede modificar cantidades y eliminar artículos. | Playwright (recargar y verificar) | ✅ |
-| UAT-19 | El usuario puede descargar un resumen de la lista en formato PDF o PNG. El documento incluye nombre del sitio, fecha, lista itemizada con precios y total. | Manual (verificar archivo descargado) | ❌ |
-| UAT-20 | El usuario puede enviar la lista completa por WhatsApp. El enlace abre WhatsApp con un resumen textual de todos los artículos, cantidades y precios. | Manual con dispositivo real | ❌ |
-
-#### 6.1.4 Panel de Administración (RF-08 a RF-16)
+> [!NOTE]
+> En el **Release 1**, UAT-12 a UAT-15 se validan operando directamente en Sanity Studio. UAT-11 y la re-validación completa de UAT-12 a UAT-15 contra el panel propio corresponden al **Release 2**.
 
 | ID | Criterio de aceptación | Verificación | ¿Automatizable? |
 |---|---|---|---|
@@ -441,7 +460,7 @@ Las pruebas de aceptación validan que el sistema cumple con los criterios de ac
 | UAT-12 | El administrador puede modificar nombre, descripción e imagen de un producto. Los cambios se reflejan en el sitio tras el rebuild automático (< 5 minutos después del webhook). | Manual con cronómetro | Parcial |
 | UAT-13 | El administrador puede crear y eliminar productos. El catálogo se actualiza tras el rebuild. | Manual | Parcial |
 | UAT-14 | El administrador puede visualizar el stock de todos los productos en el panel. Puede identificar productos con stock bajo o agotado. | Manual + visual | ✅ |
-| UAT-15 | El administrador puede cambiar la paleta de colores del sitio desde el panel, eligiendo entre 4 paletas predefinidas (claro, oscuro, océano, atardecer) o una paleta personalizada con valores hex. El cambio se refleja tras rebuild. | Manual (si RF-15 está implementado) | Parcial |
+| UAT-15 | El administrador puede cambiar la paleta de colores del sitio desde el panel. El cambio se refleja tras rebuild. | Manual (si RF-15 está implementado) | Parcial |
 
 #### 6.1.5 Redes Sociales (RF-05)
 
@@ -539,15 +558,14 @@ Las pruebas de seguridad verifican directamente los controles definidos en la ar
 | Pruebas E2E / Sistema | `Playwright` | TypeScript |
 | Cobertura Go | `go test -cover` + reportes HTML | Go |
 | Cobertura TypeScript | `Vitest --coverage` (Istanbul/c8) | TypeScript |
-| Gestión de calidad y cobertura | SonarQube | Multiplataforma (Go + TypeScript) |
 | Análisis de accesibilidad | `axe-core` (integrado en Playwright) | TypeScript |
 | Rendimiento | Lighthouse CI (`lhci`) | Node.js / CI |
-| Análisis de seguridad de deps | `govulncheck` (Go) + `pnpm audit` | Go / Node.js |
+| Análisis de seguridad de deps | `govulncheck` (Go) + `npm audit` | Go / Node.js |
 
 ### 9.3 Integración Continua
 
 ```yaml
-# Ejemplo de pipeline de pruebas en GitHub Actions (ver .github/workflows/ci.yml)
+# Ejemplo de pipeline de pruebas en Vercel CI / GitHub Actions
 jobs:
   test-backend:
     steps:
@@ -557,20 +575,20 @@ jobs:
 
   test-frontend:
     steps:
-      - run: pnpm run test -- --coverage
-      - run: pnpm run lint
+      - run: npm run test -- --coverage
+      - run: npm run lint
 
   e2e-tests:
     needs: [test-backend, test-frontend]
     steps:
-      - run: pnpm exec playwright test
+      - run: npx playwright test
     env:
       BASE_URL: ${{ env.VERCEL_PREVIEW_URL }}
 
   lighthouse-ci:
     needs: e2e-tests
     steps:
-      - run: npx @lhci/cli autorun
+      - run: npx lhci autorun
 ```
 
 ---
@@ -588,32 +606,16 @@ jobs:
 
 ### 10.2 Criterios de Salida (para considerar las pruebas exitosas)
 
-> **Umbral mínimo global:** ≥ 85% de cobertura de sentencias en todo el proyecto, verificado por SonarQube y aplicado como gate en CI a partir de la Fase 5.
-
 | Nivel | Criterios de salida |
 |---|---|
 | **Unitarias Go** | ≥ 80% de cobertura en handlers. ≥ 75% en middleware y utilidades. 0 tests fallidos. |
 | **Unitarias Vue/TS** | ≥ 70% de cobertura en composables. ≥ 40% en componentes. 0 tests fallidos. |
 | **Integración** | 100% de casos IT-01 a IT-17 pasan. 0 secretos expuestos detectados. |
-| **Sistema** | 100% de casos ST-01 a ST-26 pasan. Performance Score ≥ 90 en Lighthouse. 0 violaciones críticas de accesibilidad. |
-| **Aceptación** | 100% de criterios UAT-01 a UAT-16 aprobados por el cliente. 0 defectos de severidad alta o crítica abiertos. |
-| **Seguridad** | 100% de pruebas SEC-01 a SEC-11 pasan. 0 vulnerabilidades críticas en `pnpm audit` o `govulncheck`. |
+| **Sistema** | 100% de casos ST aplicables pasan (Release 1: ST-01 a ST-17 y ST-22 a ST-26; ST-18 a ST-21 corresponden al Release 2). Performance Score ≥ 90 en Lighthouse. 0 violaciones críticas de accesibilidad. |
+| **Aceptación** | 100% de criterios UAT aplicables al release aprobados por el cliente (Release 1: UAT-01 a UAT-10 y UAT-16; UAT-12 a UAT-15 validados contra Sanity Studio. UAT-11 y re-validación de UAT-12..15 corresponden al Release 2). 0 defectos de severidad alta o crítica abiertos. |
+| **Seguridad** | 100% de pruebas SEC-01 a SEC-11 pasan. 0 vulnerabilidades críticas en `npm audit` o `govulncheck`. |
 
-### 10.3 Cobertura Diferenciada por Riesgo
-
-Los umbrales de la §10.2 son mínimos globales. La siguiente tabla diferencia el objetivo de cobertura por módulo según su nivel de riesgo, siguiendo la metodología de **pruebas basadas en riesgo** (probabilidad × impacto).
-
-| Módulo | Riesgo | Cobertura objetivo | Tipo | Justificación |
-|---|---|---|---|---|
-| `api/middleware/*` (CORS, rate limit, HMAC) | Crítico | ≥ 90% | Ramas | Controles de seguridad; falla = exposición directa |
-| `api/sanity/client.go` (escritura) | Crítico | ≥ 90% | Ramas | Manipulación de datos con token privado |
-| `api/handlers/*` (comentar, calificar, buscar) | Alto | ≥ 85% | Ramas | Entrada pública del usuario, validación obligatoria |
-| `composables/useStock.ts`, `useComentario.ts` | Medio | ≥ 70% | Sentencias | Lógica de negocio con dependencias externas |
-| `components/*.vue` | Bajo | ≥ 40% | Sentencias | UI declarativa con bajo riesgo lógico |
-
-> **Herramienta de gestión:** SonarQube se utiliza como plataforma centralizada para monitorear la cobertura por módulo, deuda técnica, code smells y vulnerabilidades. Los reportes de cobertura de Go (`coverage.out`) y Vitest (`lcov`) se envían a SonarQube como parte del pipeline de CI.
-
-### 10.4 Clasificación de Defectos
+### 10.3 Clasificación de Defectos
 
 | Severidad | Definición | ¿Bloquea el release? |
 |---|---|---|
@@ -621,25 +623,6 @@ Los umbrales de la §10.2 son mínimos globales. La siguiente tabla diferencia e
 | **Alto** | Funcionalidad principal rota (RF Must no funciona), error sin recovery en flujo principal | ✅ Sí |
 | **Medio** | Funcionalidad parcialmente rota, UI con problemas visuales significativos, RF Should no funciona | ⚠️ Depende |
 | **Bajo** | Problemas cosméticos menores, RF Could no funciona, mejoras de UX | ❌ No |
-
----
-
-### 10.5 Matriz de Riesgos (Probabilidad × Impacto)
-
-La siguiente matriz prioriza los riesgos técnicos identificados en `implementationPlan.md` (§ Correcciones y Precisiones) usando la fórmula `Prioridad = Probabilidad × Impacto`.
-
-| ID | Riesgo | Probabilidad (1-5) | Impacto (1-5) | Prioridad | Mitigación | Cobertura asociada |
-|---|---|---|---|---|---|---|
-| R-01 | Exposición de `SANITY_WRITE_TOKEN` en bundle JS o logs | 2 | 5 | 10 | Token solo en env vars de Vercel; SEC-01 verifica ausencia en bundle | ≥ 90% en `sanity/client.go` |
-| R-02 | Inyección GROQ en endpoint de búsqueda | 3 | 5 | 15 | Parámetros tipados en GROQ, sanitización en `handlers/validacion.go`; IT-06, SEC-03 | ≥ 85% en `handlers/*` |
-| R-03 | XSS almacenado vía comentarios maliciosos | 3 | 4 | 12 | Sanitización server-side + escape en Vue template; SEC-04, ST-13 | ≥ 90% en middleware |
-| R-04 | CORS permisivo permite peticiones desde orígenes no autorizados | 2 | 4 | 8 | `ALLOWED_ORIGIN` restrictivo por ambiente; UT-GO-19 a 21, SEC-02 | ≥ 90% en `middleware/cors.go` |
-| R-05 | Abuso masivo de endpoints de escritura (spam de comentarios) | 4 | 3 | 12 | Rate limiting por IP en middleware; UT-GO-22, 23, SEC-10 | ≥ 90% en `middleware/ratelimit.go` |
-| R-06 | Webhook de rebuild disparado por atacante sin firma válida | 2 | 4 | 8 | Verificación HMAC obligatoria; UT-GO-24 a 26, IT-12 a 14, SEC-07 | ≥ 90% en `middleware/hmac.go` |
-| R-07 | Error off-by-one en umbral de stock bajo (5 unidades) | 3 | 2 | 6 | Tests BVA explícitos: UT-VUE-04a, 04b, 04c (valores 4, 5, 6) | ≥ 70% en composables |
-| R-08 | Autenticación admin con JWT mal configurado | 2 | 5 | 10 | Expiración corta (<24h), secreto en env var, validación por petición | ≥ 85% en `handlers/*` |
-
-> **Umbral de acción:** Riesgos con prioridad ≥ 10 requieren cobertura de ramas ≥ 85% y al menos un test de seguridad dedicado (SEC-*).
 
 ---
 
@@ -654,22 +637,17 @@ La siguiente matriz prioriza los riesgos técnicos identificados en `implementat
 | RF-05 (Redes sociales) | UT-VUE-16 | — | ST-16, ST-17 | UAT-16 |
 | RF-06 (Calificación) | UT-GO-05 a 07, UT-VUE-08, 09 | IT-02, IT-10 | ST-11, ST-12 | UAT-08 |
 | RF-07 (Comentarios) | UT-GO-01 a 04, UT-VUE-05 a 07, UT-VUE-17 | IT-01, IT-08, IT-09 | ST-09, ST-10, ST-13 | UAT-09 |
-| RF-08 (Login admin) | — | — | ST-19, ST-20 | UAT-11 |
-| RF-09 (Logout admin) | — | — | ST-21 | UAT-11 |
-| RF-10 (Panel admin) | — | — | ST-18 | UAT-11 |
-| RF-11 (Editar producto) | — | — | — | UAT-12 |
-| RF-12 (Imagen producto) | — | — | — | UAT-12 |
-| RF-13 (Crear/eliminar producto) | — | — | — | UAT-13 |
-| RF-14 (Stock admin) | — | — | — | UAT-14 |
-| RF-15 (Paleta colores) | UT-VUE-14, 15 | — | — | UAT-15 |
-| RF-16 (Variantes + patrones) | UT-VUE-17 | — | — | UAT-15 |
+| RF-08 (Login admin) | — | — | ST-19, ST-20 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-09 (Logout admin) | — | — | ST-21 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-10 (Panel admin) | — | — | ST-18 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-11 (Editar producto) | — | — | — | UAT-12 *(R1: Studio / R2: Panel)* |
+| RF-12 (Imagen producto) | — | — | — | UAT-12 *(R1: Studio / R2: Panel)* |
+| RF-13 (Crear/eliminar producto) | — | — | — | UAT-13 *(R1: Studio / R2: Panel)* |
+| RF-14 (Stock admin) | — | — | — | UAT-14 *(R1: Studio / R2: Panel)* |
 | RF-17 (WhatsApp) | UT-TS-01, 02, UT-VUE-11 | — | ST-14, ST-15 | UAT-10 |
 | RF-18 (Búsqueda) | UT-GO-08, 09, 10 | IT-05, IT-06, IT-11 | ST-05 | UAT-05 |
 | RF-19 (Paginación) | — | — | ST-04 | UAT-06 |
 | RF-20 (SEO/OG) | — | IT-16 | ST-22, ST-23, ST-24 | UAT-07 |
-| RF-21 (Lista artículos) | UT-VUE-18, 19 | — | — | UAT-17, UAT-18 |
-| RF-22 (Exportar PDF/PNG) | UT-VUE-20 | — | — | UAT-19 |
-| RF-23 (Lista → WhatsApp) | UT-VUE-18 | — | — | UAT-20 |
 | RNF-01 (Sin auth usuarios) | — | — | ST-25, ST-26 | — |
 | RNF-02 (Rendimiento UI) | — | — | NF-01 a NF-06 | — |
 | RNF-03 (Stock tiempo real) | UT-VUE-01 a 04 | IT-07 | ST-06, ST-07 | UAT-03 |
@@ -679,5 +657,5 @@ La siguiente matriz prioriza los riesgos técnicos identificados en `implementat
 
 ---
 
-*Última actualización: Septiembre 2026 · Aplica a LectorPobre ERS v1.1*
+*Última actualización: Octubre 2026 · Aplica a LectorPobre ERS v1.2 · Reutilizable para Release 2 (Panel de Control)*
 *Este plan debe revisarse cuando se agreguen requisitos al ERS o cambien las decisiones de arquitectura.*

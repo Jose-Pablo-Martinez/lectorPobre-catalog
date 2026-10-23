@@ -1,13 +1,13 @@
 /**
  * @file rating.ts
- * @description Sanity schema for product star ratings (1–5).
+ * @description Esquema de Sanity para calificaciones de productos por estrellas (1–5).
  *
- * When a new rating document is created by the Go handler, the handler
- * also issues an atomic patch.inc on the parent product's ratingSum and
- * ratingCount fields. This avoids the read-calculate-write race condition
- * that would occur if the average were stored directly on the product.
+ * Cuando el handler de Go crea un nuevo documento de calificación, también ejecuta
+ * mutaciones atómicas patch.inc en los campos ratingSum y ratingCount del producto padre.
+ * Esto evita la condición de carrera de lectura-cálculo-escritura que ocurriría
+ * si el promedio se calculara y almacenara directamente en el producto.
  *
- * @satisfies RF-06 - Star rating system, range 1–5.
+ * @satisfies RF-06 - Sistema de calificación por estrellas, rango 1–5.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -16,7 +16,7 @@ export const rating = defineType({
     name: 'calificacion',
     title: 'Calificación',
     type: 'document',
-    readOnly: true, // Disables all form fields in the Studio UI
+    readOnly: true, // Deshabilita la edición manual en la interfaz de Sanity Studio
     fields: [
         defineField({
             name: 'valor',

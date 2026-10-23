@@ -1,53 +1,352 @@
 /**
  * @file useCatalog.ts
- * @description Composable que expone el catálogo de productos para el SSG.
- * Los datos son consultados en build time y pre-renderizados en HTML estático.
- * @satisfies RF-01 (Catálogo), RF-04 (Categorías), RF-18 (Búsqueda client-side), RF-19 (Paginación)
+ * @description Composable principal del catálogo de Lector Pobre para SSG.
+ * Consulta productos activos, categorías y configuración global desde Sanity, e integra
+ * filtrado por categoría (RF-04), búsqueda difusa desacoplada con Fuse.js (RF-18, RF-23),
+ * selección modular de pieza destacada/recomendada y paginación configurable (RF-19).
+ * @satisfies RF-01, RF-04, RF-18, RF-19, RF-23
  */
 
-export function useCatalog(config: { pagina?: number; categoria?: string } = {}) {
-    const sanity = useSanity();
+import { computed, type Ref, ref, watch } from 'vue';
+import { useSearch } from '~/composables/search/useSearch';
+import type { Categoria, ConfiguracionGlobal, Producto } from '~/types/sanity';
 
-    // Consulta ejecutada en build time (SSG) o en cliente para SSR ligero
-    // Se proyectan solo los campos necesarios para mostrar la cuadrícula de productos.
-    const { data: productos, pending, error } = useAsyncData('productos', () => {
-        let query = '*[_type == "producto" && activo == true]';
-        
-        if (config.categoria) {
-            query = `*[_type == "producto" && activo == true && categoria->slug.current == $categoria]`;
+export type EstrategiaDestacado = 'aleatorio' | 'popularidad';
+
+export interface UseCatalogOptions {
+    pagina?: number;
+    categoria?: string;
+    productosPorPagina?: number;
+    estrategiaDestacado?: EstrategiaDestacado;
+    initialProductos?: Producto[];
+    initialCategorias?: Categoria[];
+    initialConfig?: Partial<ConfiguracionGlobal>;
+}
+
+/**
+ * Genera un índice pseudoaleatorio empleando Web Crypto API (`crypto.getRandomValues`)
+ * para cumplir las reglas de seguridad de SonarQube (evitando `Math.random()`).
+ */
+export function obtenerIndiceAleatorioSeguro(total: number): number {
+    if (total <= 1) return 0;
+    if (typeof globalThis.crypto?.getRandomValues === 'function') {
+        const buffer = new Uint32Array(1);
+        globalThis.crypto.getRandomValues(buffer);
+        return (buffer[0] ?? 0) % total;
+    }
+    return 0;
+}
+
+/**
+ * Selecciona una pieza destacada del catálogo activo según la estrategia configurada:
+ * - `'aleatorio'` (etapa actual): elige un producto activo disponible al azar.
+ * - `'popularidad'` (preparado para evolución a "más vendido"): ordena por
+ *   `calificacionPromedio` y número de calificaciones (`ratingCount`).
+ * Prioriza productos con stock disponible (`stock > 0`), con respaldo en cualquier activo.
+ */
+export function seleccionarProductoDestacado(
+    listaProductos: Producto[],
+    estrategia: EstrategiaDestacado = 'aleatorio',
+    indiceSemilla?: number
+): Producto | null {
+    const activos = (listaProductos ?? []).filter((p) => p.activo !== false);
+    if (activos.length === 0) return null;
+
+    const conStock = activos.filter((p) => p.stock > 0);
+    const candidatos = conStock.length > 0 ? conStock : activos;
+
+    if (estrategia === 'popularidad') {
+        const ordenados = [...candidatos].sort((a, b) => {
+            const promA = a.calificacionPromedio ?? 0;
+            const promB = b.calificacionPromedio ?? 0;
+            if (promB !== promA) return promB - promA;
+            return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+        });
+        return ordenados[0] ?? null;
+    }
+
+    const idx =
+        typeof indiceSemilla === 'number'
+            ? Math.abs(indiceSemilla) % candidatos.length
+            : obtenerIndiceAleatorioSeguro(candidatos.length);
+    return candidatos[idx] ?? candidatos[0] ?? null;
+}
+
+/**
+ * Genera una leyenda de "caja blanca" (explicabilidad algorítmica) que detalla
+ * de manera transparente al usuario la razón por la que se recomienda la pieza.
+ *
+ * @param estrategia Estrategia de selección ('aleatorio' | 'popularidad').
+ * @param esPrimeraVisita Si el usuario carece de historial de navegación previo en la tienda.
+ * @param producto Objeto del producto recomendado (opcional, para enriquecer con calificaciones).
+ */
+export function obtenerExplicacionRecomendacion(
+    estrategia: EstrategiaDestacado = 'aleatorio',
+    esPrimeraVisita = false,
+    producto?: Producto | null
+): string {
+    if (estrategia === 'popularidad') {
+        const calificacion = producto?.calificacionPromedio;
+        if (typeof calificacion === 'number' && calificacion > 0) {
+            return `Popular ahora en la tienda (${calificacion.toFixed(1)} ★): pieza favorita de nuestra comunidad por sus altas calificaciones.`;
         }
+        return 'Esto es popular ahora en la tienda: pieza destacada por el interés y preferencia de la comunidad.';
+    }
 
-        query += ` | order(_createdAt desc) {
-            _id, 
-            nombre, 
-            slug, 
-            descripcion, 
-            imagenPrincipal, 
-            categoria->{nombre, slug}, 
-            stock, 
-            "calificacionPromedio": select(
-                ratingCount > 0 => round(ratingSum / ratingCount, 1),
-                null
-            ),
-            ratingCount
-        }`;
+    if (esPrimeraVisita) {
+        return 'Es tu primera vez visitando el sitio: pieza destacada del taller seleccionada para darte la bienvenida.';
+    }
 
-        return sanity.fetch(query, config.categoria ? { categoria: config.categoria } : {});
+    return '¡SORPRESA!: sugerencia aleatoria para explorar piezas únicas de nuestro catálogo.';
+}
+
+/**
+ * Proyección GROQ compartida de campos de `producto` para evitar duplicación de consultas
+ * entre la vista de catálogo y la vista de detalle.
+ */
+export const PRODUCTO_GROQ_FIELDS = `
+    _id,
+    _type,
+    _createdAt,
+    _updatedAt,
+    _rev,
+    nombre,
+    slug,
+    descripcion,
+    imagenPrincipal,
+    imagenes,
+    categoria->{nombre, slug},
+    stock,
+    precio,
+    activo,
+    palabrasClave,
+    "calificacionPromedio": select(
+        ratingCount > 0 => round(ratingSum / ratingCount, 1),
+        null
+    ),
+    ratingCount,
+    rating1Count,
+    rating2Count,
+    rating3Count,
+    rating4Count,
+    rating5Count
+`;
+
+export const CATALOG_PRODUCTS_QUERY = `*[_type == "producto" && activo == true] | order(_createdAt desc) { ${PRODUCTO_GROQ_FIELDS} }`;
+
+export const CATALOG_CATEGORIES_QUERY = `*[_type == "categoria"] | order(orden asc) {
+    _id,
+    _type,
+    _createdAt,
+    _updatedAt,
+    _rev,
+    nombre,
+    slug,
+    descripcion,
+    orden
+}`;
+
+export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
+    _id,
+    _type,
+    nombreSitio,
+    numeroWhatsApp,
+    mensajeWhatsApp,
+    urlInstagram,
+    urlFacebook,
+    urlTikTok,
+    urlYouTube,
+    paletaActiva,
+    paletaCustomPrimario,
+    paletaCustomSecundario,
+    paletaCustomAcento,
+    paletaCustomFondo,
+    paletaCustomTexto,
+    varianteVisual,
+    patronDecorativoActivo,
+    patronDecorativo,
+    umbralStockBajo,
+    productosPorPagina,
+    sinonimos
+}`;
+
+/**
+ * Obtiene una semilla aleatoria sincronizada entre SSR y cliente mediante `useState`
+ * de Nuxt para evitar diferencias de hidratación en `productoRecomendado`.
+ */
+function obtenerSemillaDestacadoSSR(): Ref<number> {
+    try {
+        if (typeof useState === 'function') {
+            return useState<number>('catalogo-featured-seed', () =>
+                obtenerIndiceAleatorioSeguro(10000)
+            );
+        }
+    } catch {
+        // Fallback seguro fuera del contexto de Nuxt (pruebas unitarias Vitest)
+    }
+    return ref<number>(obtenerIndiceAleatorioSeguro(10000));
+}
+
+/**
+ * Composable reactivo del catálogo con soporte para pruebas unitarias y ejecución SSG en Nuxt.
+ */
+export function useCatalog(options: UseCatalogOptions = {}) {
+    const productos = ref<Producto[]>(options.initialProductos ?? []);
+    const categorias = ref<Categoria[]>(options.initialCategorias ?? []);
+    const configGlobal = ref<Partial<ConfiguracionGlobal> | null>(
+        options.initialConfig ?? null
+    );
+    const pending = ref(false);
+    const error = ref<Error | null>(null);
+
+    if (!options.initialProductos) {
+        try {
+            const sanity = useSanity();
+            const asyncCatalog = useAsyncData('catalogo-lectorpobre', async () => {
+                const [prods, cats, cfg] = await Promise.all([
+                    sanity.fetch<Producto[]>(CATALOG_PRODUCTS_QUERY),
+                    sanity.fetch<Categoria[]>(CATALOG_CATEGORIES_QUERY),
+                    sanity.fetch<ConfiguracionGlobal | null>(GLOBAL_CONFIG_QUERY),
+                ]);
+                return {
+                    productos: prods ?? [],
+                    categorias: cats ?? [],
+                    configGlobal: cfg ?? null,
+                };
+            });
+
+            watch(
+                () => asyncCatalog.data.value,
+                (val) => {
+                    if (val) {
+                        productos.value = val.productos;
+                        categorias.value = val.categorias;
+                        configGlobal.value = val.configGlobal;
+                    }
+                },
+                { immediate: true, flush: 'sync' }
+            );
+
+            watch(
+                () => asyncCatalog.pending.value,
+                (isPending) => {
+                    pending.value = isPending;
+                },
+                { immediate: true, flush: 'sync' }
+            );
+
+            watch(
+                () => asyncCatalog.error.value,
+                (err) => {
+                    error.value = err instanceof Error ? err : null;
+                },
+                { immediate: true, flush: 'sync' }
+            );
+        } catch {
+            // Fallback seguro cuando se invoca en pruebas unitarias sin contexto de Nuxt
+        }
+    }
+
+    const categoriaSeleccionada = ref<string>(options.categoria ?? '');
+    const paginaActual = ref<number>(options.pagina ?? 1);
+    const estrategiaDestacado = ref<EstrategiaDestacado>(
+        options.estrategiaDestacado ?? 'aleatorio'
+    );
+    const semillaDestacado = obtenerSemillaDestacadoSSR();
+
+    const productoRecomendado = computed<Producto | null>(() =>
+        seleccionarProductoDestacado(
+            productos.value,
+            estrategiaDestacado.value,
+            semillaDestacado.value
+        )
+    );
+
+    const search = useSearch({
+        catalogoProductos: productos,
+        categorias,
+        sinonimos: computed(() => configGlobal.value?.sinonimos),
     });
 
-    // Búsqueda client-side sobre los datos ya cargados (RF-18)
-    const searchQuery = ref('');
-    
-    const productosFiltrados = computed(() => {
-        if (!productos.value) return [];
-        if (!searchQuery.value) return productos.value;
-        
-        const q = searchQuery.value.toLowerCase();
-        return productos.value.filter((p: any) =>
-            p.nombre.toLowerCase().includes(q) ||
-            (p.descripcion && p.descripcion.toLowerCase().includes(q))
+    const searchQuery = search.query;
+
+    watch([categoriaSeleccionada, searchQuery], () => {
+        paginaActual.value = 1;
+    });
+
+    const productosFiltrados = computed<Producto[]>(() => {
+        const listaActivos = (productos.value ?? []).filter(
+            (p) => p.activo !== false
+        );
+
+        let base: Producto[] = listaActivos;
+        const q = searchQuery.value.trim();
+
+        if (q.length > 0) {
+            base = search.resultadosProductos.value.filter(
+                (p) => p.activo !== false
+            );
+        }
+
+        const catFilter = categoriaSeleccionada.value.trim().toLowerCase();
+        if (!catFilter) {
+            return base;
+        }
+
+        return base.filter((p) => {
+            const slugCat = p.categoria?.slug?.current?.toLowerCase() ?? '';
+            const nombreCat = p.categoria?.nombre?.toLowerCase() ?? '';
+            return slugCat === catFilter || nombreCat === catFilter;
+        });
+    });
+
+    const tamanoPagina = computed<number>(() => {
+        return (
+            options.productosPorPagina ??
+            configGlobal.value?.productosPorPagina ??
+            24
         );
     });
 
-    return { productos, productosFiltrados, searchQuery, pending, error };
+    const totalPaginas = computed<number>(() => {
+        const total = productosFiltrados.value.length;
+        return Math.max(1, Math.ceil(total / tamanoPagina.value));
+    });
+
+    const productosPaginados = computed<Producto[]>(() => {
+        const inicio = (paginaActual.value - 1) * tamanoPagina.value;
+        return productosFiltrados.value.slice(
+            inicio,
+            inicio + tamanoPagina.value
+        );
+    });
+
+    const seleccionarCategoria = (slugONombre: string): void => {
+        categoriaSeleccionada.value = slugONombre;
+    };
+
+    return {
+        productos,
+        categorias,
+        configGlobal,
+        productoRecomendado,
+        productoDestacado: productoRecomendado,
+        estrategiaDestacado,
+        obtenerExplicacionRecomendacion,
+        categoriaSeleccionada,
+        seleccionarCategoria,
+        searchQuery,
+        sugerencias: search.sugerencias,
+        sugeridosEstadoVacio: search.sugeridosEstadoVacio,
+        sinResultadosBusqueda: search.sinResultados,
+        cargarIndiceBusqueda: search.cargarIndice,
+        limpiarBusqueda: search.limpiarBusqueda,
+        productosFiltrados,
+        productosPaginados,
+        paginaActual,
+        totalPaginas,
+        tamanoPagina,
+        pending,
+        error,
+    };
 }

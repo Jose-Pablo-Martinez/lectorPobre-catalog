@@ -1,7 +1,7 @@
 # Stack Tecnológico y Arquitectura de Despliegue
 ## Proyecto: Plataforma Web "LectorPobre"
 
-**Versión:** 1.0
+**Versión:** 1.1 (división de entregas: Release 1 catálogo público con Sanity Studio; Release 2 Panel de Control propio en dominio independiente — ver `panelControlImplementacion.md`)
 **Basado en:** `Stack_Tecnologico_LectorPobre.pdf`, `Arquitectura_Detallada_LectorPobre.pdf`
 **Documento relacionado:** `ERS_LectorPobre.md` (Especificación de Requisitos de Software)
 
@@ -9,9 +9,9 @@
 
 ## 1. Introducción y Objetivo
 
-Este documento describe, con el mayor nivel de detalle posible, el stack tecnológico seleccionado para LectorPobre y la justificación técnica de cada decisión, en el contexto de una **arquitectura Jamstack desacoplada**. El objetivo es servir como referencia técnica para el equipo de desarrollo y como documento de comunicación técnica hacia la parte interesada del negocio.
+Este documento describe, con el mayor nivel de detalle posible, el stack tecnológico seleccionado para LectorPobre (catálogo web de arte independiente, manualidades urbanas y llaveros semiartesanales de autor; no es una librería) y la justificación técnica de cada decisión, en el contexto de una **arquitectura Jamstack desacoplada**. El objetivo es servir como referencia técnica para el equipo de desarrollo y como documento de comunicación técnica hacia la parte interesada del negocio.
 
-El patrón arquitectónico elegido es **Jamstack** (**J**avaScript, **A**PIs, **M**arkup), que se diferencia del patrón tradicional MVC en que el servidor **no** construye las páginas en tiempo real para cada visitante. En su lugar, el sitio se **pre-renderiza una sola vez** en tiempo de build, y solo se recurre a servicios dinámicos (vía APIs) cuando es estrictamente necesario (p. ej. stock en tiempo real, comentarios, calificaciones, autenticación de administrador).
+El patrón arquitectónico elegido es **Jamstack** (**J**avaScript, **A**PIs, **M**arkup), que se diferencia del patrón tradicional MVC en que el servidor **no** construye las páginas en tiempo real para cada visitante. En su lugar, el sitio se **pre-renderiza una sola vez** en tiempo de build, y solo se recurre a servicios dinámicos (vía APIs) cuando es estrictamente necesario (p. ej. stock en tiempo real, comentarios, calificaciones; la autenticación de administrador se reserva para el Panel de Control propio en el Release 2).
 
 ---
 
@@ -23,12 +23,12 @@ El patrón arquitectónico elegido es **Jamstack** (**J**avaScript, **A**PIs, **
 graph TB
     subgraph Cliente["Cliente / Navegador"]
         U[Usuario General]
-        A[Administrador]
+        A[Administrador (Release 1)]
     end
 
-    subgraph Vercel["Vercel (Plataforma Unificada)"]
+    subgraph Vercel["Vercel (Tienda Pública)"]
         CDN["CDN Global<br/>HTML/CSS/JS estáticos"]
-        FN["Funciones Serverless (Go)<br/>/api/comentar /api/calificar /api/login ..."]
+        FN["Funciones Serverless (Go)<br/>/api/comentar /api/calificar /api/webhook-rebuild"]
     end
 
     subgraph Build["Proceso de Build"]
@@ -37,15 +37,14 @@ graph TB
 
     subgraph Sanity["Sanity.io (Headless CMS)"]
         API_S["API de Sanity (GROQ)"]
-        STUDIO["Sanity Studio<br/>Panel visual de gestión"]
+        STUDIO["Sanity Studio<br/>Panel visual de gestión (R1)"]
         DB[("Base de datos<br/>NoSQL orientada a documentos")]
     end
 
     U -->|"Navega el catálogo"| CDN
     U -->|"Consulta stock en tiempo real"| API_S
     U -->|"Comenta / Califica"| FN
-    A -->|"Login / Gestión"| FN
-    A -->|"Edita catálogo"| STUDIO
+    A -->|"Edita catálogo en Studio"| STUDIO
     FN -->|"Escritura validada con token privado"| API_S
     STUDIO --> DB
     API_S --> DB
@@ -53,6 +52,9 @@ graph TB
     NUXT -->|"Despliega archivos estáticos"| CDN
     DB -->|"Webhook al actualizar contenido"| Build
 ```
+
+> [!NOTE]
+> En el **Release 1**, el administrador gestiona el catálogo únicamente mediante **Sanity Studio**. El **Panel de Control propio** (Release 2) se despliega en un dominio separado con su propio conjunto de funciones Go `/api/admin/*` (ver `panelControlImplementacion.md`).
 
 ### 2.2 Tabla Resumen del Stack
 
@@ -65,6 +67,8 @@ graph TB
 | Panel administrativo de contenido | **Sanity Studio** | Interfaz visual autogenerada, sin código |
 | Infraestructura / Hosting | **Vercel** | Despliegue unificado de frontend y funciones serverless, CDN |
 | Consulta de datos | **GROQ** | Lenguaje de consulta nativo de Sanity |
+| Búsqueda (cliente) | **Fuse.js** (contingencia: **MiniSearch**) | Búsqueda difusa client-side, autocompletado y sinónimos (RF-18) |
+| Recomendaciones (build time) | Script Node/TypeScript propio (TF-IDF + similitud coseno) | Productos similares basados en contenido (RF-21) |
 
 ---
 
@@ -80,8 +84,9 @@ graph TB
 - **Responsabilidades dentro del sistema:**
   - Consumir la API de Sanity.io en tiempo de build para generar el catálogo estático (RF-01, RF-02, RF-04).
   - Renderizar metadatos Open Graph / Twitter Cards por producto (RF-20).
-  - Alojar la lógica de búsqueda y filtrado client-side sobre el dataset ya cargado (RF-18).
-  - Realizar, de forma controlada, las consultas dinámicas necesarias para stock en tiempo real (RF-03/RNF-03) y las llamadas a las funciones serverless para escritura (RF-06, RF-07, RF-08 a RF-10).
+  - Alojar la lógica de búsqueda y filtrado client-side sobre el dataset ya cargado (RF-18), con búsqueda difusa, autocompletado y sinónimos mediante un adaptador `SearchEngine` (ver 3.4).
+  - Presentar productos similares (RF-21) a partir de `recommendations.json` y "Vistos recientemente" (RF-22) desde `localStorage`.
+  - Realizar, de forma controlada, las consultas dinámicas necesarias para stock en tiempo real (RF-03/RNF-03) y las llamadas a las funciones serverless para escritura (RF-06, RF-07; RF-08 a RF-10 se desarrollan en el Release 2 dentro del panel propio).
 
 ### 3.2 Librería Base: Vue.js
 
@@ -97,6 +102,25 @@ graph TB
   - Soportar el requisito de personalización de paleta de colores y elementos visuales del panel de administración (RF-15, RF-16), al poder mapear variables de diseño configurables (p. ej. `theme.extend.colors`) a valores provenientes de Sanity.
   - Minimizar el peso final del CSS gracias al *purging* automático de clases no utilizadas, alineado con el objetivo de rendimiento (RNF-02).
 
+### 3.4 Búsqueda Avanzada y Recomendaciones (v1.1)
+
+Decisión documentada en `Analisis_Busqueda_Recomendacion_LectorPobre.md` y en ERS §7.4. Todo el cómputo ocurre en el navegador o en build time, coherente con la ausencia de servidor permanente y base de datos tradicional.
+
+| Componente | Tecnología | Justificación |
+|---|---|---|
+| Motor de búsqueda | **Fuse.js** (~6 KB, sin dependencias) | Suficiente para 20–100 productos (tope esperado 2000): tolerancia a errores, pesos por campo, índice precalculado. |
+| Motor de contingencia | **MiniSearch** | Alternativa si el catálogo supera ~1000 productos (índice invertido, prefijos, BM25). Intercambiable mediante `SearchEngine`. |
+| Normalización de texto | Utilidades propias (`String.prototype.normalize('NFD')`, *stopwords* en español, sinónimos) | Evita dependencias pesadas de NLP. |
+| Recomendación | Script propio TF-IDF + similitud coseno (opcionalmente `natural` o `ml-distance`) | Algoritmo basado en contenido, explicable y determinista, ejecutado en `nuxt generate`. |
+| Historial local | `localStorage` + composable `useRecentlyViewed` | Sin backend ni datos personales. |
+
+**Principios de implementación obligatorios (RNF-07, RNF-08):**
+- Carga diferida del índice de búsqueda (no afecta LCP).
+- Interfaces `SearchEngine` y `RecommendationStrategy` con implementaciones intercambiables.
+- Pipeline de recomendación por etapas independientes y vectores TF-IDF persistidos como artefacto de build.
+- Contrato de salida versionado (`schemaVersion`) con campo opcional `clusterId` reservado.
+- **Clustering (K-Means / jerárquico):** no se implementa ahora; la estructura anterior deja la puerta abierta a su incorporación futura sin reescrituras.
+
 ---
 
 ## 4. Backend (Lógica sin Estado)
@@ -107,7 +131,7 @@ graph TB
 - **Justificación:**
   - **Rendimiento excepcional**: binarios compilados con tiempos de ejecución muy bajos, ideales para funciones invocadas bajo demanda.
   - **Tipado estricto**: reduce errores en tiempo de ejecución al validar contratos de datos (p. ej. estructura de un comentario o calificación) en tiempo de compilación.
-  - **Nulos tiempos de arranque (cold starts)** en entornos serverless en comparación con runtimes interpretados más pesados, lo que es crítico para mantener una experiencia de usuario fluida en operaciones dinámicas (calificar, comentar, iniciar sesión).
+  - **Nulos tiempos de arranque (cold starts)** en entornos serverless en comparación con runtimes interpretados más pesados, lo que es crítico para mantener una experiencia de usuario fluida en operaciones dinámicas (calificar, comentar; e iniciar sesión en el Release 2).
 
 ### 4.2 Arquitectura: Funciones Serverless
 
@@ -116,13 +140,13 @@ graph TB
 
 | Endpoint (sugerido) | Método | Requisito relacionado | Descripción |
 |---|---|---|---|
-| `/api/auth/login` | POST | RF-08 | Autentica al administrador y emite un token/sesión |
-| `/api/auth/logout` | POST | RF-09 | Invalida el token/sesión activa |
 | `/api/stock/:id` | GET | RF-03, RNF-03 | Consulta el stock actual de un producto en tiempo real |
 | `/api/calificar` | POST | RF-06 | Registra una calificación por estrellas, con validación anti-abuso |
 | `/api/comentar` | POST | RF-07 | Registra un comentario de texto, con validación/sanitización |
-| `/api/admin/productos` | POST/PUT/DELETE | RF-11, RF-12, RF-13 | Operaciones protegidas de gestión de catálogo (o delegadas a Sanity Studio) |
 | `/api/webhook/rebuild` | POST | Flujo de build | Webhook interno disparado por Sanity para reconstruir el sitio |
+| `/api/auth/login` | POST | RF-08 | *(Release 2)* Autentica al administrador en el Panel de Control propio |
+| `/api/auth/logout` | POST | RF-09 | *(Release 2)* Invalida la sesión activa en el Panel de Control propio |
+| `/api/admin/productos` | POST/PUT/DELETE | RF-11, RF-12, RF-13 | *(Release 2)* Operaciones protegidas del panel propio (en R1 se operan en Sanity Studio) |
 
 - **Responsabilidad clave:** cada función actúa como un **proxy seguro**, validando la entrada del usuario (esquema, longitud, formato) antes de comunicarse con la base de datos, y firmando las peticiones hacia Sanity con un token privado que nunca se expone al cliente (ver Sección 7, Modelo de Seguridad).
 
@@ -145,7 +169,7 @@ graph TB
 
 - **Naturaleza:** interfaz visual **autogenerada** a partir de los esquemas definidos en código, desplegable de forma independiente (p. ej. como subdominio propio o embebida).
 - **Rol:** permite a los dueños del negocio **gestionar el catálogo, stock e imágenes sin requerir código** (RF-11 a RF-16), cubriendo gran parte de las necesidades del panel de administración descritas en el ERS sin desarrollo a medida adicional.
-- **Consideración de diseño:** para los requisitos de autenticación específicos del negocio (RF-08, RF-09, RF-10) debe definirse si se utiliza el sistema de autenticación propio de Sanity Studio (para gestión de contenido) y/o una capa de autenticación independiente en Go para otras vistas administrativas personalizadas fuera de Sanity Studio.
+- **Consideración de diseño (resuelta v1.1):** En el **Release 1**, la gestión de contenido se realiza exclusivamente en **Sanity Studio** con la autenticación nativa de Sanity. En el **Release 2**, se desarrollará el **Panel de Control propio** en un dominio separado, con autenticación JWT y API de mutaciones protegidas para la comodidad del cliente (ver `panelControlImplementacion.md`).
 
 ---
 
@@ -155,7 +179,7 @@ graph TB
 
 - **Rol:** despliega automáticamente tanto el **frontend estático** generado por Nuxt como las **funciones serverless** programadas en Go, a través de un **único repositorio**, manteniendo **costos operativos nulos** en escenarios de tráfico bajo/moderado (modelo *pay-per-use* con generosa capa gratuita).
 - **CDN Global:** los archivos estáticos generados por Nuxt se distribuyen automáticamente a través de la red de Vercel, entregando contenido desde el nodo más cercano al usuario (bajo tiempo de latencia, alineado con RNF-02).
-- **Variables de entorno:** Vercel almacena de forma cifrada los secretos (tokens de Sanity, credenciales de administrador) accesibles únicamente por las funciones serverless en tiempo de ejecución (ver Sección 7).
+- **Variables de entorno:** Vercel almacena de forma cifrada los secretos (tokens de Sanity) accesibles únicamente por las funciones serverless en tiempo de ejecución (ver Sección 7). En el Release 2, el proyecto del panel almacenará además sus credenciales de administrador y secretos JWT de forma aislada.
 - **CI/CD:** cada `push` al repositorio (o cada webhook de Sanity) puede disparar automáticamente un nuevo build y despliegue, integrando control de versiones (Git) con el flujo de publicación de contenido.
 
 ---
@@ -228,7 +252,7 @@ La separación de responsabilidades propia de Jamstack **aísla los riesgos** po
 | DoS económico | Abuso de invocaciones a funciones serverless para incrementar costos | Rate limiting por IP/sesión, límites de Vercel, validación temprana de payloads |
 | Fuga de estado en contenedores "warm" | Reutilización de instancias de función entre invocaciones que podrían filtrar datos residuales | Evitar variables globales mutables con datos sensibles entre invocaciones |
 | Falsificación de webhooks | Un actor externo simula una llamada al webhook de rebuild | Validación de firma/secreto compartido en cada solicitud de webhook |
-| Autenticación sin estado | Sin sesión de servidor persistente, cada función debe re-validar identidad | Uso de JWT firmados con expiración corta + verificación en cada función protegida |
+| Autenticación sin estado | Sin sesión de servidor persistente, cada función debe re-validar identidad | *(Aplica en Release 2 al panel propio)* Uso de JWT firmados con expiración corta + verificación en cada función protegida |
 
 ### 8.2 Buenas prácticas generales de seguridad web recomendadas
 
@@ -247,6 +271,8 @@ La separación de responsabilidades propia de Jamstack **aísla los riesgos** po
 | Go vs. Node.js/Python para funciones serverless | Node.js, Python | Go ofrece binarios compilados con arranque más rápido y menor consumo, favoreciendo el modelo serverless |
 | Sanity.io vs. Contentful / Strapi | Contentful, Strapi (self-hosted) | Sanity ofrece Sanity Studio autogenerado, capa gratuita generosa y GROQ como lenguaje de consulta flexible |
 | Vercel vs. Netlify / AWS Amplify | Netlify, AWS Amplify | Integración nativa y unificada entre frontend estático y funciones serverless en un único flujo de despliegue |
+| Fuse.js vs. Algolia / Meilisearch Cloud / búsqueda semántica | Algolia, Meilisearch Cloud, embeddings + base vectorial, función Go `/api/buscar` | Catálogo pequeño (≤ 100 productos previstos), presupuesto mínimo y ausencia de servidor persistente: la búsqueda en cliente cuesta $0 y evita *cold starts*. Los servicios gestionados solo se reconsideran bajo las condiciones de ERS §7.5.2 |
+| Recomendación basada en contenido vs. filtrado colaborativo / híbrido / *clustering* | Filtrado colaborativo, híbrido, K-Means, embeddings | No existen datos de usuarios; el contenido es suficiente y explicable. El *clustering* aporta poco con pocos productos y queda como evolución futura prevista (ERS §7.5.1) |
 
 > Esta sección resume el *porqué* implícito en la documentación fuente; se recomienda documentar formalmente cualquier alternativa adicional evaluada por el equipo durante el diseño técnico.
 
@@ -257,7 +283,8 @@ La separación de responsabilidades propia de Jamstack **aísla los riesgos** po
 - **Costo operativo base:** cercano a cero en tráfico bajo/moderado, gracias al modelo *pay-per-use* de Vercel y a la capa gratuita de Sanity.io.
 - **Escalabilidad horizontal automática:** tanto el CDN (contenido estático) como las funciones serverless escalan automáticamente según demanda, sin intervención manual ni aprovisionamiento de servidores.
 - **Punto de atención:** el único componente con lógica de negocio "cara" en términos de latencia es la consulta de stock en tiempo real (RNF-03), ya que rompe el patrón 100% estático; se recomienda monitorear su volumen de solicitudes para anticipar costos.
-- **Rebuild como costo operativo:** cada actualización de contenido dispara una reconstrucción completa del sitio; en catálogos muy grandes esto puede impactar el tiempo de build — a monitorear conforme crezca el catálogo (relacionado con RF-19, paginación).
+- **Rebuild como costo operativo:** cada actualización de contenido dispara una reconstrucción completa del sitio; en catálogos muy grandes esto puede impactar el tiempo de build — a monitorear conforme crezca el catálogo (relacionado con RF-19, paginación). El cálculo de recomendaciones se ejecuta dentro de ese mismo build y añade segundos incluso con 2000 productos.
+- **Búsqueda y recomendación:** costo operativo adicional de $0 (cliente + build + CDN). Una migración a servidor y base de datos dedicados solo se contempla si es estrictamente necesario (ERS §7.5.2).
 
 ---
 

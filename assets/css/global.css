@@ -1,23 +1,115 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
 :root {
-    /* Paleta Azul (default — RF-15) */
-    --color-brand-primario: #2563eb;
-    --color-brand-secundario: #60a5fa;
-    --color-brand-acento: #3b82f6;
-    --color-brand-fondo: #ffffff;
-    --color-brand-texto: #1e3a8a;
+  /* Paleta Oficial Lector Pobre (Rosa Mexicano, Azul Maya, Amarillo Cempasúchil, Verde Pastel Mérida — RF-15) */
+  --color-brand-primario: #e4007c;
+  --color-brand-secundario: #0091d5;
+  --color-brand-acento: #ffd000;
+  --color-brand-fondo: #edf8f1;
+  --color-brand-texto: #18181b;
 
-    /* Tipografía */
-    --font-sans: 'Outfit', system-ui, sans-serif;
+  /* Sombras táctiles y suaves del sistema "Neo-Pop Limpio con Carácter de Taller" */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-soft-md: 0 8px 20px rgba(0, 0, 0, 0.1);
+  --shadow-hard: 4px 4px 0px #18181b;
+  --shadow-hard-sm: 2px 2px 0px #18181b;
+  --shadow-hard-lg: 6px 6px 0px #18181b;
 
-    /* Transiciones */
-    --transition-base: 200ms ease-in-out;
+  /* Tipografías */
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', monospace;
+
+  /* Transiciones */
+  --transition-base: 200ms ease-in-out;
 }
 
-/* Las paletas de color de RF-15 se inyectan dinámicamente desde nuxt.config.ts
-   o un plugin de Nuxt según el valor de paletaActiva en configuracionGlobal de Sanity */
+body {
+  background-color: #f8fafc;
+  color: var(--color-brand-texto);
+  font-family: var(--font-sans);
+}
+
+/* Utilidad Mobile-First para carruseles táctiles sin barra de desplazamiento visible */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* RF-16: Variantes visuales del catálogo aplicadas sobre <html> */
+.variante-clasico .tarjeta-producto {
+  border-radius: 0.5rem;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.variante-clasico h1,
+.variante-clasico h2,
+.variante-clasico h3 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.variante-moderno .tarjeta-producto {
+  border-radius: 0.75rem;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.variante-moderno .tarjeta-producto:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.variante-minimalista .tarjeta-producto {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(228, 228, 231, 0.8);
+  box-shadow: none;
+}
+.variante-minimalista {
+  font-family: var(--font-sans);
+}
+
+/* Animación de entrada suave (RNF-02, WCAG 2.3.3) */
+@keyframes entrada-suave {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tarjeta-entrada {
+  animation: entrada-suave 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-entrada,
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+}
+
+/* Oculta la 'x' nativa de los navegadores WebKit/Chromium para evitar doble cruz con el botón de limpiar (RF-18) */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}

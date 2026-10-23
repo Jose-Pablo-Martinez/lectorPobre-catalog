@@ -711,9 +711,9 @@ La API serverless de Go es la **superficie de API** del backend. Los cambios de 
 | `/api/comentar` | POST | RF-07 | Validar + rate limit + escribir comentario en Sanity |
 | `/api/calificar` | POST | RF-06 | Validar rango (1–5) + rate limit + escribir calificación |
 | `/api/buscar` | GET | RF-18 | Rate limit + sanitizar params + búsqueda (si no es client-side) |
-| `/api/auth/login` | POST | RF-08 | Autenticar administrador, emitir JWT de corta duración |
-| `/api/auth/logout` | POST | RF-09 | Invalidar token activo |
 | `/api/webhook/rebuild` | POST | Build flow | Verificar firma HMAC de Sanity + disparar rebuild en Vercel |
+| `/api/auth/login` | POST | RF-08 | *(Release 2 — Panel de Control)* Autenticar administrador, emitir JWT de corta duración |
+| `/api/auth/logout` | POST | RF-09 | *(Release 2 — Panel de Control)* Invalidar sesión activa |
 
 ### 8.2 Reglas de Versionado de Esquemas
 
@@ -790,7 +790,7 @@ La seguridad de LectorPobre está documentada exhaustivamente en el documento de
 # ✅ Siempre en variables de entorno de Vercel — nunca en el repositorio
 SANITY_WRITE_TOKEN=...
 SANITY_WEBHOOK_SECRET=...
-ADMIN_JWT_SECRET=...
+ADMIN_JWT_SECRET=...          # (Release 2 — reservado para el proyecto del Panel de Control)
 
 # ❌ Nunca en el código fuente ni en .env commiteado
 const token = "skXXXXXXXXXXXXX" // ❌
@@ -884,15 +884,15 @@ func TestComentarHandler_TextoVacio_Retorna400(t *testing.T) {
 
 describe('TarjetaProducto', () => {
     it('muestra el nombre y la imagen del producto', () => {
-        const producto = crearProductoMock({ nombre: 'Libro Test', imagenUrl: '/img/test.jpg' });
+        const producto = crearProductoMock({ nombre: 'Llavero Test', imagenUrl: '/img/test.jpg' });
         const wrapper = mount(TarjetaProducto, { props: { producto } });
 
-        expect(wrapper.text()).toContain('Libro Test');
+        expect(wrapper.text()).toContain('Llavero Test');
         expect(wrapper.find('img').attributes('src')).toBe('/img/test.jpg');
     });
 
     it('incluye el enlace de WhatsApp cuando se proporciona el producto', () => {
-        const producto = crearProductoMock({ nombre: 'Libro Test' });
+        const producto = crearProductoMock({ nombre: 'Llavero Test' });
         const wrapper = mount(TarjetaProducto, { props: { producto } });
 
         const enlace = wrapper.find('[data-testid="whatsapp-link"]');

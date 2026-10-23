@@ -10,9 +10,9 @@
 
 ---
 
-**LectorPobre** is a product catalog web platform for an arts and crafts company (keychains, pins, stickers, and books in the future). It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
+**LectorPobre** is a product catalog web platform for an independent art and craft studio specializing in **handmade and semi-artisanal items (custom-designed keychains, art prints, stickers, pins, and accessories made by the owner and lead artist. Note: It is NOT a bookstore / bookshop)**. It is built using a **Jamstack architecture**: a statically generated frontend with Nuxt.js (SSG), content managed through Sanity.io (Headless CMS), serverless backend logic written in Go deployed as Vercel Functions, and global delivery via Vercel's CDN.
 
-The platform allows customers to browse products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. An admin panel secured with JWT authentication allows the store owner to manage the entire catalog through Sanity Studio without writing code.
+The platform allows customers to browse products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. In **Release 1**, content is managed through Sanity Studio without writing code. A dedicated **Control Panel** hosted on its own domain with complete management features and metrics is planned for **Release 2** (see `docs/panelControlImplementacion.md`).
 
 ### Table of Contents
 
@@ -153,9 +153,9 @@ lectorpobre/
 │   ├── comment.go               # POST /api/comment — user comments (RF-07)
 │   ├── rating.go                # POST /api/rating  — star ratings (RF-06)
 │   ├── search.go                # GET  /api/search  — server-side search (RF-18)
-│   ├── auth/                    # Admin authentication handlers
-│   │   ├── login.go             # POST /api/auth/login  (RF-08)
-│   │   └── logout.go            # POST /api/auth/logout (RF-09)
+│   ├── auth/                    # Reserved for Release 2 (Control Panel stubs)
+│   │   ├── login.go             # POST /api/auth/login  (RF-08) — stub
+│   │   └── logout.go            # POST /api/auth/logout (RF-09) — stub
 │   ├── webhook/
 │   │   └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
 │   ├── handlers/                # Shared payload types and validation logic
@@ -180,14 +180,14 @@ lectorpobre/
 ├── pages/                       # File-based routes (Nuxt auto-routing)
 │   ├── index.vue                # Main catalog page (RF-01, RF-04, RF-18, RF-19)
 │   ├── product/[slug].vue       # Product detail page (RF-02, RF-03, RF-20)
-│   └── admin/login.vue          # Admin login page (RF-08)
+│   └── admin/login.vue          # Admin login stub (Release 2; ignored in nuxt.config)
 │
 ├── layouts/
 │   ├── default.vue              # Public site layout
-│   └── admin.vue                # Admin panel layout
+│   └── admin.vue                # Admin panel layout (Release 2; ignored in nuxt.config)
 │
 ├── middleware/
-│   └── auth.ts                  # Nuxt route guard — redirects to login (RF-10)
+│   └── auth.ts                  # Nuxt route guard stub (Release 2; ignored in nuxt.config)
 │
 ├── types/
 │   ├── api.ts                   # TypeScript types for API contracts
@@ -236,7 +236,8 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 | [`Stack_Tecnologico_LectorPobre.md`](docs/Stack_Tecnologico_LectorPobre.md) | Technology stack rationale |
 | [`DEVELOPMENT_GUIDELINES.md`](docs/DEVELOPMENT_GUIDELINES.md) | Coding standards and style guide |
 | [`VyV_LectorPobre.md`](docs/VyV_LectorPobre.md) | Verification & Validation (V&V) test plan |
-| [`implementationPlan.md`](docs/implementationPlan.md) | Phased implementation plan |
+| [`implementationPlan.md`](docs/implementationPlan.md) | Phased implementation plan (Release 1: Public Store) |
+| [`panelControlImplementacion.md`](docs/panelControlImplementacion.md) | Phased implementation plan (Release 2: Dedicated Control Panel) |
 
 ---
 
@@ -263,7 +264,7 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 
 **LectorPobre** es una plataforma web de catálogo de productos para una empresa de artesanías (llaveros, pines, stickers, y en un futuro libros). Está construida con **arquitectura Jamstack**: un frontend generado estáticamente con Nuxt.js (SSG), contenido gestionado a través de Sanity.io (Headless CMS), lógica de backend serverless escrita en Go desplegada como Vercel Functions, y distribución global a través de la CDN de Vercel.
 
-La plataforma permite a los clientes explorar productos por categoría, buscar en el catálogo, ver la disponibilidad de stock en tiempo real, calificar y comentar productos, y contactar directamente a la tienda por WhatsApp. Un panel de administración protegido con autenticación JWT le permite al dueño de la tienda gestionar todo el catálogo a través de Sanity Studio sin escribir código.
+La plataforma permite a los clientes explorar productos por categoría, buscar en el catálogo, ver la disponibilidad de stock en tiempo real, calificar y comentar productos, y contactar directamente a la tienda por WhatsApp. En el **Release 1**, la gestión de contenido se realiza mediante Sanity Studio sin código. En el **Release 2**, se entregará un **Panel de Control propio** alojado en un dominio independiente con todas las funcionalidades de gestión y métricas (ver `docs/panelControlImplementacion.md`).
 
 ### Tabla de Contenidos
 
@@ -403,9 +404,9 @@ lectorpobre/
 │   ├── comment.go               # POST /api/comment — comentarios de usuarios (RF-07)
 │   ├── rating.go                # POST /api/rating  — calificaciones por estrellas (RF-06)
 │   ├── search.go                # GET  /api/search  — búsqueda server-side (RF-18)
-│   ├── auth/                    # Handlers de autenticación del administrador
-│   │   ├── login.go             # POST /api/auth/login  (RF-08)
-│   │   └── logout.go            # POST /api/auth/logout (RF-09)
+│   ├── auth/                    # Reservado para Release 2 (stubs del Panel de Control)
+│   │   ├── login.go             # POST /api/auth/login  (RF-08) — stub
+│   │   └── logout.go            # POST /api/auth/logout (RF-09) — stub
 │   ├── webhook/
 │   │   └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
 │   ├── handlers/                # Tipos de payload compartidos y lógica de validación
@@ -430,14 +431,14 @@ lectorpobre/
 ├── pages/                       # Rutas basadas en archivos (enrutamiento automático de Nuxt)
 │   ├── index.vue                # Página principal del catálogo (RF-01, RF-04, RF-18, RF-19)
 │   ├── product/[slug].vue       # Página de detalle de producto (RF-02, RF-03, RF-20)
-│   └── admin/login.vue          # Página de login del administrador (RF-08)
+│   └── admin/login.vue          # Stub de login de admin (Release 2; ignorado en nuxt.config)
 │
 ├── layouts/
 │   ├── default.vue              # Layout del sitio público
-│   └── admin.vue                # Layout del panel de administración
+│   └── admin.vue                # Layout del panel de admin (Release 2; ignorado en nuxt.config)
 │
 ├── middleware/
-│   └── auth.ts                  # Guardia de rutas Nuxt — redirige a login (RF-10)
+│   └── auth.ts                  # Guardia de rutas stub (Release 2; ignorado en nuxt.config)
 │
 ├── types/
 │   ├── api.ts                   # Tipos TypeScript para los contratos de API
@@ -486,7 +487,15 @@ La documentación técnica completa se encuentra en la carpeta [`docs/`](docs/):
 | [`Stack_Tecnologico_LectorPobre.md`](docs/Stack_Tecnologico_LectorPobre.md) | Justificación del stack tecnológico |
 | [`DEVELOPMENT_GUIDELINES.md`](docs/DEVELOPMENT_GUIDELINES.md) | Estándares de código y guía de estilo |
 | [`VyV_LectorPobre.md`](docs/VyV_LectorPobre.md) | Plan de Verificación y Validación (V&V) |
-| [`implementationPlan.md`](docs/implementationPlan.md) | Plan de implementación por fases |
+| [`implementationPlan.md`](docs/implementationPlan.md) | Plan de implementación por fases (Release 1: Tienda Pública) |
+| [`panelControlImplementacion.md`](docs/panelControlImplementacion.md) | Plan de implementación por fases (Release 2: Panel de Control Propio) |
+| [`Analisis_Busqueda_Recomendacion_LectorPobre.md`](docs/Analisis_Busqueda_Recomendacion_LectorPobre.md) | ADR de búsqueda difusa y recomendaciones basadas en contenido |
+| [`COMO_ANADIR_CLUSTERING.md`](docs/COMO_ANADIR_CLUSTERING.md) | Guía para añadir clustering K-Means sobre `product-vectors.json` |
+| [`Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md`](docs/Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md) | Resolución de fallo `write EPIPE` en esbuild y optimización de watchers |
+
+#### Evolución Condicional de la Arquitectura (ERS §7.5.2 / RNF-08)
+
+La arquitectura actual sin servidor permanente ni base de datos dedicada (SSG + Fuse.js en cliente + recomendaciones TF-IDF precalculadas en build time) cubre catálogos de hasta ~2,000 productos con costo operativo $0. Una **migración a servidor y base de datos dedicados** no está planificada y **solo se considerará si es estrictamente necesario** (p. ej. catálogo sostenido muy superior a 2,000 productos con incumplimiento medido de RNF-07, búsqueda semántica por embeddings en vivo o filtrado colaborativo con cuentas de usuario). En ese escenario, las interfaces desacopladas `SearchEngine` (`composables/search/types.ts`) y `RecommendationStrategy` (`scripts/recommendations/types.ts`) actúan como único punto de reemplazo sin modificar los componentes Vue.
 
 ---
 

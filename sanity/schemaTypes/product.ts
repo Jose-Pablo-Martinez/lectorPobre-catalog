@@ -1,12 +1,13 @@
 /**
  * @file product.ts
- * @description Sanity schema for catalog products.
- * @satisfies RF-01 - Catalog listing.
- * @satisfies RF-02 - Product detail page.
- * @satisfies RF-11 - Edit products from Studio.
- * @satisfies RF-12 - Image management (main image + gallery).
- * @satisfies RF-13 - Create/delete products.
- * @satisfies RF-14 - Stock management and low-stock alerting.
+ * @description Esquema de Sanity para los productos del catálogo.
+ * @satisfies RF-01 - Listado en catálogo.
+ * @satisfies RF-02 - Vista de detalle de producto.
+ * @satisfies RF-11 - Edición de productos desde Sanity Studio.
+ * @satisfies RF-12 - Gestión de imágenes (imagen principal + galería).
+ * @satisfies RF-13 - Creación y eliminación de productos.
+ * @satisfies RF-14 - Gestión de stock y alerta de stock bajo.
+ * @satisfies RF-23 - Palabras clave para búsqueda y metadatos de recomendación.
  */
 
 import { defineType, defineField } from 'sanity';
@@ -26,7 +27,7 @@ export const product = defineType({
             name: 'slug',
             title: 'Slug (URL)',
             type: 'slug',
-            // Is the base for pages/producto/[slug].vue
+            // Es la base para el enrutamiento de pages/producto/[slug].vue
             options: { source: 'nombre', maxLength: 96 },
             validation: Rule => Rule.required()
         }),
@@ -59,28 +60,28 @@ export const product = defineType({
             name: 'stock',
             title: 'Stock disponible',
             type: 'number',
-            // umbralStockBajo is a global configuration,
-            // determine when the alert "pocas unidades" is shown in the frontend
+            // umbralStockBajo es una configuración global que determina
+            // cuándo se muestra la alerta de "pocas unidades" en el frontend
             validation: Rule => Rule.required().min(0).integer()
         }),
         defineField({
             name: 'precio',
             title: 'Precio (opcional)',
             type: 'number',
-            // Optional — used only in the WhatsApp message template (RF-17). Not an e-commerce price.
+            // Opcional: utilizado únicamente en la plantilla del mensaje de WhatsApp (RF-17). No es precio de checkout.
         }),
         defineField({
             name: 'activo',
             title: 'Visible en catálogo',
             type: 'boolean',
-            // Allows hiding products without deleting them (RF-13).
+            // Permite ocultar productos sin eliminarlos físicamente (RF-13).
             initialValue: true
         }),
-        // No persisted 'calificacionPromedio' field exists. The average is derived
-        // in every GROQ query as: round(ratingSum / ratingCount, 1).
-        // All counters below are updated atomically by the Go rating handler via patch.inc,
-        // avoiding the read-calculate-write race condition (see rating.ts file header).
-        // rating1Count–rating5Count feed the per-star breakdown panel in the frontend (RF-06).
+        // No existe un campo 'calificacionPromedio' persistido. El promedio se deriva
+        // en cada consulta GROQ como: round(ratingSum / ratingCount, 1).
+        // Todos los contadores siguientes se actualizan de forma atómica desde el handler Go de calificación mediante patch.inc,
+        // evitando condiciones de carrera de lectura-cálculo-escritura (ver cabecera de rating.ts).
+        // rating1Count–rating5Count alimentan el panel de desglose por estrella en el frontend (RF-06).
         defineField({
             name: 'ratingSum',
             title: 'Suma de calificaciones (interno)',
@@ -129,8 +130,16 @@ export const product = defineType({
             type: 'number',
             readOnly: true,
             initialValue: 0
+        }),
+        // ── Búsqueda y Recomendaciones (RF-23) ────────────────────────────────
+        defineField({
+            name: 'palabrasClave',
+            title: 'Palabras clave de búsqueda',
+            type: 'array',
+            of: [{ type: 'string' }],
+            options: { layout: 'tags' },
+            description: 'Términos, tags o palabras clave adicionales para potenciar el buscador difuso y los productos similares (RF-23).'
         })
-
     ],
     preview: {
         select: {

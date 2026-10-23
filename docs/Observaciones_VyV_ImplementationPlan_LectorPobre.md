@@ -55,7 +55,7 @@ La tabla de la Semana 4 enseña que el umbral debe variar según la criticidad d
 
 | Módulo | Riesgo | Cobertura objetivo | Tipo |
 |---|---|---|---|
-| `api/auth/login.go` (RF-08) | Crítico | 90–95% | Ramas |
+| `api/auth/login.go` (RF-08, Release 2) | Crítico | 90–95% | Ramas |
 | `api/sanity/client.go` (escritura) | Crítico | 90% | Ramas |
 | `api/middleware/*` (CORS, rate limit, HMAC) | Crítico | 90% | Ramas |
 | `composables/useStock.ts`, `useRating.ts` | Medio | 80% | Sentencias |

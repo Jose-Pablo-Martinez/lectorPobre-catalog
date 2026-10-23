@@ -131,9 +131,9 @@ lectorpobre/
 │   ├── comentar.go             # POST /api/comentar (RF-07)
 │   ├── calificar.go            # POST /api/calificar (RF-06)
 │   ├── buscar.go               # GET /api/buscar (RF-18, opcional)
-│   ├── auth/
-│   │   ├── login.go            # POST /api/auth/login (RF-08)
-│   │   └── logout.go           # POST /api/auth/logout (RF-09)
+│   ├── auth/                   # Reservado para Release 2 (Panel de Control)
+│   │   ├── login.go            # POST /api/auth/login (RF-08) — stub inicial
+│   │   └── logout.go           # POST /api/auth/logout (RF-09) — stub inicial
 │   ├── webhook/
 │   │   └── rebuild.go          # POST /api/webhook/rebuild (flujo de build)
 │   ├── handlers/               # Tipos y helpers compartidos entre handlers
@@ -167,8 +167,8 @@ lectorpobre/
 │   ├── index.vue               # Catálogo principal (RF-01, RF-04, RF-19)
 │   ├── producto/
 │   │   └── [slug].vue          # Detalle de producto (RF-02, RF-03, RF-20)
-│   └── admin/                  # Rutas protegidas del panel (RF-08 a RF-16)
-│       └── login.vue
+│   └── admin/                  # Reservado para Release 2 (Panel de Control; ignorado en nuxt.config)
+│       └── login.vue           # Admin login stub (RF-08)
 │
 ├── types/                      # Tipos TypeScript globales
 │   ├── api.ts                  # Contratos de los endpoints Go (espejo de handlers/types.go)
@@ -355,8 +355,8 @@ en cualquier momento. Si quieres reiniciarlo, elimina `.env.local` primero.
 | `SANITY_STUDIO_DATASET` | Dataset que el Studio edita (`staging` en local) | Sanity Studio | ✅ |
 | `SANITY_WRITE_TOKEN` | Token de escritura privado — **nunca exponer al navegador** | Solo Go (Vercel) | ✅ |
 | `SANITY_WEBHOOK_SECRET` | Secreto HMAC para validar webhooks de Sanity | Solo Go (Vercel) | ✅ |
-| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Go (Vercel) | ✅ |
-| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Go (Vercel) | ✅ |
+| `ADMIN_PASSWORD_HASH` | Hash bcrypt de la contraseña del administrador | Solo Go (Vercel) | ⬜ (Release 2) |
+| `ADMIN_JWT_SECRET` | Clave secreta para firmar tokens JWT de sesión de admin | Solo Go (Vercel) | ⬜ (Release 2) |
 | `ALLOWED_ORIGIN` | Origen permitido en CORS (`http://localhost:3000` en local) | Solo Go (Vercel) | ✅ |
 | `NUXT_PUBLIC_PLAUSIBLE_DOMAIN` | Dominio para Plausible Analytics | Nuxt frontend | ⬜ |
 | `CAPTCHA_SECRET_KEY` | Clave secreta para validación anti-bot | Solo Go (Vercel) | ⬜ |
@@ -367,7 +367,7 @@ en cualquier momento. Si quieres reiniciarlo, elimina `.env.local` primero.
 - **Nunca** agregar secretos al bundle de frontend (solo variables con prefijo `NUXT_PUBLIC_` llegan al navegador).
 - Los secretos de producción se configuran exclusivamente en el panel de Vercel → Settings → Environment Variables.
 - Separar las variables por ambiente: **Production**, **Preview** y **Development** en Vercel.
-- Rotar el `SANITY_WRITE_TOKEN` y el `ADMIN_JWT_SECRET` ante cualquier sospecha de compromiso.
+- Rotar el `SANITY_WRITE_TOKEN` y el `ADMIN_JWT_SECRET` (este último en Release 2) ante cualquier sospecha de compromiso.
 
 ### 6.4 Cómo generar los secretos
 
@@ -375,10 +375,10 @@ en cualquier momento. Si quieres reiniciarlo, elimina `.env.local` primero.
 # SANITY_WEBHOOK_SECRET — 32 bytes aleatorios en hex
 openssl rand -hex 32
 
-# ADMIN_JWT_SECRET — 64 bytes aleatorios en hex
+# ADMIN_JWT_SECRET — 64 bytes aleatorios en hex (Release 2 — Panel de Control)
 openssl rand -hex 64
 
-# ADMIN_PASSWORD_HASH — hash bcrypt de tu contraseña
+# ADMIN_PASSWORD_HASH — hash bcrypt de tu contraseña (Release 2 — Panel de Control)
 htpasswd -bnBC 10 "" TU_CONTRASEÑA | tr -d ':\n'
 
 # SANITY_WRITE_TOKEN — generar desde sanity.io/manage
@@ -501,7 +501,8 @@ Las decisiones de arquitectura significativas se documentan aquí para preservar
 | ADR-03 | **Sanity.io** como Headless CMS | Contentful, Strapi (self-hosted) | Sanity Studio autogenerado sin código, capa gratuita generosa, GROQ flexible. |
 | ADR-04 | **Vercel** como plataforma unificada | Netlify, AWS Amplify | Integración nativa entre frontend estático y funciones Go en un único repositorio/pipeline. |
 | ADR-05 | **Consulta directa a API pública de Sanity** para stock en tiempo real (RF-03) | Función serverless Go como proxy | El stock usa la API de solo lectura pública (sin token secreto), por lo que la consulta directa desde el frontend es segura y más eficiente. |
-| ADR-06 | **JWT de corta duración** para sesiones de administrador | Sesiones de Sanity Studio nativas | Permite control total sobre la autenticación y validación stateless en cada función Go protegida (RNF-04). |
+| ADR-06 | **JWT de corta duración** para sesiones de administrador (Release 2) | Sesiones de Sanity Studio nativas | Permite control total sobre la autenticación y validación stateless en cada función Go protegida (RNF-04) dentro del Panel de Control propio. |
+| ADR-07 | **Separación en dos releases:** Tienda pública (R1) y Panel de Control propio (R2) | Implementación de panel dentro del bundle de la tienda | Permite liberar y comercializar la tienda pública rápidamente gestionando contenido con Sanity Studio, y después desarrollar el Panel de Control completo en un dominio/proyecto aislado sin exponer código ni rutas a los clientes. |
 
 > Para agregar un nuevo ADR, añade una fila a esta tabla con un número consecutivo e incluye la decisión, las alternativas evaluadas y la razón técnica.
 

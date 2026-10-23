@@ -1,7 +1,7 @@
 /**
  * @file index.ts
- * @description Barrel file — collects all Sanity schema types into a single array
- * for registration in sanity.config.ts. Add new schemas here when they are created.
+ * @description Archivo barrel: reúne todos los tipos de esquema de Sanity en un único arreglo
+ * para su registro en sanity.config.ts. Agregar nuevos esquemas aquí cuando se creen.
  */
 
 import type { SchemaTypeDefinition } from 'sanity';
@@ -12,8 +12,8 @@ import { comment }      from './comment';
 import { rating }       from './rating';
 import { globalConfig } from './globalConfig';
 
-// Explicit type annotation prevents TypeScript from inferring a heterogeneous
-// tuple type that is incompatible with what defineConfig expects.
+// La anotación explícita de tipo evita que TypeScript infiera una tupla heterogénea
+// incompatible con la firma esperada por defineConfig.
 export const schemaTypes: SchemaTypeDefinition[] = [
     product,
     category,

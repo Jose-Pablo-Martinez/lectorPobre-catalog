@@ -1,10 +1,10 @@
 /**
  * @file sanity.cli.ts
- * @description Sanity CLI configuration for LectorPobre.
- * Used by the `sanity` CLI commands (dev, build, deploy, etc.).
- * projectId and dataset are read from environment variables so the same file
- * works for both the production dataset and the staging override in CI.
- * The hardcoded fallback matches the project created during Phase 0.
+ * @description Configuración de la CLI de Sanity para LectorPobre.
+ * Utilizada por los comandos de la CLI de `sanity` (dev, build, deploy, etc.).
+ * projectId y dataset se leen de las variables de entorno para que el mismo archivo
+ * funcione tanto para el dataset de producción como para el de staging en CI.
+ * El valor por defecto coincide con el proyecto inicial del proyecto.
  */
 
 import { defineCliConfig } from 'sanity/cli';
@@ -16,8 +16,8 @@ export default defineCliConfig({
     },
     deployment: {
         /**
-         * Enables automatic minor-version updates for the hosted Studio.
-         * See: https://www.sanity.io/docs/studio/latest-version-of-sanity#k47faf43faf56
+         * Habilita actualizaciones automáticas de versiones menores para el Studio alojado.
+         * Ver: https://www.sanity.io/docs/studio/latest-version-of-sanity#k47faf43faf56
          */
         autoUpdates: true,
     },

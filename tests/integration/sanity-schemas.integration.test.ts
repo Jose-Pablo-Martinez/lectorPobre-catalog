@@ -48,6 +48,19 @@ describe('IT-SANITY-02 | Sanity GROQ — schema producto', () => {
         expect(p).toHaveProperty('categoria.slug.current');
     });
 
+    it('el campo palabrasClave es un array de strings cuando está definido (RF-23)', async () => {
+        const productos = await client.fetch(
+            `*[_type == "producto" && defined(palabrasClave)][0...3]{ palabrasClave }`
+        );
+
+        if (productos.length > 0) {
+            productos.forEach((p: { palabrasClave: string[] }) => {
+                expect(Array.isArray(p.palabrasClave)).toBe(true);
+                p.palabrasClave.forEach(tag => expect(typeof tag).toBe('string'));
+            });
+        }
+    });
+
     it('el campo activo=false excluye el producto de las consultas públicas', async () => {
         // Verifica que la cláusula activo == true filtra correctamente.
         const todos      = await client.fetch(`count(*[_type == "producto"])`);
@@ -158,8 +171,22 @@ describe('IT-SANITY-03 | Sanity GROQ — singleton configuracionGlobal', () => {
             `*[_type == "configuracionGlobal"][0]{ paletaActiva }`
         );
 
-        const PALETAS_VALIDAS = ['claro', 'oscuro', 'oceano', 'atardecer', 'custom'];
+        const PALETAS_VALIDAS = ['identidad', 'cenote', 'luchaLibre', 'nocheFiesta', 'meridaPastel', 'custom'];
         expect(PALETAS_VALIDAS).toContain(config.paletaActiva);
+    });
+
+    it('el campo sinonimos contiene grupos con terminos cuando está definido (RF-23)', async () => {
+        const config = await client.fetch(
+            `*[_type == "configuracionGlobal"][0]{ sinonimos }`
+        );
+
+        if (config?.sinonimos) {
+            expect(Array.isArray(config.sinonimos)).toBe(true);
+            config.sinonimos.forEach((grupo: { terminos: string[] }) => {
+                expect(Array.isArray(grupo.terminos)).toBe(true);
+                expect(grupo.terminos.length).toBeGreaterThanOrEqual(2);
+            });
+        }
     });
 
     it('varianteVisual tiene un valor reconocido por el sistema de layout', async () => {
