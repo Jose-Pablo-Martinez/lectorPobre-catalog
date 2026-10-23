@@ -1,8 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
   "functions": {
     "api/**/*.go": {
-      "runtime": "go1.x"
+      "maxDuration": 15
     }
   },
   "rewrites": [

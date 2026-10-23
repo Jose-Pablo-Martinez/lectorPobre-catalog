@@ -23,52 +23,64 @@ func VerifyHMAC(payload []byte, signature string, secret string) bool {
 
 	secretBytes := []byte(secret)
 
-	// Manejo del formato de cabecera de Sanity: "t=<timestamp>,v1=<hash>"
 	if strings.Contains(signature, "v1=") {
-		parts := strings.Split(signature, ",")
-		var timestamp, v1Sig string
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			if strings.HasPrefix(part, "t=") {
-				timestamp = strings.TrimPrefix(part, "t=")
-			} else if strings.HasPrefix(part, "v1=") {
-				v1Sig = strings.TrimPrefix(part, "v1=")
-			}
-		}
-
-		if v1Sig != "" {
-			// En la especificación de Sanity, el contenido firmado es: timestamp + "." + payload
-			var signedPayload []byte
-			if timestamp != "" {
-				signedPayload = append([]byte(timestamp+"."), payload...)
-			} else {
-				signedPayload = payload
-			}
-
-			mac := hmac.New(sha256.New, secretBytes)
-			mac.Write(signedPayload)
-			expectedMAC := mac.Sum(nil)
-
-			expectedHex := hex.EncodeToString(expectedMAC)
-			expectedB64 := base64.StdEncoding.EncodeToString(expectedMAC)
-
-			if hmac.Equal([]byte(v1Sig), []byte(expectedHex)) || hmac.Equal([]byte(v1Sig), []byte(expectedB64)) {
-				return true
-			}
-		}
+		return verifySanityTimestamped(payload, signature, secretBytes)
 	}
 
-	// Firma directa sobre el payload bruto (hex o base64)
-	mac := hmac.New(sha256.New, secretBytes)
-	mac.Write(payload)
-	expectedMAC := mac.Sum(nil)
+	return verifyDirectPayload(payload, signature, secretBytes)
+}
 
+// verifySanityTimestamped verifica el formato oficial de Sanity "t=<timestamp>,v1=<hash>".
+func verifySanityTimestamped(payload []byte, header string, secretBytes []byte) bool {
+	timestamp, v1Sig := parseSanityHeader(header)
+	if v1Sig == "" {
+		return false
+	}
+
+	signedPayload := payload
+	if timestamp != "" {
+		signedPayload = append([]byte(timestamp+"."), payload...)
+	}
+
+	expectedMAC := computeHMAC(signedPayload, secretBytes)
+	return compareSignature(expectedMAC, v1Sig)
+}
+
+// verifyDirectPayload verifica firmas aplicadas directamente sobre el cuerpo del payload (hex o base64).
+func verifyDirectPayload(payload []byte, signature string, secretBytes []byte) bool {
+	expectedMAC := computeHMAC(payload, secretBytes)
+	return compareSignature(expectedMAC, signature)
+}
+
+// parseSanityHeader descompone la cabecera "t=...,v1=..." en sus componentes individuales.
+func parseSanityHeader(header string) (string, string) {
+	var timestamp, v1Sig string
+	for _, part := range strings.Split(header, ",") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "t=") {
+			timestamp = strings.TrimPrefix(part, "t=")
+		} else if strings.HasPrefix(part, "v1=") {
+			v1Sig = strings.TrimPrefix(part, "v1=")
+		}
+	}
+	return timestamp, v1Sig
+}
+
+// computeHMAC genera el resumen HMAC-SHA256 del contenido usando el secreto provisto.
+func computeHMAC(content []byte, secret []byte) []byte {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(content)
+	return mac.Sum(nil)
+}
+
+// compareSignature compara de forma segura contra timing attacks una firma provista con el resumen esperado.
+func compareSignature(expectedMAC []byte, providedSig string) bool {
 	expectedHex := hex.EncodeToString(expectedMAC)
-	expectedB64 := base64.StdEncoding.EncodeToString(expectedMAC)
-
-	if hmac.Equal([]byte(signature), []byte(expectedHex)) || hmac.Equal([]byte(signature), []byte(expectedB64)) {
+	if hmac.Equal([]byte(providedSig), []byte(expectedHex)) {
 		return true
 	}
 
-	return false
+	expectedB64 := base64.StdEncoding.EncodeToString(expectedMAC)
+	return hmac.Equal([]byte(providedSig), []byte(expectedB64))
 }
+
