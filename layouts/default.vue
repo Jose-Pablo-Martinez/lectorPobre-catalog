@@ -85,21 +85,32 @@ const urlYouTube = computed(
             </div>
         </div>
 
-        <!-- Encabezado principal Mobile-First (h-16 en móvil, h-20 en sm+) -->
+        <!-- Encabezado principal Mobile-First con altura adaptada para presencia destacada de marca -->
         <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-zinc-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3 sm:gap-4">
-                <!-- Identidad tipográfica limpia preparada para logotipo vectorial oficial -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] sm:min-h-[6.5rem] py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4">
+                <!-- Identidad de marca con logotipo del periquito artesano y tipografía -->
                 <a
                     href="/"
-                    class="inline-flex flex-col justify-center min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario rounded-lg"
+                    class="inline-flex items-center gap-3.5 sm:gap-4 min-h-[44px] py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario rounded-lg group"
                     aria-label="Ir al inicio del catálogo de Lector Pobre"
                 >
-                    <span class="font-display font-extrabold text-xl tracking-tight text-zinc-900 leading-none">
-                        {{ nombreSitio }}
-                    </span>
-                    <span class="font-sans text-xs font-semibold text-brand-secundario tracking-wide mt-0.5">
-                        Arte &amp; Artesanías
-                    </span>
+                    <img
+                        src="/logo.png"
+                        alt="Logotipo de Lector Pobre"
+                        class="h-20 sm:h-24 md:h-28 w-auto object-contain transition-transform duration-200 group-hover:scale-105 shrink-0"
+                        width="104"
+                        height="96"
+                        loading="eager"
+                        decoding="async"
+                    />
+                    <div class="flex flex-col justify-center">
+                        <span class="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-zinc-900 leading-none group-hover:text-brand-primario transition-colors">
+                            {{ nombreSitio }}
+                        </span>
+                        <span class="font-sans text-xs sm:text-sm font-semibold text-brand-secundario tracking-wide mt-1">
+                            Arte &amp; Artesanías
+                        </span>
+                    </div>
                 </a>
 
                 <!-- Acciones del Header: Navegación + Botón Táctil Lista de Pedido -->

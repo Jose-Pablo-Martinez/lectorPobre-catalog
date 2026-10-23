@@ -68,7 +68,7 @@ const clasesDot = computed<string>(() => {
 
 <template>
     <output
-        class="inline-flex items-center gap-1.5 px-2.5 py-1 border-2 border-brand-texto font-mono text-xs font-bold uppercase tracking-wide select-none"
+        class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 border-2 border-brand-texto font-mono text-[10px] sm:text-xs font-bold uppercase tracking-wide select-none"
         :class="clasesBadge"
         :data-testid="`stock-${estado}`"
         :aria-label="`Estado de inventario: ${etiquetaTexto}`"
