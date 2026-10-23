@@ -1,0 +1,15 @@
+# .gitleaks.toml
+# Configuración de Gitleaks para LectorPobre
+# Hereda todas las reglas oficiales y excluye archivos de pruebas unitarias/fixtures
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Permitir valores simulados y mocks en suites de pruebas"
+paths = [
+  '''(_test\.go)$''',
+  '''(\.test\.ts)$''',
+  '''(\.spec\.ts)$''',
+  '''(^|/)(tests|fixtures)/''',
+]

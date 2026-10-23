@@ -14,7 +14,7 @@ import (
 // Satisface: Arquitectura §9.10, RNF-04.
 func TestHMAC_FirmaCorrecta_RetornaTrue(t *testing.T) {
 	payload := []byte(`{"_type":"producto","nombre":"Llavero Acrílico"}`)
-	secret := "secreto-super-seguro-12345"
+	secret := "secreto-super-seguro-12345" // gitleaks:allow
 
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
@@ -28,7 +28,7 @@ func TestHMAC_FirmaCorrecta_RetornaTrue(t *testing.T) {
 // TestHMAC_FirmaBase64_RetornaTrue verifica que una firma directa en base64 sea aceptada.
 func TestHMAC_FirmaBase64_RetornaTrue(t *testing.T) {
 	payload := []byte(`{"_type":"producto","nombre":"Llavero Acrílico"}`)
-	secret := "secreto-super-seguro-12345"
+	secret := "secreto-super-seguro-12345" // gitleaks:allow
 
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
@@ -43,7 +43,7 @@ func TestHMAC_FirmaBase64_RetornaTrue(t *testing.T) {
 // Satisface: Arquitectura §9.10, RNF-04.
 func TestHMAC_FirmaIncorrecta_RetornaFalse(t *testing.T) {
 	payload := []byte(`{"_type":"producto","nombre":"Llavero Acrílico"}`)
-	secret := "secreto-super-seguro-12345"
+	secret := "secreto-super-seguro-12345" // gitleaks:allow
 	wrongSecret := "secreto-incorrecto"
 
 	mac := hmac.New(sha256.New, []byte(wrongSecret))
@@ -59,7 +59,7 @@ func TestHMAC_FirmaIncorrecta_RetornaFalse(t *testing.T) {
 // Satisface: Arquitectura §9.10, RNF-04.
 func TestHMAC_FirmaVacia_RetornaFalse(t *testing.T) {
 	payload := []byte(`{"_type":"producto"}`)
-	secret := "secreto-12345"
+	secret := "secreto-12345" // gitleaks:allow
 
 	if VerifyHMAC(payload, "", secret) {
 		t.Errorf("VerifyHMAC esperada false para firma vacía")
@@ -73,7 +73,7 @@ func TestHMAC_FirmaVacia_RetornaFalse(t *testing.T) {
 // TestHMAC_FormatoSanity_RetornaTrue valida el formato estándar de cabecera Sanity "t=<timestamp>,v1=<hash>".
 func TestHMAC_FormatoSanity_RetornaTrue(t *testing.T) {
 	payload := []byte(`{"_type":"producto","slug":"pin-pobre"}`)
-	secret := "cb3539ce482b2b0034e10ae9953edaeded73c21f996ea38d741ecc75e2903849"
+	secret := "cb3539ce482b2b0034e10ae9953edaeded73c21f996ea38d741ecc75e2903849" // gitleaks:allow
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
 
 	signedContent := append([]byte(timestamp+"."), payload...)

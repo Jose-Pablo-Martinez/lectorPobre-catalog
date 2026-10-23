@@ -17,7 +17,7 @@ import (
 // IT-12: POST /api/webhook/rebuild con firma HMAC válida retorna 200 y dispara el deploy hook.
 // Satisface: Arquitectura §9.10, RNF-04, VyV §4.4.
 func TestRebuildHandler_FirmaValida_Retorna200YDisparaHook(t *testing.T) {
-	secret := "test-sanity-secret-12345"
+	secret := "test-sanity-secret-12345" // gitleaks:allow
 	os.Setenv("SANITY_WEBHOOK_SECRET", secret)
 	defer os.Unsetenv("SANITY_WEBHOOK_SECRET")
 
@@ -57,7 +57,7 @@ func TestRebuildHandler_FirmaValida_Retorna200YDisparaHook(t *testing.T) {
 // IT-13: POST /api/webhook/rebuild con firma HMAC inválida retorna 401 y no dispara el hook.
 // Satisface: Arquitectura §9.10, RNF-04, VyV §4.4.
 func TestRebuildHandler_FirmaInvalida_Retorna401(t *testing.T) {
-	secret := "test-sanity-secret-12345"
+	secret := "test-sanity-secret-12345" // gitleaks:allow
 	os.Setenv("SANITY_WEBHOOK_SECRET", secret)
 	defer os.Unsetenv("SANITY_WEBHOOK_SECRET")
 
