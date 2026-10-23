@@ -90,8 +90,8 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
         );
 
         const decodedCart = decodeURIComponent(urlCarrito.split('?text=')[1] ?? '');
-        expect(decodedCart).toContain('- 2x Llavero Gato Kawaii ($170.00 MXN)');
-        expect(decodedCart).toContain('- 1x Sticker Pack Anime ($40.00 MXN)');
+        expect(decodedCart).toContain('- 2x Llavero Gato Kawaii: $170.00 MXN');
+        expect(decodedCart).toContain('- 1x Sticker Pack Anime: $40.00 MXN');
         expect(decodedCart).toContain('Total estimado: $210.00 MXN');
     });
 });

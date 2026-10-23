@@ -37,6 +37,18 @@ export function formatearPrecioMXN(
 }
 
 /**
+ * Codifica una cadena para URL según RFC 3986, codificando además caracteres como
+ * '(', ')', '*', '!' y "'" para evitar que servicios intermedios de redirección
+ * (como wa.me de Meta) o analizadores de WhatsApp alteren o corrompan el texto.
+ */
+export function codificarParaWhatsApp(texto: string): string {
+    return encodeURIComponent(texto).replaceAll(
+        /[!'()*]/g,
+        (c) => `%${(c.codePointAt(0) ?? 0).toString(16).toUpperCase()}`
+    );
+}
+
+/**
  * Limpia el número telefónico dejando únicamente dígitos en formato internacional sin '+'.
  *
  * @param numero Número de WhatsApp configurado.
@@ -79,12 +91,12 @@ export function construirUrlWhatsApp(
         mensaje = `${mensaje}: ${nombreProducto}`;
     }
 
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
+    return `https://wa.me/${cleanPhone}?text=${codificarParaWhatsApp(mensaje)}`;
 }
 
 /**
  * Construye la URL de WhatsApp con el desglose completo de la Lista de Pedido (carrito de cotización).
- * No utiliza emojis de sistema y codifica saltos de línea mediante `encodeURIComponent`.
+ * No utiliza emojis de sistema y codifica caracteres especiales según RFC 3986.
  *
  * @param numero Número de teléfono en formato internacional.
  * @param items Lista de productos seleccionados con sus cantidades.
@@ -100,16 +112,16 @@ export function construirUrlWhatsAppCarrito(
 
     if (items.length === 0) {
         const saludoVacio =
-            'Hola Lector Pobre, me interesa solicitar informacion sobre su catalogo.';
-        return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(saludoVacio)}`;
+            'Hola Lector Pobre, me interesa solicitar informacion sobre su los productos que vende en su catálogo. Disponibilidad.';
+        return `https://wa.me/${cleanPhone}?text=${codificarParaWhatsApp(saludoVacio)}`;
     }
 
     const lineasProductos = items.map((item) => {
         if (typeof item.precio === 'number' && item.precio > 0) {
             const subtotal = item.precio * item.cantidad;
-            return `- ${item.cantidad}x ${item.nombre} (${formatearPrecioMXN(subtotal)})`;
+            return `- ${item.cantidad}x ${item.nombre}: ${formatearPrecioMXN(subtotal)}`;
         }
-        return `- ${item.cantidad}x ${item.nombre} (Precio por confirmar)`;
+        return `- ${item.cantidad}x ${item.nombre}: Precio por confirmar`;
     });
 
     const bloques = [
@@ -123,7 +135,7 @@ export function construirUrlWhatsAppCarrito(
     ];
 
     const mensajeCompleto = bloques.join('\n');
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensajeCompleto)}`;
+    return `https://wa.me/${cleanPhone}?text=${codificarParaWhatsApp(mensajeCompleto)}`;
 }
 
 /**
@@ -135,5 +147,6 @@ export function useWhatsApp() {
         sanitizarNumeroWhatsApp,
         construirUrlWhatsApp,
         construirUrlWhatsAppCarrito,
+        codificarParaWhatsApp,
     };
 }

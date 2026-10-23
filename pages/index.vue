@@ -227,12 +227,12 @@ const manejarTecladoBuscador = (ev: KeyboardEvent): void => {
 // Metadatos SEO y Open Graph (RF-20)
 try {
     useSeoMeta({
-        title: 'Lector Pobre | Catálogo de Arte, Llaveros, Pines y Stickers',
+        title: 'Lector Pobre | Catálogo de Arte',
         description:
-            'Explora el catálogo del taller Lector Pobre: llaveros de resina y acrílico, pines esmaltados, art prints y stickers ilustrados originalmente. Cotiza tu pedido por WhatsApp.',
-        ogTitle: 'Lector Pobre | Taller de Arte y Accesorios Originales',
+            'Explora el catálogo del taller Lector Pobre: llaveros de resina y acrílico, pines, art prints, tote bags, stickers ilustrados originalmente. Cotiza tu pedido por WhatsApp.',
+        ogTitle: 'Lector Pobre | Arte y Artesanías Originales de diseños únicos',
         ogDescription:
-            'Llaveros, pines, prints y stickers semi-artesanales diseñados con identidad propia.',
+            'Llaveros, pines, prints y stickers semi-artesanales de diseños completamente originales sobre lucha libre y cultura pop.',
         twitterCard: 'summary_large_image',
     });
 } catch {
@@ -252,11 +252,11 @@ try {
                     id="catalog-hero-heading"
                     class="font-display font-extrabold text-2xl sm:text-4xl text-zinc-900 tracking-tight"
                 >
-                    Piezas ilustradas, llaveros, pines y stickers de colección
+                    ¡Piezas de arte e ilustración originales, artesanales y semiartesanales!
                 </h1>
 
                 <p class="font-sans text-zinc-600 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
-                    Arma tu lista de pedido con tus piezas favoritas del taller y envíala directamente por WhatsApp para confirmar existencias y entrega con la artista.
+                    Arma tu lista de artículos, agregando al carrito, con tus piezas favoritas del catálog y envíala directamente por WhatsApp para confirmar existencias y entrega con la artista Lector Pobre.
                 </p>
             </div>
         </section>
@@ -291,7 +291,7 @@ try {
                     >
                         <ImageIcon class="w-12 h-12 stroke-[1.5]" aria-hidden="true" />
                         <span class="font-mono text-xs font-bold uppercase tracking-wider text-center">
-                            Pieza destacada del taller
+                            Pieza recomendada del catálogo
                         </span>
                     </div>
                 </a>
@@ -305,7 +305,7 @@ try {
                         data-testid="featured-product-badge"
                     >
                         <Sparkles class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>Recomendación del Taller</span>
+                        <span>Me lo dijo un periquito...</span>
                     </span>
 
                     <span
@@ -333,7 +333,7 @@ try {
                     >
                         <CircleAlert class="w-4 h-4 text-brand-secundario shrink-0" aria-hidden="true" />
                         <span class="underline decoration-zinc-300 decoration-dashed underline-offset-4 hover:decoration-brand-secundario">
-                            Descubre por qué se recomienda
+                            ¿Por qué te recomendamos esto?
                         </span>
                     </button>
 
@@ -357,7 +357,7 @@ try {
                                 <CircleAlert class="w-4 h-4 text-brand-secundario shrink-0 mt-0.5" aria-hidden="true" />
                                 <div class="space-y-1">
                                     <p class="font-bold text-brand-texto font-display">
-                                        Transparencia del Taller
+                                        El periquito lo recomienda porque...
                                     </p>
                                     <p class="text-zinc-600">{{ motivoRecomendacion }}</p>
                                 </div>
@@ -400,7 +400,7 @@ try {
                         class="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-lg bg-brand-secundario text-white px-4 py-2.5 font-display font-bold text-sm border-2 border-brand-texto shadow-hard-sm hover:opacity-95 transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
                         data-testid="featured-detail-link"
                     >
-                        <span>Ver detalle de la pieza</span>
+                        <span>Más información del artículo</span>
                         <ArrowRight class="w-4 h-4 shrink-0" aria-hidden="true" />
                     </a>
 
@@ -420,11 +420,11 @@ try {
                         </template>
                         <template v-else-if="recienAgregadoDestacado">
                             <Check class="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>Agregado a mi lista</span>
+                            <span>Agregado a mi carrito</span>
                         </template>
                         <template v-else>
                             <ShoppingBag class="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>Agregar a mi lista de pedido</span>
+                            <span>Agregar al carrito</span>
                         </template>
                     </button>
                 </div>
@@ -456,7 +456,7 @@ try {
                         :aria-expanded="listboxAbierto"
                         aria-controls="search-suggestions-listbox"
                         :aria-activedescendant="idSugerenciaActiva"
-                        placeholder="Busca llaveros, pines, stickers, anime, resina..."
+                        placeholder="Busca llaveros, pines, stickers, anime, lucha libre..."
                         class="w-full pl-11 pr-10 py-3 rounded-xl border border-zinc-300 focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 shadow-sm text-zinc-900 bg-white font-sans text-sm focus:outline-none transition-all"
                         data-testid="search-input"
                         @focus="manejarFocusBuscador"
@@ -654,10 +654,10 @@ try {
         >
             <div class="text-center max-w-md mx-auto space-y-2">
                 <h2 class="font-display font-bold text-xl text-brand-texto">
-                    No encontramos piezas que coincidan con tu búsqueda
+                    El periquito lo lamenta, no hay resultados para tu búsqueda
                 </h2>
                 <p class="font-sans text-sm text-zinc-600">
-                    Intenta con otros términos o explora estas piezas destacadas del taller:
+                    Intenta con otros términos o explora estas piezas destacadas del catálogo:
                 </p>
             </div>
 

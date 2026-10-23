@@ -90,14 +90,14 @@ export function obtenerExplicacionRecomendacion(
         if (typeof calificacion === 'number' && calificacion > 0) {
             return `Popular ahora en la tienda (${calificacion.toFixed(1)} ★): pieza favorita de nuestra comunidad por sus altas calificaciones.`;
         }
-        return 'Popular ahora en la tienda (lo más vendido): pieza destacada por el interés y preferencia de la comunidad.';
+        return 'Esto es popular ahora en la tienda: pieza destacada por el interés y preferencia de la comunidad.';
     }
 
     if (esPrimeraVisita) {
-        return 'Recomendado por ser tu primera vez: pieza destacada del taller seleccionada para darte la bienvenida.';
+        return 'Es tu primera vez visitando el sitio: pieza destacada del taller seleccionada para darte la bienvenida.';
     }
 
-    return 'Descubrimiento del taller: sugerencia aleatoria para explorar piezas únicas de nuestro catálogo.';
+    return '¡SORPRESA!: sugerencia aleatoria para explorar piezas únicas de nuestro catálogo.';
 }
 
 /**

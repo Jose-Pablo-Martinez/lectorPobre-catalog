@@ -98,7 +98,7 @@ const manejarAgregar = (): void => {
                 >
                     <ImageIcon class="w-12 h-12 stroke-[1.5]" aria-hidden="true" />
                     <span class="font-sans text-xs font-medium tracking-wide text-center">
-                        Pieza de Taller
+                        Artículo del catálogo. 
                     </span>
                 </div>
             </a>
@@ -176,11 +176,11 @@ const manejarAgregar = (): void => {
                     </template>
                     <template v-else-if="recienAgregado">
                         <Check class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>Agregado a mi lista</span>
+                        <span>Agregado a mi carrito</span>
                     </template>
                     <template v-else>
                         <ShoppingBag class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>Agregar a mi lista de pedido</span>
+                        <span>Agregar al carrito</span>
                     </template>
                 </button>
             </div>

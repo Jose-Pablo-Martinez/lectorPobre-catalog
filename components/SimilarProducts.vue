@@ -125,10 +125,10 @@ const productosSimilares = computed<Producto[]>(() => {
                     id="similar-products-heading"
                     class="font-display font-extrabold text-xl sm:text-2xl text-brand-texto"
                 >
-                    Piezas similares del taller
+                    Piezas similares recomendadas por el Periquito
                 </h2>
                 <p class="font-sans text-xs text-zinc-500">
-                    Recomendadas por temática, técnica artesanal y categoría
+                    Recomendaciones por temática, técnica artesanal y categoría
                 </p>
             </div>
         </div>

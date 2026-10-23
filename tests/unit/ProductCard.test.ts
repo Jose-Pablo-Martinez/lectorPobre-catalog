@@ -47,7 +47,7 @@ describe('UT-VUE-04 & UT-VUE-05: ProductCard.vue', () => {
 
         const addBtn = wrapper.find('[data-testid="add-to-order-button"]');
         expect(addBtn.attributes('disabled')).toBeUndefined();
-        expect(addBtn.text()).toContain('Agregar a mi lista de pedido');
+        expect(addBtn.text()).toContain('Agregar al carrito');
 
         await addBtn.trigger('click');
         expect(wrapper.emitted('agregar')).toBeTruthy();

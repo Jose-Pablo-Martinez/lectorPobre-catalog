@@ -49,16 +49,24 @@ try {
 
 const nombreSitio = computed(() => configGlobal.value?.nombreSitio ?? 'Lector Pobre');
 const numeroWhatsApp = computed(
-    () => configGlobal.value?.numeroWhatsApp ?? '5219991234567'
+    () => configGlobal.value?.numeroWhatsApp ?? ''
 );
-const urlInstagram = computed(
-    () => configGlobal.value?.urlInstagram ?? 'https://instagram.com/lectorpobre'
-);
-const urlFacebook = computed(
-    () => configGlobal.value?.urlFacebook ?? 'https://facebook.com/lectorpobre'
-);
+const urlInstagram = computed(() => {
+    const val = configGlobal.value?.urlInstagram;
+    if (val && !val.includes('instagram.com/lectorpobre')) {
+        return val;
+    }
+    return 'https://www.instagram.com/lector_pobre';
+});
+const urlFacebook = computed(() => {
+    const val = configGlobal.value?.urlFacebook;
+    if (val && !val.includes('facebook.com/lectorpobre')) {
+        return val;
+    }
+    return 'https://www.facebook.com/profile.php?id=61594042757515';
+});
 const urlYouTube = computed(
-    () => configGlobal.value?.urlYouTube ?? 'https://youtube.com/@lectorpobre'
+    () => configGlobal.value?.urlYouTube || 'https://www.youtube.com/@lectorpobre'
 );
 </script>
 
@@ -72,7 +80,7 @@ const urlYouTube = computed(
             <div class="max-w-7xl mx-auto flex items-center justify-center gap-2 font-sans text-xs font-medium tracking-wide text-center">
                 <Sparkles class="w-3.5 h-3.5 text-brand-acento shrink-0" aria-hidden="true" />
                 <span>
-                    Taller de arte y manualidades · Llaveros, pines, prints y stickers hechos con dedicación · Cotización directa por WhatsApp
+                    Arte de Yucatán · ¡Llaveros, pines, stickers, prints, tote bags y mucho más! · Cotización directa por WhatsApp
                 </span>
             </div>
         </div>
@@ -90,7 +98,7 @@ const urlYouTube = computed(
                         {{ nombreSitio }}
                     </span>
                     <span class="font-sans text-xs font-semibold text-brand-secundario tracking-wide mt-0.5">
-                        Taller de Arte &amp; Accesorios
+                        Arte &amp; Artesanías
                     </span>
                 </a>
 
@@ -111,7 +119,7 @@ const urlYouTube = computed(
                         @click="toggleCart"
                     >
                         <ShoppingBag class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span class="hidden sm:inline">Mi Lista de Pedido</span>
+                        <span class="hidden sm:inline">Carrito de Compras</span>
                         <span
                             class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded bg-brand-acento text-brand-texto font-mono text-xs font-black border border-brand-texto"
                             data-testid="cart-badge-count"
@@ -133,17 +141,17 @@ const urlYouTube = computed(
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div class="space-y-2 max-w-md">
                     <p class="font-display font-extrabold text-lg text-brand-texto">
-                        {{ nombreSitio }} · Taller Creativo
+                        {{ nombreSitio }} · Arte de Yucatán
                     </p>
                     <p class="font-sans text-sm text-zinc-600 leading-relaxed">
-                        Llaveros acrílicos y de resina, pines esmaltados, art prints y stickers ilustrados originalmente. Cotizaciones directas sin intermediarios.
+                        Llaveros acrílicos con protección de resina, pines, art prints, tote bags y stickers ilustrados. Diseños originales. Cotizaciones por WhatsApp.
                     </p>
                 </div>
 
                 <!-- Iconos vectoriales de redes sociales con estilo táctil (RF-05) -->
                 <div class="flex flex-col sm:items-end gap-3">
                     <span class="font-mono text-xs font-bold uppercase tracking-wider text-zinc-500">
-                        Síguenos en redes sociales
+                        Síguenos en nuestras redes sociales
                     </span>
                     <div class="flex flex-wrap items-center gap-2.5" data-testid="social-links">
                         <a

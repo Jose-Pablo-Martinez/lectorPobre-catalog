@@ -151,7 +151,7 @@ const manejarSubmit = async (): Promise<void> => {
                     Deja un comentario sobre este producto
                 </label>
                 <p class="font-sans text-xs text-zinc-600">
-                    Tu comentario será revisado por el taller antes de aparecer públicamente.
+                    Tu comentario será revisado para asegurarnos de que cumpla con los lineamientos de comunicación efectiva y respeto.
                 </p>
             </div>
 
@@ -161,13 +161,13 @@ const manejarSubmit = async (): Promise<void> => {
                     v-model="texto"
                     rows="3"
                     :maxlength="COMMENT_MAX_LENGTH"
-                    placeholder="Escribe qué te pareció el diseño, acabado o materiales..."
+                    placeholder="Escribe qué te pareció el artículo, tu experiencia de compra, etc..."
                     class="w-full p-3 bg-zinc-50 text-zinc-900 rounded-lg font-sans text-sm border border-zinc-300 focus:bg-white focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none transition-all"
                     data-testid="comment-textarea"
                 />
 
                 <div class="flex items-center justify-between font-sans text-xs text-zinc-500">
-                    <span>Mínimo 3 caracteres</span>
+                    <span>Mínimo 3 caracteres (letras, números, simbolos)</span>
                     <span data-testid="comment-char-counter">
                         {{ caracteresRestantes }} / {{ COMMENT_MAX_LENGTH }} caracteres restantes
                     </span>

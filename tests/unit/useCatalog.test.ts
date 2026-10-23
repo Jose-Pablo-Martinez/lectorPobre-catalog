@@ -108,7 +108,7 @@ describe('UT-VUE-01, UT-VUE-02, UT-VUE-03: Composable useCatalog', () => {
         expect(explicacionPrimeraVez).toContain('primera vez');
 
         const explicacionDescubrimiento = obtenerExplicacionRecomendacion('aleatorio', false);
-        expect(explicacionDescubrimiento).toContain('Descubrimiento del taller');
+        expect(explicacionDescubrimiento).toContain('SORPRESA');
 
         const explicacionPopular = obtenerExplicacionRecomendacion(
             'popularidad',

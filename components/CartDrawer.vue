@@ -29,7 +29,7 @@ export interface CartDrawerProps {
 }
 
 const props = withDefaults(defineProps<CartDrawerProps>(), {
-    numeroWhatsApp: '5219991234567',
+    numeroWhatsApp: '',
 });
 
 const {
@@ -113,10 +113,10 @@ onBeforeUnmount(() => {
                             id="cart-drawer-title"
                             class="font-display font-bold text-lg text-zinc-900 leading-tight"
                         >
-                            Mi Lista de Pedido
+                            Mi carrito de compras
                         </h2>
                         <p class="font-sans text-xs text-zinc-500">
-                            {{ totalItems }} {{ totalItems === 1 ? 'pieza seleccionada' : 'piezas seleccionadas' }}
+                            {{ totalItems }} {{ totalItems === 1 ? 'artículo seleccionado' : 'artículos seleccionados' }}
                         </p>
                     </div>
                 </div>
@@ -141,14 +141,14 @@ onBeforeUnmount(() => {
                 >
                     <ShoppingBag class="w-12 h-12 mx-auto text-zinc-400 stroke-[1.5]" aria-hidden="true" />
                     <p class="font-display font-bold text-base text-zinc-900">
-                        Tu lista de pedido está vacía
+                        Tu carrito de compras está vacío
                     </p>
                     <p class="font-sans text-sm text-zinc-600 max-w-xs mx-auto">
                         Agrega llaveros, pines o stickers del catálogo para armar tu cotización directa por WhatsApp.
                     </p>
                 </div>
 
-                <ul v-else class="space-y-3" aria-label="Productos en tu lista de pedido">
+                <ul v-else class="space-y-3" aria-label="Productos en carrito de compras">
                     <li
                         v-for="item in items"
                         :key="item.id"
@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
                         data-testid="clear-cart-button"
                         @click="clearCart"
                     >
-                        Vaciar lista de pedido
+                        Vaciar carrito de compras
                     </button>
                 </div>
             </footer>

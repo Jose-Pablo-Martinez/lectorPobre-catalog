@@ -224,7 +224,7 @@ const manejarAgregarLista = (): void => {
 // Enlace directo de WhatsApp para este producto (RF-17)
 const urlWhatsApp = computed<string>(() =>
     construirUrlWhatsApp(
-        configGlobal.value?.numeroWhatsApp ?? '5219991234567',
+        configGlobal.value?.numeroWhatsApp ?? '',
         producto.value?.nombre ?? '',
         configGlobal.value?.mensajeWhatsApp,
         producto.value?.precio
@@ -318,7 +318,7 @@ try {
                     >
                         <ImageIcon class="w-16 h-16 stroke-[1.5]" aria-hidden="true" />
                         <span class="font-sans text-sm font-medium tracking-wide">
-                            Ilustración del Taller Lector Pobre
+                            ¡Ups! El periquito perdió la foto.
                         </span>
                     </div>
                 </div>
@@ -474,11 +474,11 @@ try {
                             </template>
                             <template v-else-if="recienAgregado">
                                 <Check class="w-5 h-5" aria-hidden="true" />
-                                <span>Agregado a mi lista de pedido</span>
+                                <span>Agregado a mi carrito</span>
                             </template>
                             <template v-else>
                                 <ShoppingBag class="w-5 h-5" aria-hidden="true" />
-                                <span>Agregar a mi lista de pedido</span>
+                                <span>Agregar al carrito</span>
                             </template>
                         </button>
 
@@ -514,7 +514,7 @@ try {
             data-testid="product-not-found"
         >
             <h1 class="font-display font-bold text-2xl text-zinc-900">
-                Pieza no encontrada
+                Al periquito se le perdió la pieza.
             </h1>
             <p class="font-sans text-sm text-zinc-600">
                 El producto que buscas no existe o ya no se encuentra activo en el catálogo.
