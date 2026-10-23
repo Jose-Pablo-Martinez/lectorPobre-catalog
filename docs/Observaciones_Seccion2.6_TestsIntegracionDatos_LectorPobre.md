@@ -64,7 +64,7 @@ npm run test -- tests/unit/sanity-schemas.test.ts
 
 **Evidencia de que el propio plan ya resuelve este problema en otra capa:** en el backend Go, la Fase 5 (§5.7) sí aplica la separación correctamente:
 
-> *"5.5 `internal/sanity/client.go` | IT-01 a IT-07 (escritura en Sanity staging) | `go test -tags=integration ./internal/sanity/...`"*
+> *"5.5 `pkg/sanity/client.go` | IT-01 a IT-07 (escritura en Sanity staging) | `go test -tags=integration ./pkg/sanity/...`"*
 
 Es decir, el propio documento ya reconoce — para Go — que las pruebas de integración deben aislarse con un build tag específico (`-tags=integration`) para que no corran junto con `go test ./...` por defecto. Esa misma disciplina no se aplicó al lado del frontend en la Fase 2.
 

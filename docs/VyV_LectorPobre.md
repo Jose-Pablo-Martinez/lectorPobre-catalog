@@ -123,7 +123,7 @@ Las pruebas unitarias verifican componentes individuales de forma aislada, usand
 
 ### 3.1 Módulo: Validación de Entradas (Go)
 
-Archivo objetivo: `internal/handlers/validation.go`
+Archivo objetivo: `pkg/handlers/validation.go`
 
 | ID | Nombre del test | Escenario | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -139,7 +139,7 @@ Archivo objetivo: `internal/handlers/validation.go`
 | UT-GO-10 | `TestValidarBusqueda_QueryConInyeccionGROQ_RetornaError` | query = `*[tipo=="prod"]` | Error de sanitización | RF-18, RNF-04 |
 
 ```go
-// Ejemplo de implementación (internal/handlers/validation_test.go)
+// Ejemplo de implementación (pkg/handlers/validation_test.go)
 func TestValidarComentario_TextoExcede1000Chars_RetornaError(t *testing.T) {
     payload := ComentarioPayload{
         ProductoID: "abc123",
@@ -176,7 +176,7 @@ Se usa `httptest` de la stdlib para simular peticiones HTTP sin levantar un serv
 
 ### 3.3 Módulo: Middleware (Go)
 
-Archivos: `internal/middleware/cors.go`, `internal/middleware/ratelimit.go`, `internal/middleware/hmac.go`
+Archivos: `pkg/middleware/cors.go`, `pkg/middleware/ratelimit.go`, `pkg/middleware/hmac.go`
 
 | ID | Nombre del test | Escenario | Resultado esperado | RF/RNF |
 |---|---|---|---|---|

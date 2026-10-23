@@ -203,7 +203,7 @@ lectorpobre/
 │   └── webhook/
 │       └── rebuild.go          # POST /api/webhook/rebuild — Sanity → Vercel rebuild
 │
-├── internal/                   # Internal Go packages (aislados del enrutador público de Vercel)
+├── pkg/                        # Paquetes compartidos de Go (aislados del enrutador público de Vercel)
 │   ├── constants/
 │   │   └── errorcodes.go       # Códigos de error centralizados
 │   ├── handlers/
@@ -1500,7 +1500,7 @@ import (
     "io"
     "net/http"
     "os"
-    "github.com/tu-org/lectorpobre/internal/middleware"
+    "github.com/tu-org/lectorpobre/pkg/middleware"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -1595,7 +1595,7 @@ Al completar la Fase 4, el Release 1 está en producción con todas las funciona
 
 ### 5.1 Infraestructura Compartida
 
-#### `internal/constants/errorcodes.go`
+#### `pkg/constants/errorcodes.go`
 
 ```go
 // Package constants centraliza los códigos de error de LectorPobre.
@@ -1621,7 +1621,7 @@ var ErrCodes = struct {
 }
 ```
 
-#### `internal/middleware/cors.go`
+#### `pkg/middleware/cors.go`
 
 ```go
 // Package middleware implementa controles de seguridad HTTP para las funciones serverless.
@@ -1657,7 +1657,7 @@ func AplicarCORS(w http.ResponseWriter, r *http.Request) bool {
 }
 ```
 
-#### `internal/middleware/ratelimit.go`
+#### `pkg/middleware/ratelimit.go`
 
 ```go
 // RateLimiter implementa rate limiting por IP usando un mapa en memoria.
@@ -1679,9 +1679,9 @@ import (
     "log"
     "net/http"
 
-    "github.com/tu-org/lectorpobre/internal/handlers"
-    "github.com/tu-org/lectorpobre/internal/middleware"
-    "github.com/tu-org/lectorpobre/internal/sanity"
+    "github.com/tu-org/lectorpobre/pkg/handlers"
+    "github.com/tu-org/lectorpobre/pkg/middleware"
+    "github.com/tu-org/lectorpobre/pkg/sanity"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -1738,7 +1738,7 @@ Estructura idéntica a `/api/comentar` adaptada para `CalificacionPayload` con v
 // Satisfies: RNF-04 — sanitización de parámetros de consulta (§9.11).
 ```
 
-### 5.5 Cliente Sanity para Go (`internal/sanity/client.go`)
+### 5.5 Cliente Sanity para Go (`pkg/sanity/client.go`)
 
 ```go
 // Package sanity implementa el cliente de escritura de Sanity.io para las funciones Go.
@@ -1809,13 +1809,13 @@ Actualizar `FormularioComentario.vue` y `SistemaEstrellas.vue` con la lógica re
 
 | Sección implementada | Tests del Plan de V&V a crear | Comando |
 |---|---|---|
-| 5.1 `internal/middleware/cors.go` | UT-GO-19 (CORS permite origen correcto), UT-GO-20 (CORS rechaza origen no permitido) | `go test ./internal/middleware/...` |
-| 5.1 `internal/middleware/ratelimit.go` | UT-GO-21, UT-GO-22 (rate limit por IP) | `go test ./internal/middleware/...` |
-| 5.1 `internal/middleware/hmac.go` | UT-GO-23 (verificación HMAC válida), UT-GO-24 (firma inválida) | `go test ./internal/middleware/...` |
-| 5.1 `internal/handlers/validation.go` | UT-GO-01 a UT-GO-08 (validación de payloads) | `go test ./internal/handlers/...` |
+| 5.1 `pkg/middleware/cors.go` | UT-GO-19 (CORS permite origen correcto), UT-GO-20 (CORS rechaza origen no permitido) | `go test ./pkg/middleware/...` |
+| 5.1 `pkg/middleware/ratelimit.go` | UT-GO-21, UT-GO-22 (rate limit por IP) | `go test ./pkg/middleware/...` |
+| 5.1 `pkg/middleware/hmac.go` | UT-GO-23 (verificación HMAC válida), UT-GO-24 (firma inválida) | `go test ./pkg/middleware/...` |
+| 5.1 `pkg/handlers/validation.go` | UT-GO-01 a UT-GO-08 (validación de payloads) | `go test ./pkg/handlers/...` |
 | 5.2 `api/comment/comment.go` | UT-GO-09 a UT-GO-14 (handler comentar — escenarios válidos e inválidos) | `go test ./api/comment/...` |
 | 5.3 `api/rating/rating.go` | UT-GO-15 a UT-GO-18 (handler calificar — rango 1-5) | `go test ./api/rating/...` |
-| 5.5 `internal/sanity/client.go` | IT-01 a IT-07 (escritura en Sanity staging) | `go test -tags=integration ./internal/sanity/...` |
+| 5.5 `pkg/sanity/client.go` | IT-01 a IT-07 (escritura en Sanity staging) | `go test -tags=integration ./pkg/sanity/...` |
 | 5.6 `useComment.ts` y `useRating.ts` | IT-08 a IT-14 (frontend llama a la API Go correctamente) | `npm run test -- tests/unit/composables.test.ts` |
 
 ```bash

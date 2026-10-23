@@ -56,8 +56,8 @@ La tabla de la Semana 4 enseña que el umbral debe variar según la criticidad d
 | Módulo | Riesgo | Cobertura objetivo | Tipo |
 |---|---|---|---|
 | `api/auth/login.go` (RF-08, Release 2) | Crítico | 90–95% | Ramas |
-| `internal/sanity/client.go` (escritura) | Crítico | 90% | Ramas |
-| `internal/middleware/*` (CORS, rate limit, HMAC) | Crítico | 90% | Ramas |
+| `pkg/sanity/client.go` (escritura) | Crítico | 90% | Ramas |
+| `pkg/middleware/*` (CORS, rate limit, HMAC) | Crítico | 90% | Ramas |
 | `composables/useStock.ts`, `useRating.ts` | Medio | 80% | Sentencias |
 | `plugins/paleta.ts`, `plugins/variante.ts` | Bajo | 70% | Sentencias |
 
@@ -81,7 +81,7 @@ El plan define umbrales de negocio perfectos para aplicar BVA, pero las tablas d
 
 El código de ejemplo en la sección 5.5 llama a `sanity.CrearComentario` como función de paquete, no a través de una interfaz inyectada. Para que `UT-GO-09 a UT-GO-14` (pruebas del handler `/api/comentar`) sean realmente **unitarias** (Fast + Isolated según el modelo FIRST), necesitan aislar la llamada a Sanity — hoy la arquitectura no lo permite sin tocar red real o levantar un `httptest.Server`.
 
-**Recomendación:** definir una interfaz `SanityWriter` en `internal/sanity/`, e inyectarla en los handlers. Así, `IT-01 a IT-07` quedan como las únicas pruebas que tocan Sanity real, y los `UT-GO-*` pueden usar un mock/stub de la interfaz, tal como recomienda la Semana 4: *"prefiera inyección de dependencias... no mockee lo que no posee, cree un adaptador propio"*."
+**Recomendación:** definir una interfaz `SanityWriter` en `pkg/sanity/`, e inyectarla en los handlers. Así, `IT-01 a IT-07` quedan como las únicas pruebas que tocan Sanity real, y los `UT-GO-*` pueden usar un mock/stub de la interfaz, tal como recomienda la Semana 4: *"prefiera inyección de dependencias... no mockee lo que no posee, cree un adaptador propio"*."
 
 ### 2.5 Criterios de entrada y suspensión no formalizados
 

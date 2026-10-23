@@ -105,7 +105,7 @@ lectorPobre/
 ├── admin-api/                # Funciones Go /api/admin/* y /api/auth/*
 │   ├── auth/                 # login, logout, middleware JWT
 │   ├── productos/ categorias/ imagenes/ stock/ config/ moderacion/ metricas/
-│   └── internal/             # sanity client, jwt, kv, cors, ratelimit
+│   └── pkg/                  # sanity client, jwt, kv, cors, ratelimit
 ├── sanity/                   # Esquemas compartidos (sin cambios)
 └── pnpm-workspace.yaml       # Agrega admin/ y admin-api/
 ```
@@ -226,7 +226,7 @@ Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la coo
 
 ### P3.1 Tareas
 
-1. Cliente Sanity en Go (`internal/sanity`) que usa **solo** `SANITY_ADMIN_WRITE_TOKEN`; el token nunca se expone al navegador.
+1. Cliente Sanity en Go (`pkg/sanity`) que usa **solo** `SANITY_ADMIN_WRITE_TOKEN`; el token nunca se expone al navegador.
 2. Validación de esquema de entrada en cada endpoint (tipos, longitudes, whitelist de campos); rechazar campos desconocidos.
 3. Middleware global: CORS restringido a `ALLOWED_ORIGIN`, rate limiting, límite de tamaño de body, registro sin datos sensibles.
 4. Tras cada mutación exitosa: llamar a `STORE_REBUILD_HOOK_URL` (con debounce para agrupar ediciones en lote).

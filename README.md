@@ -163,7 +163,7 @@ lectorpobre/
 │   └── webhook/
 │       └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
 │
-├── internal/                    # Internal Go packages (isolated from Vercel public routing)
+├── pkg/                         # Shared Go packages (isolated from Vercel public routing)
 │   ├── constants/               # Centralized error codes (errorcodes.go)
 │   ├── handlers/                # Shared payload types and validation logic (types.go, validation.go)
 │   ├── middleware/              # CORS, rate limiting, HMAC verification (hmac.go, cors.go, ratelimit.go)
@@ -422,7 +422,7 @@ lectorpobre/
 │   └── webhook/
 │       └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
 │
-├── internal/                    # Paquetes internos de Go (aislados del enrutamiento de Vercel)
+├── pkg/                         # Paquetes compartidos de Go (aislados del enrutamiento de Vercel)
 │   ├── constants/               # Códigos de error centralizados (errorcodes.go)
 │   ├── handlers/                # Tipos de payload compartidos y lógica de validación (types.go, validation.go)
 │   ├── middleware/              # CORS, rate limiting, verificación HMAC (hmac.go, cors.go, ratelimit.go)

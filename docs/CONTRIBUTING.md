@@ -141,7 +141,7 @@ lectorpobre/
 │   └── webhook/
 │       └── rebuild.go          # POST /api/webhook/rebuild (flujo de build)
 │
-├── internal/                   # Paquetes internos de Go (aislados del enrutamiento de Vercel)
+├── pkg/                        # Paquetes compartidos de Go (aislados del enrutamiento de Vercel)
 │   ├── constants/              # Registro centralizado de códigos de error (errorcodes.go)
 │   ├── handlers/               # Tipos y helpers compartidos entre handlers (types.go, validation.go)
 │   ├── middleware/             # Rate limiting, CORS, verificación HMAC (ratelimit.go, cors.go, hmac.go)
@@ -169,7 +169,7 @@ lectorpobre/
 │       └── login.vue           # Admin login stub (RF-08)
 │
 ├── types/                      # Tipos TypeScript globales
-│   ├── api.ts                  # Contratos de los endpoints Go (espejo de internal/handlers/types.go)
+│   ├── api.ts                  # Contratos de los endpoints Go (espejo de pkg/handlers/types.go)
 │   └── sanity.ts               # Tipos del modelo de datos de Sanity
 │
 ├── assets/

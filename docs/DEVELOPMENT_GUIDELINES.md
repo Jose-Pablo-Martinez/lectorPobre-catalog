@@ -270,9 +270,9 @@ import (
     // third-party
     "github.com/sanity-io/client-go"
 
-    // internal
-    "github.com/tu-org/lectorpobre/internal/middleware"
-    "github.com/tu-org/lectorpobre/internal/sanity"
+    // pkg
+    "github.com/tu-org/lectorpobre/pkg/middleware"
+    "github.com/tu-org/lectorpobre/pkg/sanity"
 )
 ```
 
@@ -368,7 +368,7 @@ query := `*[_type == "producto" && nombre match "` + entrada + `"]` // ❌
 Todos los códigos de error viven en un único archivo en el paquete de constantes del backend. Los mismos strings se espejean en el frontend TypeScript.
 
 ```go
-// internal/constants/errorcodes.go
+// pkg/constants/errorcodes.go
 
 // ErrCodes centraliza los códigos de error estructurados retornados por los handlers.
 // Espeja estos valores en frontend/types/api.ts → ErrorCode.
@@ -748,7 +748,7 @@ export interface ApiResponse {
 ```
 
 ```go
-// internal/handlers/types.go
+// pkg/handlers/types.go
 
 // ComentarioPayload es el contrato de entrada para POST /api/comentar.
 // Satisfies: RF-07 (Comentarios de texto).

@@ -1,4 +1,4 @@
-package middleware_test
+package middleware
 
 import (
 	"crypto/hmac"
@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/tu-org/lectorpobre/internal/middleware"
 )
 
 // UT-GO-24: TestHMAC_FirmaCorrecta_RetornaTrue verifica que una firma válida en hex retorne true.
@@ -22,7 +20,7 @@ func TestHMAC_FirmaCorrecta_RetornaTrue(t *testing.T) {
 	mac.Write(payload)
 	validSignature := hex.EncodeToString(mac.Sum(nil))
 
-	if !middleware.VerifyHMAC(payload, validSignature, secret) {
+	if !VerifyHMAC(payload, validSignature, secret) {
 		t.Errorf("VerifyHMAC esperada true para firma válida en hex, se obtuvo false")
 	}
 }
@@ -36,7 +34,7 @@ func TestHMAC_FirmaBase64_RetornaTrue(t *testing.T) {
 	mac.Write(payload)
 	validB64 := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-	if !middleware.VerifyHMAC(payload, validB64, secret) {
+	if !VerifyHMAC(payload, validB64, secret) {
 		t.Errorf("VerifyHMAC esperada true para firma válida en base64, se obtuvo false")
 	}
 }
@@ -52,7 +50,7 @@ func TestHMAC_FirmaIncorrecta_RetornaFalse(t *testing.T) {
 	mac.Write(payload)
 	invalidSignature := hex.EncodeToString(mac.Sum(nil))
 
-	if middleware.VerifyHMAC(payload, invalidSignature, secret) {
+	if VerifyHMAC(payload, invalidSignature, secret) {
 		t.Errorf("VerifyHMAC esperada false para firma generada con secreto incorrecto, se obtuvo true")
 	}
 }
@@ -63,11 +61,11 @@ func TestHMAC_FirmaVacia_RetornaFalse(t *testing.T) {
 	payload := []byte(`{"_type":"producto"}`)
 	secret := "secreto-12345"
 
-	if middleware.VerifyHMAC(payload, "", secret) {
+	if VerifyHMAC(payload, "", secret) {
 		t.Errorf("VerifyHMAC esperada false para firma vacía")
 	}
 
-	if middleware.VerifyHMAC(payload, "firma", "") {
+	if VerifyHMAC(payload, "firma", "") {
 		t.Errorf("VerifyHMAC esperada false para secreto vacío")
 	}
 }
@@ -85,7 +83,7 @@ func TestHMAC_FormatoSanity_RetornaTrue(t *testing.T) {
 
 	header := fmt.Sprintf("t=%s,v1=%s", timestamp, signatureHex)
 
-	if !middleware.VerifyHMAC(payload, header, secret) {
+	if !VerifyHMAC(payload, header, secret) {
 		t.Errorf("VerifyHMAC esperada true para formato de cabecera Sanity 't=...,v1=...'")
 	}
 }
@@ -101,7 +99,7 @@ func TestHMAC_FormatoSanity_SinTimestamp_RetornaTrue(t *testing.T) {
 
 	header := fmt.Sprintf("v1=%s", signatureHex)
 
-	if !middleware.VerifyHMAC(payload, header, secret) {
+	if !VerifyHMAC(payload, header, secret) {
 		t.Errorf("VerifyHMAC esperada true para 'v1=...' sin timestamp")
 	}
 }
@@ -113,7 +111,7 @@ func TestHMAC_FormatoSanity_FirmaInvalida_RetornaFalse(t *testing.T) {
 
 	header := "t=1700000000,v1=firma-falsa"
 
-	if middleware.VerifyHMAC(payload, header, secret) {
+	if VerifyHMAC(payload, header, secret) {
 		t.Errorf("VerifyHMAC esperada false para Sanity con firma falsa")
 	}
 }
@@ -123,7 +121,7 @@ func TestHMAC_FormatoSanity_V1Vacio_RetornaFalse(t *testing.T) {
 	payload := []byte(`{"_type":"producto"}`)
 	secret := "secreto-123"
 
-	if middleware.VerifyHMAC(payload, "t=1700000000,v1=", secret) {
+	if VerifyHMAC(payload, "t=1700000000,v1=", secret) {
 		t.Errorf("VerifyHMAC esperada false para 'v1=' vacío")
 	}
 }
