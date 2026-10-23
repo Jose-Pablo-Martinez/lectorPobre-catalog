@@ -33,7 +33,7 @@ export function useStock(productoId: string, options: UseStockOptions = {}) {
     const error = ref<string | null>(null);
     const umbral = options.umbralStockBajo ?? 5;
 
-    const defaultFetcher = async (
+    const defaultFetcher = (
         id: string
     ): Promise<{ stock?: number } | null> => {
         const sanity = useSanity();

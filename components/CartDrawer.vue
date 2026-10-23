@@ -96,6 +96,7 @@ onBeforeUnmount(() => {
             class="fixed inset-0 bg-zinc-900/50 backdrop-blur-[1px] transition-opacity"
             aria-hidden="true"
             @click="closeCart"
+            @keydown="manejarKeydown"
         />
 
         <!-- Panel del cotizador -->
