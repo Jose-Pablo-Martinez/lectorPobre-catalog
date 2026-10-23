@@ -219,6 +219,7 @@ export interface ConfiguracionGlobal extends SanityDocument {
     urlInstagram?: string;
     urlFacebook?: string;
     urlTikTok?: string;
+    urlYouTube?: string;
 
     /**
      * Paleta de colores activa. Leída en build time e inyectada como variables CSS

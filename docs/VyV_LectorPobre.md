@@ -49,7 +49,19 @@ El plan cubre las cuatro capas del sistema:
 - Pruebas de carga masiva de la CDN de Vercel (responsabilidad del proveedor).
 - Pruebas de compatibilidad con navegadores obsoletos (IE11, Chrome < 90).
 
----
+### 1.4 Alcance y Secuencia por Releases (v1.1)
+
+El desarrollo y su correspondiente verificación se estructuran en dos entregas:
+
+1. **Release 1 — Tienda Pública ([implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md)):**
+   - Catálogo público, búsqueda, recomendaciones, WhatsApp, redes sociales, calificaciones y comentarios.
+   - La gestión de contenido (RF-11 a RF-16) se valida de forma operacional en **Sanity Studio** (criterios UAT-12 a UAT-15).
+   - Los casos de prueba de login/panel propio (ST-18 a ST-21, UAT-11 y NF-10) **no aplican** a la tienda pública.
+2. **Release 2 — Panel de Control propio ([panelControlImplementacion.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/panelControlImplementacion.md)):**
+   - Reutiliza este plan de V&V como estándar de verificación.
+   - Ejecuta ST-18 a ST-21, UAT-11 y NF-10 en el dominio del panel.
+   - Re-valida UAT-12 a UAT-15 contra la nueva interfaz y API de administración del panel propio.
+   - Incorpora la suite complementaria con identificadores `PC-*` (pruebas unitarias, de integración y seguridad del panel).
 
 ## 2. Estrategia General de Testing
 
@@ -367,7 +379,10 @@ Las pruebas de sistema validan el comportamiento del sistema completo desplegado
 
 ---
 
-### 5.6 Flujo: Panel de Administración (RF-08, RF-09, RF-10)
+### 5.6 Flujo: Panel de Administración (RF-08, RF-09, RF-10) — [Release 2: panelControlImplementacion.md]
+
+> [!NOTE]
+> Estos casos de prueba aplican al **Release 2 (Panel de Control propio)**. En el Release 1 la administración se realiza a través de Sanity Studio.
 
 | ID | Caso de prueba | Pasos | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -434,7 +449,10 @@ Las pruebas de aceptación validan que el sistema cumple con los criterios de ac
 |---|---|---|---|
 | UAT-10 | Existe un botón "Comprar por WhatsApp" en la ficha de producto. El enlace abre WhatsApp con un mensaje prellenado que referencia el producto. | Manual con dispositivo real | ❌ |
 
-#### 6.1.4 Panel de Administración (RF-08 a RF-16)
+#### 6.1.4 Panel de Administración (RF-08 a RF-16) — [R1 en Sanity Studio / R2 en Panel propio]
+
+> [!NOTE]
+> En el **Release 1**, UAT-12 a UAT-15 se validan operando directamente en Sanity Studio. UAT-11 y la re-validación completa de UAT-12 a UAT-15 contra el panel propio corresponden al **Release 2**.
 
 | ID | Criterio de aceptación | Verificación | ¿Automatizable? |
 |---|---|---|---|
@@ -593,8 +611,8 @@ jobs:
 | **Unitarias Go** | ≥ 80% de cobertura en handlers. ≥ 75% en middleware y utilidades. 0 tests fallidos. |
 | **Unitarias Vue/TS** | ≥ 70% de cobertura en composables. ≥ 40% en componentes. 0 tests fallidos. |
 | **Integración** | 100% de casos IT-01 a IT-17 pasan. 0 secretos expuestos detectados. |
-| **Sistema** | 100% de casos ST-01 a ST-26 pasan. Performance Score ≥ 90 en Lighthouse. 0 violaciones críticas de accesibilidad. |
-| **Aceptación** | 100% de criterios UAT-01 a UAT-16 aprobados por el cliente. 0 defectos de severidad alta o crítica abiertos. |
+| **Sistema** | 100% de casos ST aplicables pasan (Release 1: ST-01 a ST-17 y ST-22 a ST-26; ST-18 a ST-21 corresponden al Release 2). Performance Score ≥ 90 en Lighthouse. 0 violaciones críticas de accesibilidad. |
+| **Aceptación** | 100% de criterios UAT aplicables al release aprobados por el cliente (Release 1: UAT-01 a UAT-10 y UAT-16; UAT-12 a UAT-15 validados contra Sanity Studio. UAT-11 y re-validación de UAT-12..15 corresponden al Release 2). 0 defectos de severidad alta o crítica abiertos. |
 | **Seguridad** | 100% de pruebas SEC-01 a SEC-11 pasan. 0 vulnerabilidades críticas en `npm audit` o `govulncheck`. |
 
 ### 10.3 Clasificación de Defectos
@@ -619,13 +637,13 @@ jobs:
 | RF-05 (Redes sociales) | UT-VUE-16 | — | ST-16, ST-17 | UAT-16 |
 | RF-06 (Calificación) | UT-GO-05 a 07, UT-VUE-08, 09 | IT-02, IT-10 | ST-11, ST-12 | UAT-08 |
 | RF-07 (Comentarios) | UT-GO-01 a 04, UT-VUE-05 a 07, UT-VUE-17 | IT-01, IT-08, IT-09 | ST-09, ST-10, ST-13 | UAT-09 |
-| RF-08 (Login admin) | — | — | ST-19, ST-20 | UAT-11 |
-| RF-09 (Logout admin) | — | — | ST-21 | UAT-11 |
-| RF-10 (Panel admin) | — | — | ST-18 | UAT-11 |
-| RF-11 (Editar producto) | — | — | — | UAT-12 |
-| RF-12 (Imagen producto) | — | — | — | UAT-12 |
-| RF-13 (Crear/eliminar producto) | — | — | — | UAT-13 |
-| RF-14 (Stock admin) | — | — | — | UAT-14 |
+| RF-08 (Login admin) | — | — | ST-19, ST-20 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-09 (Logout admin) | — | — | ST-21 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-10 (Panel admin) | — | — | ST-18 *(Release 2)* | UAT-11 *(Release 2)* |
+| RF-11 (Editar producto) | — | — | — | UAT-12 *(R1: Studio / R2: Panel)* |
+| RF-12 (Imagen producto) | — | — | — | UAT-12 *(R1: Studio / R2: Panel)* |
+| RF-13 (Crear/eliminar producto) | — | — | — | UAT-13 *(R1: Studio / R2: Panel)* |
+| RF-14 (Stock admin) | — | — | — | UAT-14 *(R1: Studio / R2: Panel)* |
 | RF-17 (WhatsApp) | UT-TS-01, 02, UT-VUE-11 | — | ST-14, ST-15 | UAT-10 |
 | RF-18 (Búsqueda) | UT-GO-08, 09, 10 | IT-05, IT-06, IT-11 | ST-05 | UAT-05 |
 | RF-19 (Paginación) | — | — | ST-04 | UAT-06 |
@@ -639,5 +657,5 @@ jobs:
 
 ---
 
-*Última actualización: Septiembre 2026 · Aplica a LectorPobre ERS v1.0*
+*Última actualización: Octubre 2026 · Aplica a LectorPobre ERS v1.2 · Reutilizable para Release 2 (Panel de Control)*
 *Este plan debe revisarse cuando se agreguen requisitos al ERS o cambien las decisiones de arquitectura.*

@@ -32,9 +32,9 @@
  */
 
 import { createClient } from '@sanity/client';
-import { readFileSync, existsSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT      = resolve(__dirname, '..');
@@ -133,7 +133,7 @@ await upsert({
     _id:   'global-config',           // fixed ID used by sanity.config.ts singleton
     _type: 'configuracionGlobal',
     nombreSitio:       'LectorPobre',
-    numeroWhatsApp:    '5219991234567',
+    numeroWhatsApp:    process.env.STORE_WHATSAPP_NUMBER || '5219990000000',
     mensajeWhatsApp:   'Hola, me interesa el producto {{nombre}}',
     urlInstagram:      'https://instagram.com/lectorpobre',
     urlFacebook:       'https://facebook.com/lectorpobre',
@@ -315,9 +315,12 @@ const productos = [
 
 for (const prod of productos) {
     await upsert(prod);
-    const stockTag = prod.stock === 0    ? `${c.red}sin stock${c.reset}` :
-                     prod.stock <= 5     ? `${c.yellow}pocas unidades${c.reset}` :
-                                          `${c.green}stock ok${c.reset}`;
+    let stockTag = `${c.green}stock ok${c.reset}`;
+    if (prod.stock === 0) {
+        stockTag = `${c.red}sin stock${c.reset}`;
+    } else if (prod.stock <= 5) {
+        stockTag = `${c.yellow}pocas unidades${c.reset}`;
+    }
     const activoTag = prod.activo ? '' : ` ${c.dim}[inactivo]${c.reset}`;
     ok(`Producto: ${prod.nombre} — ${stockTag}${activoTag}`);
 }
@@ -365,9 +368,12 @@ const comentarios = [
 
 for (const com of comentarios) {
     await upsert(com);
-    const estadoTag = com.estado === 'aprobado'  ? `${c.green}aprobado${c.reset}` :
-                      com.estado === 'pendiente' ? `${c.yellow}pendiente${c.reset}` :
-                                                   `${c.red}rechazado${c.reset}`;
+    let estadoTag = `${c.red}rechazado${c.reset}`;
+    if (com.estado === 'aprobado') {
+        estadoTag = `${c.green}aprobado${c.reset}`;
+    } else if (com.estado === 'pendiente') {
+        estadoTag = `${c.yellow}pendiente${c.reset}`;
+    }
     ok(`Comentario en "${com.producto._ref.replace('seed-prod-', '')}" — ${estadoTag}`);
 }
 

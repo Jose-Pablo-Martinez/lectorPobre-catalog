@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
         with:
           version: 9
       - uses: actions/setup-node@v4
@@ -61,8 +61,8 @@ jobs:
         # Requires SANITY_PROJECT_ID_STAGING secret. Implements Hallazgo 4 from observations doc.
         working-directory: sanity
         run: |
-          npx sanity@latest schema extract
-          npx sanity@latest typegen generate
+          pnpm exec sanity schema extract
+          pnpm exec sanity typegen generate
           git diff --exit-code ../types/sanity.ts
         env:
           SANITY_STUDIO_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
         with:
           version: 9
       - uses: actions/setup-node@v4
@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
         with:
           version: 9
       - uses: actions/setup-node@v4
