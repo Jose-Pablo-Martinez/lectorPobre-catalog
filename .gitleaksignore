@@ -1,0 +1,6 @@
+# .gitleaksignore
+# Huellas digitales de falsos positivos en tests unitarios para commits históricos
+071c2280eb8b108a88990294e577f8f8c1b667b7:api/middleware/hmac_test.go:generic-api-key:49
+071c2280eb8b108a88990294e577f8f8c1b667b7:api/middleware/hmac_test.go:generic-api-key:63
+071c2280eb8b108a88990294e577f8f8c1b667b7:api/webhook/rebuild_test.go:generic-api-key:20
+071c2280eb8b108a88990294e577f8f8c1b667b7:api/webhook/rebuild_test.go:generic-api-key:60

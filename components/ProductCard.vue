@@ -98,23 +98,23 @@ const manejarAgregar = (): void => {
                 >
                     <ImageIcon class="w-12 h-12 stroke-[1.5]" aria-hidden="true" />
                     <span class="font-sans text-xs font-medium tracking-wide text-center">
-                        Artículo del catálogo. 
+                        Artículo del catálogo 
                     </span>
                 </div>
             </a>
 
             <!-- Badge de Stock flotante superior izquierdo -->
-            <div class="absolute top-2.5 left-2.5 z-10">
+            <div class="absolute top-2 sm:top-2.5 left-2 sm:left-2.5 z-10 max-w-[calc(100%-1rem)]">
                 <StockIndicator
                     :stock="producto.stock"
                     :umbral-stock-bajo="umbralStockBajo"
                 />
             </div>
 
-            <!-- Badge de Calificación flotante superior derecho con estrella Amarillo Cempasúchil -->
+            <!-- Badge de Calificación flotante: en móvil se ubica abajo a la derecha de la imagen para evitar cualquier solapamiento con el stock; en desktop arriba a la derecha -->
             <div
                 v-if="typeof producto.calificacionPromedio === 'number' && producto.calificacionPromedio > 0"
-                class="absolute top-2.5 right-2.5 z-10 inline-flex items-center gap-1 px-2 py-0.5 bg-white/95 border border-brand-texto shadow-hard-sm font-mono text-xs font-bold text-brand-texto"
+                class="absolute bottom-2 right-2 sm:bottom-auto sm:top-2.5 sm:right-2.5 z-10 inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 bg-white/95 border border-brand-texto shadow-hard-sm font-mono text-xs font-bold text-brand-texto"
                 :aria-label="`Calificación promedio ${producto.calificacionPromedio} de 5`"
             >
                 <Star class="w-3.5 h-3.5 fill-brand-acento text-brand-texto shrink-0" aria-hidden="true" />

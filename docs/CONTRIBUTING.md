@@ -50,7 +50,7 @@ pnpm run setup
 pnpm install
 
 # 4. Descargar dependencias de Go
-cd api && go mod download && cd ..
+go mod download
 ```
 
 > El script `pnpm run setup` copia `.env.example` → `.env.local` (sin sobreescribir si ya existe)
@@ -127,27 +127,25 @@ pnpm run preview
 
 ```
 lectorpobre/
-├── api/                        # Funciones serverless en Go (Vercel Functions)
-│   ├── comentar.go             # POST /api/comentar (RF-07)
-│   ├── calificar.go            # POST /api/calificar (RF-06)
-│   ├── buscar.go               # GET /api/buscar (RF-18, opcional)
+├── api/                        # Endpoints HTTP serverless en Go (Vercel Functions)
 │   ├── auth/                   # Reservado para Release 2 (Panel de Control)
 │   │   ├── login.go            # POST /api/auth/login (RF-08) — stub inicial
-│   │   └── logout.go           # POST /api/auth/logout (RF-09) — stub inicial
-│   ├── webhook/
-│   │   └── rebuild.go          # POST /api/webhook/rebuild (flujo de build)
-│   ├── handlers/               # Tipos y helpers compartidos entre handlers
-│   │   ├── types.go            # Structs: ComentarioPayload, ApiResponse, etc.
-│   │   └── validacion.go       # Funciones de validación reutilizables
-│   ├── sanity/                 # Cliente de Sanity para escritura (token privado)
-│   │   └── client.go
-│   ├── middleware/             # Rate limiting, CORS, verificación HMAC
-│   │   ├── ratelimit.go
-│   │   ├── cors.go
-│   │   └── hmac.go
-│   ├── constants/
-│   │   └── errorcodes.go       # Registro centralizado de códigos de error
-│   └── go.mod
+│   │   └── logout/
+│   │       └── logout.go       # POST /api/auth/logout (RF-09) — stub inicial
+│   ├── comment/
+│   │   └── comment.go          # POST /api/comment (RF-07)
+│   ├── rating/
+│   │   └── rating.go           # POST /api/rating (RF-06)
+│   ├── search/
+│   │   └── search.go           # GET /api/search (RF-18, opcional)
+│   └── webhook/
+│       └── rebuild.go          # POST /api/webhook/rebuild (flujo de build)
+│
+├── pkg/                        # Paquetes compartidos de Go (aislados del enrutamiento de Vercel)
+│   ├── constants/              # Registro centralizado de códigos de error (errorcodes.go)
+│   ├── handlers/               # Tipos y helpers compartidos entre handlers (types.go, validation.go)
+│   ├── middleware/             # Rate limiting, CORS, verificación HMAC (ratelimit.go, cors.go, hmac.go)
+│   └── sanity/                 # Cliente de Sanity para escritura (token privado) (client.go)
 │
 ├── components/                 # Componentes Vue reutilizables
 │   ├── TarjetaProducto.vue     # RF-01, RF-02
@@ -171,7 +169,7 @@ lectorpobre/
 │       └── login.vue           # Admin login stub (RF-08)
 │
 ├── types/                      # Tipos TypeScript globales
-│   ├── api.ts                  # Contratos de los endpoints Go (espejo de handlers/types.go)
+│   ├── api.ts                  # Contratos de los endpoints Go (espejo de pkg/handlers/types.go)
 │   └── sanity.ts               # Tipos del modelo de datos de Sanity
 │
 ├── assets/
@@ -185,7 +183,9 @@ lectorpobre/
 │       ├── categoria.ts
 │       ├── comentario.ts
 │       └── configuracionGlobal.ts
-├── tests/                      # Tests del frontend (Vitest)
+├── tests/                      # Tests del frontend (Vitest) y E2E (Playwright)
+├── go.mod                      # Módulo Go raíz (github.com/tu-org/lectorpobre)
+├── go.sum                      # Lockfile de dependencias Go
 ├── nuxt.config.ts
 ├── tailwind.config.ts
 ├── .env.example
@@ -221,7 +221,7 @@ lectorpobre/
    git commit -m "feat(handlers): implementar ComentarHandler con validación [RF-07, RNF-04]"
 
 3. Asegúrate de que los tests pasen localmente
-   go test ./api/...
+   go test ./...
    npm run test
 
 4. Abre un Pull Request hacia `develop`
@@ -236,7 +236,7 @@ lectorpobre/
 Cada push a cualquier rama dispara automáticamente en Vercel:
 
 - **Build de Preview:** genera un despliegue de previsualización con URL única.
-- **Ejecución de tests:** `go test ./api/...` y `npm run test`.
+- **Ejecución de tests:** `go test ./...` y `npm run test`.
 - **Lint del frontend:** `npm run lint`.
 
 > **Importante:** Los despliegues de **Preview** deben estar protegidos con contraseña en Vercel para evitar que URLs de prueba con datos reales sean públicamente indexables (ver sección 10.8 de la arquitectura).
@@ -410,8 +410,7 @@ pnpm run test:integration # Ejecuta tests de integración contra Sanity staging
 ### 7.2 Backend Go
 
 ```bash
-cd api
-go test ./...                    # Ejecuta todos los tests
+go test ./...                    # Ejecuta todos los tests desde la raíz
 go test ./... -v -cover          # Tests con output verboso y reporte de cobertura
 go vet ./...                     # Análisis estático de Go
 go mod tidy                      # Limpia y sincroniza dependencias
