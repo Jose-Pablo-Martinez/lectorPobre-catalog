@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tu-org/lectorpobre/api/middleware"
+	"github.com/tu-org/lectorpobre/internal/middleware"
 )
 
 // UT-GO-24: TestHMAC_FirmaCorrecta_RetornaTrue verifica que una firma válida en hex retorne true.

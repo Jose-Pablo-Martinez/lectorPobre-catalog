@@ -117,7 +117,7 @@ cd lectorpobre
 pnpm install
 
 # 3. Install Go backend dependencies
-cd api && go mod download && cd ..
+go mod download
 
 # 4. Set up environment variables
 cp .env.example .env.local
@@ -149,19 +149,25 @@ lectorpobre/
 │       ├── ci.yml               # Go tests + Vitest + Playwright on every PR
 │       └── lighthouse.yml       # Lighthouse CI on every Vercel deployment
 │
-├── api/                         # Go serverless functions (Vercel Functions)
-│   ├── comment.go               # POST /api/comment — user comments (RF-07)
-│   ├── rating.go                # POST /api/rating  — star ratings (RF-06)
-│   ├── search.go                # GET  /api/search  — server-side search (RF-18)
+├── api/                         # Go serverless HTTP endpoints (Vercel Functions)
 │   ├── auth/                    # Reserved for Release 2 (Control Panel stubs)
 │   │   ├── login.go             # POST /api/auth/login  (RF-08) — stub
-│   │   └── logout.go            # POST /api/auth/logout (RF-09) — stub
-│   ├── webhook/
-│   │   └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
-│   ├── handlers/                # Shared payload types and validation logic
-│   ├── sanity/                  # Sanity write client (uses private token)
-│   ├── middleware/              # CORS, rate limiting, HMAC verification
-│   └── constants/               # Centralized error codes
+│   │   └── logout/
+│   │       └── logout.go        # POST /api/auth/logout (RF-09) — stub
+│   ├── comment/
+│   │   └── comment.go           # POST /api/comment — user comments (RF-07)
+│   ├── rating/
+│   │   └── rating.go            # POST /api/rating  — star ratings (RF-06)
+│   ├── search/
+│   │   └── search.go            # GET  /api/search  — server-side search (RF-18)
+│   └── webhook/
+│       └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
+│
+├── internal/                    # Internal Go packages (isolated from Vercel public routing)
+│   ├── constants/               # Centralized error codes (errorcodes.go)
+│   ├── handlers/                # Shared payload types and validation logic (types.go, validation.go)
+│   ├── middleware/              # CORS, rate limiting, HMAC verification (hmac.go, cors.go, ratelimit.go)
+│   └── sanity/                  # Sanity write client using private token (client.go)
 │
 ├── components/                  # Reusable Vue 3 components
 │   ├── ProductCard.vue          # Product tile for catalog grid (RF-01)
@@ -198,6 +204,8 @@ lectorpobre/
 │   └── schemas/                 # Content schemas (product, category, comment…)
 │
 ├── assets/css/global.css        # CSS custom properties and design tokens
+├── go.mod                       # Root Go module (github.com/tu-org/lectorpobre)
+├── go.sum                       # Root Go dependencies lockfile
 ├── tests/                       # Vitest unit tests + Playwright E2E tests
 └── docs/                        # Full technical documentation
 ```
@@ -208,7 +216,7 @@ lectorpobre/
 
 ```bash
 # Backend — Go unit tests
-cd api && go test ./... -v
+go test ./... -v
 
 # Frontend — Vitest unit tests
 pnpm test
@@ -250,7 +258,7 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
    ```
 3. Make sure all tests pass locally before opening a PR:
    ```bash
-   cd api && go test ./...   # Go backend tests
+   go test ./...             # Go backend tests
    pnpm test                 # Vitest frontend unit tests
    pnpm dlx playwright test  # Playwright E2E tests
    ```
@@ -368,7 +376,7 @@ cd lectorpobre
 pnpm install
 
 # 3. Instalar dependencias del backend Go
-cd api && go mod download && cd ..
+go mod download
 
 # 4. Configurar variables de entorno
 cp .env.example .env.local
@@ -400,19 +408,25 @@ lectorpobre/
 │       ├── ci.yml               # Tests Go + Vitest + Playwright en cada PR
 │       └── lighthouse.yml       # Lighthouse CI en cada despliegue de Vercel
 │
-├── api/                         # Funciones serverless en Go (Vercel Functions)
-│   ├── comment.go               # POST /api/comment — comentarios de usuarios (RF-07)
-│   ├── rating.go                # POST /api/rating  — calificaciones por estrellas (RF-06)
-│   ├── search.go                # GET  /api/search  — búsqueda server-side (RF-18)
+├── api/                         # Endpoints HTTP serverless en Go (Vercel Functions)
 │   ├── auth/                    # Reservado para Release 2 (stubs del Panel de Control)
 │   │   ├── login.go             # POST /api/auth/login  (RF-08) — stub
-│   │   └── logout.go            # POST /api/auth/logout (RF-09) — stub
-│   ├── webhook/
-│   │   └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
-│   ├── handlers/                # Tipos de payload compartidos y lógica de validación
-│   ├── sanity/                  # Cliente de escritura Sanity (usa token privado)
-│   ├── middleware/              # CORS, rate limiting, verificación HMAC
-│   └── constants/               # Códigos de error centralizados
+│   │   └── logout/
+│   │       └── logout.go        # POST /api/auth/logout (RF-09) — stub
+│   ├── comment/
+│   │   └── comment.go           # POST /api/comment — comentarios de usuarios (RF-07)
+│   ├── rating/
+│   │   └── rating.go            # POST /api/rating  — calificaciones por estrellas (RF-06)
+│   ├── search/
+│   │   └── search.go            # GET  /api/search  — búsqueda server-side (RF-18)
+│   └── webhook/
+│       └── rebuild.go           # POST /api/webhook/rebuild — Sanity → Vercel
+│
+├── internal/                    # Paquetes internos de Go (aislados del enrutamiento de Vercel)
+│   ├── constants/               # Códigos de error centralizados (errorcodes.go)
+│   ├── handlers/                # Tipos de payload compartidos y lógica de validación (types.go, validation.go)
+│   ├── middleware/              # CORS, rate limiting, verificación HMAC (hmac.go, cors.go, ratelimit.go)
+│   └── sanity/                  # Cliente de escritura Sanity (usa token privado) (client.go)
 │
 ├── components/                  # Componentes Vue 3 reutilizables
 │   ├── ProductCard.vue          # Tarjeta de producto para la cuadrícula del catálogo (RF-01)
@@ -449,6 +463,8 @@ lectorpobre/
 │   └── schemas/                 # Schemas de contenido (producto, categoría, comentario…)
 │
 ├── assets/css/global.css        # Custom properties CSS y tokens de diseño
+├── go.mod                       # Módulo Go raíz (github.com/tu-org/lectorpobre)
+├── go.sum                       # Lockfile de dependencias Go
 ├── tests/                       # Tests unitarios (Vitest) y E2E (Playwright)
 └── docs/                        # Documentación técnica completa del proyecto
 ```
@@ -459,7 +475,7 @@ lectorpobre/
 
 ```bash
 # Backend — Tests unitarios de Go
-cd api && go test ./... -v
+go test ./... -v
 
 # Frontend — Tests unitarios con Vitest
 pnpm test
@@ -508,7 +524,7 @@ La arquitectura actual sin servidor permanente ni base de datos dedicada (SSG + 
    ```
 3. Asegúrate de que todos los tests pasen localmente antes de abrir un PR:
    ```bash
-   cd api && go test ./...   # Tests del backend Go
+   go test ./...             # Tests del backend Go
    pnpm test                 # Tests unitarios del frontend con Vitest
    pnpm dlx playwright test  # Tests E2E con Playwright
    ```

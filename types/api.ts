@@ -1,12 +1,12 @@
 /**
  * @file api.ts
- * @description Contratos canónicos de la API serverless (espejo de api/handlers/types.go y api/constants/errorcodes.go).
+ * @description Contratos canónicos de la API serverless (espejo de internal/handlers/types.go y internal/constants/errorcodes.go).
  * @satisfies RF-06 (Calificaciones), RF-07 (Comentarios), RF-18 (Búsqueda), RNF-04 (Mensajes de error genéricos)
  */
 
 /**
  * Códigos de error estructurados retornados por los handlers de Go.
- * Espeja exactamente los valores definidos en api/constants/errorcodes.go.
+ * Espeja exactamente los valores definidos en internal/constants/errorcodes.go.
  * @satisfies RNF-04
  */
 export const ErrorCode = {

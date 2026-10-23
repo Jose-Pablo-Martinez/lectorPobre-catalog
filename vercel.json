@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
   "functions": {
-    "api/**/*.go": {
+    "api/webhook/rebuild.go": {
       "maxDuration": 15
     }
   },

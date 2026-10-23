@@ -10,6 +10,7 @@ export default defineNuxtConfig({
     ignore: [
         'sanity/**',
         'api/**',
+        'internal/**',
         'tests/**',
         'coverage/**',
         'scripts/**',
@@ -29,6 +30,7 @@ export default defineNuxtConfig({
                 /[\\/]\.nuxt[\\/]/,
                 /[\\/]sanity[\\/]/,
                 /[\\/]api[\\/]/,
+                /[\\/]internal[\\/]/,
                 /[\\/]coverage[\\/]/,
                 /[\\/]tests[\\/]/,
                 /[\\/]scripts[\\/]/,
@@ -46,6 +48,7 @@ export default defineNuxtConfig({
                 ignored: [
                     '**/sanity/**',
                     '**/api/**',
+                    '**/internal/**',
                     '**/coverage/**',
                     '**/tests/**',
                     '**/scripts/**',

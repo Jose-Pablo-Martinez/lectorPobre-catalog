@@ -123,7 +123,7 @@ Las pruebas unitarias verifican componentes individuales de forma aislada, usand
 
 ### 3.1 Módulo: Validación de Entradas (Go)
 
-Archivo objetivo: `api/handlers/validacion.go`
+Archivo objetivo: `internal/handlers/validation.go`
 
 | ID | Nombre del test | Escenario | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -139,7 +139,7 @@ Archivo objetivo: `api/handlers/validacion.go`
 | UT-GO-10 | `TestValidarBusqueda_QueryConInyeccionGROQ_RetornaError` | query = `*[tipo=="prod"]` | Error de sanitización | RF-18, RNF-04 |
 
 ```go
-// Ejemplo de implementación (api/handlers/validacion_test.go)
+// Ejemplo de implementación (internal/handlers/validation_test.go)
 func TestValidarComentario_TextoExcede1000Chars_RetornaError(t *testing.T) {
     payload := ComentarioPayload{
         ProductoID: "abc123",
@@ -157,7 +157,7 @@ func TestValidarComentario_TextoExcede1000Chars_RetornaError(t *testing.T) {
 
 ### 3.2 Módulo: Handlers HTTP (Go)
 
-Archivo objetivo: `api/comentar.go`, `api/calificar.go`, `api/buscar.go`
+Archivo objetivo: `api/comment/comment.go`, `api/rating/rating.go`, `api/search/search.go`
 
 Se usa `httptest` de la stdlib para simular peticiones HTTP sin levantar un servidor real.
 
@@ -176,7 +176,7 @@ Se usa `httptest` de la stdlib para simular peticiones HTTP sin levantar un serv
 
 ### 3.3 Módulo: Middleware (Go)
 
-Archivos: `api/middleware/cors.go`, `api/middleware/ratelimit.go`, `api/middleware/hmac.go`
+Archivos: `internal/middleware/cors.go`, `internal/middleware/ratelimit.go`, `internal/middleware/hmac.go`
 
 | ID | Nombre del test | Escenario | Resultado esperado | RF/RNF |
 |---|---|---|---|---|
@@ -569,9 +569,9 @@ Las pruebas de seguridad verifican directamente los controles definidos en la ar
 jobs:
   test-backend:
     steps:
-      - run: go test ./api/... -v -cover -coverprofile=coverage.out
-      - run: go vet ./api/...
-      - run: govulncheck ./api/...
+      - run: go test ./... -v -cover -coverprofile=coverage.out
+      - run: go vet ./...
+      - run: govulncheck ./...
 
   test-frontend:
     steps:

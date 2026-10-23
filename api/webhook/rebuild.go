@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/tu-org/lectorpobre/api/middleware"
+	"github.com/tu-org/lectorpobre/internal/middleware"
 )
 
 // Handler verifies the HMAC signature and triggers a Vercel deploy hook rebuild.
