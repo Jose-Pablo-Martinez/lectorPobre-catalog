@@ -138,7 +138,7 @@ export const product = defineType({
             type: 'array',
             of: [{ type: 'string' }],
             options: { layout: 'tags' },
-            description: 'Términos, tags o palabras clave adicionales para potenciar el buscador difuso y los productos similares (RF-23).'
+            description: 'Términos, tags o palabras clave adicionales para potenciar el buscador difuso y los productos similares.'
         })
     ],
     preview: {
