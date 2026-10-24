@@ -16,7 +16,7 @@ import (
 // Retorna true únicamente si la firma calculada coincide con la proporcionada usando crypto/hmac.Equal
 // para mitigar ataques de temporización (timing attacks).
 // Probado por: UT-GO-24 (válida), UT-GO-25 (inválida), UT-GO-26 (vacía) — VyV §3.3.
-func VerifyHMAC(payload []byte, signature string, secret string) bool {
+func VerifyHMAC(payload []byte, signature, secret string) bool {
 	if signature == "" || secret == "" {
 		return false
 	}
@@ -67,20 +67,29 @@ func parseSanityHeader(header string) (string, string) {
 }
 
 // computeHMAC genera el resumen HMAC-SHA256 del contenido usando el secreto provisto.
-func computeHMAC(content []byte, secret []byte) []byte {
+func computeHMAC(content, secret []byte) []byte {
 	mac := hmac.New(sha256.New, secret)
 	mac.Write(content)
 	return mac.Sum(nil)
 }
 
 // compareSignature compara de forma segura contra timing attacks una firma provista con el resumen esperado.
+// Sanity firma usando HMAC-SHA256 en Base64 URL-safe sin relleno (RFC 4648 §5 / base64.RawURLEncoding).
+// Por robustez, se evalúan variantes de codificación válidas (RawURLEncoding, URLEncoding, Hex y StdEncoding).
 func compareSignature(expectedMAC []byte, providedSig string) bool {
-	expectedHex := hex.EncodeToString(expectedMAC)
-	if hmac.Equal([]byte(providedSig), []byte(expectedHex)) {
-		return true
+	formats := []string{
+		base64.RawURLEncoding.EncodeToString(expectedMAC),
+		base64.URLEncoding.EncodeToString(expectedMAC),
+		hex.EncodeToString(expectedMAC),
+		base64.StdEncoding.EncodeToString(expectedMAC),
 	}
 
-	expectedB64 := base64.StdEncoding.EncodeToString(expectedMAC)
-	return hmac.Equal([]byte(providedSig), []byte(expectedB64))
+	for _, expected := range formats {
+		if hmac.Equal([]byte(providedSig), []byte(expected)) {
+			return true
+		}
+	}
+
+	return false
 }
 

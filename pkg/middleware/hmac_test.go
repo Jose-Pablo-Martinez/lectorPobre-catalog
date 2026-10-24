@@ -88,6 +88,24 @@ func TestHMAC_FormatoSanity_RetornaTrue(t *testing.T) {
 	}
 }
 
+// TestHMAC_FormatoSanity_Base64URL_RetornaTrue valida el formato oficial de Sanity con base64url sin relleno.
+func TestHMAC_FormatoSanity_Base64URL_RetornaTrue(t *testing.T) {
+	payload := []byte(`{"_type":"producto","slug":"llavero-mistico"}`)
+	secret := "cb3539ce482b2b0034e10ae9953edaeded73c21f996ea38d741ecc75e2903849" // gitleaks:allow
+	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+
+	signedContent := append([]byte(timestamp+"."), payload...)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(signedContent)
+	signatureBase64URL := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	header := fmt.Sprintf("t=%s,v1=%s", timestamp, signatureBase64URL)
+
+	if !VerifyHMAC(payload, header, secret) {
+		t.Errorf("VerifyHMAC esperada true para formato Sanity oficial con base64url")
+	}
+}
+
 // TestHMAC_FormatoSanity_SinTimestamp_RetornaTrue valida Sanity sin componente 't='.
 func TestHMAC_FormatoSanity_SinTimestamp_RetornaTrue(t *testing.T) {
 	payload := []byte(`{"_type":"producto","slug":"pin-pobre"}`)
