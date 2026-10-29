@@ -36,6 +36,68 @@ export interface VariantPluginDeps {
 }
 
 /**
+ * Devuelve la configuración de Sanity projectId y dataset si están disponibles.
+ */
+function extraerSanityConfig(): { projectId?: string; dataset?: string } {
+    try {
+        if (typeof useSanity === 'undefined') {
+            return {};
+        }
+        const s = useSanity();
+        const cfg = s?.client?.config ? s.client.config() : s?.config;
+        return {
+            projectId: cfg?.projectId,
+            dataset: cfg?.dataset,
+        };
+    } catch {
+        return {};
+    }
+}
+
+/**
+ * Resuelve los estilos de patrón decorativo si está activo en la configuración.
+ */
+export function resolverEstilosPatron(
+    configData?: Partial<ConfiguracionGlobal> | null
+): Array<{ innerHTML: string }> {
+    if (!configData?.patronDecorativoActivo || !configData.patronDecorativo) {
+        return [];
+    }
+
+    const { projectId, dataset } = extraerSanityConfig();
+    const urlPatron = buildSanityImageUrl(
+        configData.patronDecorativo,
+        projectId,
+        dataset,
+        { width: 240 }
+    );
+
+    if (!urlPatron) {
+        return [];
+    }
+
+    return [
+        {
+            innerHTML: `:root { --bg-patron-decorativo: url("${urlPatron}"); }`,
+        },
+    ];
+}
+
+function aplicarHead(
+    headPayload: {
+        htmlAttrs: { class: string };
+        style?: Array<{ innerHTML: string }>;
+    },
+    applyHeadFn?: VariantPluginDeps['applyHead']
+): void {
+    if (applyHeadFn) {
+        applyHeadFn(headPayload);
+    } else if (typeof useHead !== 'undefined') {
+        useHead(headPayload);
+    }
+}
+
+/**
  * Ejecuta la lógica de inicialización de variante visual con dependencias inyectables.
  */
 export async function ejecutarPluginVariante(
@@ -47,32 +109,14 @@ export async function ejecutarPluginVariante(
     );
 
     const claseVariante = resolverClaseVariante(configData?.varianteVisual);
-    const estilosExtra: Array<{ innerHTML: string }> = [];
-
-    if (configData?.patronDecorativoActivo && configData.patronDecorativo) {
-        const urlPatron = buildSanityImageUrl(
-            configData.patronDecorativo,
-            undefined,
-            undefined,
-            { width: 240 }
-        );
-        if (urlPatron) {
-            estilosExtra.push({
-                innerHTML: `:root { --bg-patron-decorativo: url("${urlPatron}"); }`,
-            });
-        }
-    }
+    const estilosExtra = resolverEstilosPatron(configData);
 
     const headPayload = {
         htmlAttrs: { class: claseVariante },
         ...(estilosExtra.length > 0 ? { style: estilosExtra } : {}),
     };
 
-    if (deps.applyHead) {
-        deps.applyHead(headPayload);
-    } else if (typeof useHead !== 'undefined') {
-        useHead(headPayload);
-    }
+    aplicarHead(headPayload, deps.applyHead);
 
     return { claseVariante, estilosExtra };
 }

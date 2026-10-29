@@ -64,7 +64,7 @@ export default defineNuxtConfig({
     sanity: {
         projectId: process.env.NUXT_PUBLIC_SANITY_PROJECT_ID || 'rbrk7xv9',
         dataset: process.env.NUXT_PUBLIC_SANITY_DATASET || 'staging',
-        useCdn: true, // Usa el CDN de Sanity para descargas más rápidas en producción
+        useCdn: process.env.NODE_ENV === 'production', // Live API en desarrollo sin caché para refresco instantáneo
         apiVersion: '2024-01-01',
     },
 
