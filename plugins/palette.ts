@@ -21,42 +21,72 @@ export const PALETA_IDENTIDAD: Readonly<Record<string, string>> = {
 export const PALETAS_PREDEFINIDAS: Record<string, Record<string, string>> = {
     identidad: { ...PALETA_IDENTIDAD },
     cenote: {
-        '--color-brand-primario': '#0d9488',
-        '--color-brand-secundario': '#ccfbf1',
-        '--color-brand-acento': '#f43f5e',
-        '--color-brand-fondo': '#f0fdf4',
+        '--color-brand-primario': '#0f766e',
+        '--color-brand-secundario': '#0284c7',
+        '--color-brand-acento': '#eab308',
+        '--color-brand-fondo': '#f0fdfa',
         '--color-brand-texto': '#0f172a',
     },
     luchaLibre: {
-        '--color-brand-primario': '#1d4ed8',
-        '--color-brand-secundario': '#3b82f6',
-        '--color-brand-acento': '#ffd000',
-        '--color-brand-fondo': '#fffbeb',
-        '--color-brand-texto': '#18181b',
+        '--color-brand-primario': '#dc2626',
+        '--color-brand-secundario': '#2563eb',
+        '--color-brand-acento': '#f59e0b',
+        '--color-brand-fondo': '#fffdf7',
+        '--color-brand-texto': '#1c1917',
     },
     nocheFiesta: {
-        '--color-brand-primario': '#ff007f',
-        '--color-brand-secundario': '#00e5ff',
-        '--color-brand-acento': '#ffd000',
-        '--color-brand-fondo': '#0f172a',
-        '--color-brand-texto': '#f8fafc',
+        '--color-brand-primario': '#6d28d9',
+        '--color-brand-secundario': '#c2410c',
+        '--color-brand-acento': '#eab308',
+        '--color-brand-fondo': '#faf5ff',
+        '--color-brand-texto': '#1e1b4b',
     },
     meridaPastel: {
-        '--color-brand-primario': '#15803d',
-        '--color-brand-secundario': '#e4007c',
-        '--color-brand-acento': '#f59e0b',
-        '--color-brand-fondo': '#faf7f2',
+        '--color-brand-primario': '#be185d',
+        '--color-brand-secundario': '#047857',
+        '--color-brand-acento': '#d97706',
+        '--color-brand-fondo': '#fcf9f6',
         '--color-brand-texto': '#1c1917',
     },
 };
 
-function pickHexToken(customValue: string | undefined, fallbackValue: string): string {
-    return customValue && customValue.trim().length > 0 ? customValue : fallbackValue;
+/**
+ * Normaliza y valida un código de color hexadecimal.
+ * Soporta entradas con o sin '#' (ej: 'e4007c' -> '#e4007c', '#e4007c' -> '#e4007c').
+ * Si el valor no es un color válido, retorna el fallback seguro.
+ *
+ * @param customValue Valor ingresado por el usuario o API.
+ * @param fallbackValue Valor de respaldo garantizado.
+ */
+export function normalizarHexToken(
+    customValue: string | undefined | null,
+    fallbackValue: string
+): string {
+    if (!customValue) return fallbackValue;
+    const clean = customValue.trim();
+    if (!clean) return fallbackValue;
+
+    // Acepta formato hex sin '#' (ej: "e4007c" o "fff")
+    if (/^[0-9a-fA-F]{3,8}$/.test(clean)) {
+        return `#${clean}`;
+    }
+
+    // Acepta formato hex con '#' (ej: "#e4007c" o "#fff")
+    if (/^#[0-9a-fA-F]{3,8}$/.test(clean)) {
+        return clean;
+    }
+
+    // Acepta formatos funcionales válidos de CSS (rgb, rgba, hsl, hsla)
+    if (/^(rgb|hsl)a?\(.+?\)$/.test(clean)) {
+        return clean;
+    }
+
+    return fallbackValue;
 }
 
 /**
  * Resuelve el mapa de custom properties CSS correspondiente a la configuración global de Sanity.
- * Si la paleta es `'custom'`, emplea los campos `paletaCustom*` con respaldo en `identidad`.
+ * Si la paleta es `'custom'`, emplea los campos `paletaCustom*` con normalización segura y respaldo en `identidad`.
  *
  * @param config Configuración global parcial o nula.
  * @returns Mapa de variables CSS `--color-brand-*`.
@@ -68,23 +98,23 @@ export function resolverTokensPaleta(
 
     if (nombrePaleta === 'custom') {
         return {
-            '--color-brand-primario': pickHexToken(
+            '--color-brand-primario': normalizarHexToken(
                 config?.paletaCustomPrimario,
                 PALETA_IDENTIDAD['--color-brand-primario']
             ),
-            '--color-brand-secundario': pickHexToken(
+            '--color-brand-secundario': normalizarHexToken(
                 config?.paletaCustomSecundario,
                 PALETA_IDENTIDAD['--color-brand-secundario']
             ),
-            '--color-brand-acento': pickHexToken(
+            '--color-brand-acento': normalizarHexToken(
                 config?.paletaCustomAcento,
                 PALETA_IDENTIDAD['--color-brand-acento']
             ),
-            '--color-brand-fondo': pickHexToken(
+            '--color-brand-fondo': normalizarHexToken(
                 config?.paletaCustomFondo,
                 PALETA_IDENTIDAD['--color-brand-fondo']
             ),
-            '--color-brand-texto': pickHexToken(
+            '--color-brand-texto': normalizarHexToken(
                 config?.paletaCustomTexto,
                 PALETA_IDENTIDAD['--color-brand-texto']
             ),
@@ -106,7 +136,7 @@ export function generarCssVariablesRoot(tokens: Record<string, string>): string 
 
 export interface PalettePluginDeps {
     fetchConfig?: () => Promise<Partial<ConfiguracionGlobal> | null>;
-    applyHead?: (headObj: { style: Array<{ innerHTML: string }> }) => void;
+    applyHead?: (headObj: { style: Array<{ innerHTML: string; id?: string }> }) => void;
 }
 
 /**
@@ -122,9 +152,15 @@ export async function ejecutarPluginPaleta(deps: PalettePluginDeps = {}): Promis
     const cssRule = generarCssVariablesRoot(tokens);
 
     if (deps.applyHead) {
-        deps.applyHead({ style: [{ innerHTML: cssRule }] });
+        deps.applyHead({ style: [{ innerHTML: cssRule, id: 'lector-pobre-palette' }] });
     } else if (typeof useHead !== 'undefined') {
-        useHead({ style: [{ innerHTML: cssRule }] });
+        useHead({ style: [{ innerHTML: cssRule, id: 'lector-pobre-palette' }] });
+    }
+
+    if (typeof document !== 'undefined') {
+        for (const [key, value] of Object.entries(tokens)) {
+            document.documentElement.style.setProperty(key, value);
+        }
     }
 
     return cssRule;

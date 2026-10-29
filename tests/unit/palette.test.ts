@@ -35,7 +35,7 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
 
     it('resuelve correctamente una paleta predefinida y usa identidad como fallback', () => {
         const cenoteTokens = resolverTokensPaleta({ paletaActiva: 'cenote' });
-        expect(cenoteTokens['--color-brand-primario']).toBe('#0d9488');
+        expect(cenoteTokens['--color-brand-primario']).toBe('#0f766e');
 
         const fallbackTokens = resolverTokensPaleta(null);
         expect(fallbackTokens['--color-brand-primario']).toBe('#e4007c');
@@ -74,7 +74,7 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
             applyHead,
         });
 
-        expect(css).toContain('--color-brand-primario:#ff007f');
+        expect(css).toContain('--color-brand-primario:#6d28d9');
         expect(applyHead).toHaveBeenCalledTimes(1);
 
         // Si fetchConfig lanza error, aplica identidad por defecto sin fallar

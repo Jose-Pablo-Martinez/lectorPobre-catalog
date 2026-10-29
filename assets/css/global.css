@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
 
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
@@ -29,8 +29,8 @@
 }
 
 body {
-  background-color: #f8fafc;
-  color: var(--color-brand-texto);
+  background-color: var(--color-brand-fondo, #f8fafc);
+  color: var(--color-brand-texto, #18181b);
   font-family: var(--font-sans);
 }
 
@@ -43,19 +43,62 @@ body {
   scrollbar-width: none;
 }
 
-/* RF-16: Variantes visuales del catálogo aplicadas sobre <html> */
+/* ==============================================================================
+   RF-16: Variantes visuales del catálogo aplicadas sobre <html>
+   ============================================================================== */
+
+/* ------------------------------------------------------------------------------
+   1. VARIANTE CLÁSICO: "Estilo de Barrio & Rotulismo Popular"
+   Inspirado en la gráfica popular de barrio mexicana: bardas rotuladas, talleres,
+   carteles de lucha y mercados. Bordes gruesos de 2.5px, sombras duras de 5px,
+   letras mayúsculas contundentes de rotulista y presencia visual rotunda.
+   ------------------------------------------------------------------------------ */
 .variante-clasico .tarjeta-producto {
   border-radius: 0.5rem;
-  border: 1px solid #e4e4e7;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-.variante-clasico h1,
-.variante-clasico h2,
-.variante-clasico h3 {
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  border: 2.5px solid var(--color-brand-texto, #18181b);
+  box-shadow: 5px 5px 0px var(--color-brand-texto, #18181b);
+  background-color: #ffffff;
 }
 
+.variante-clasico .tarjeta-producto .aspect-square {
+  border-bottom: 2.5px solid var(--color-brand-texto, #18181b);
+}
+
+.variante-clasico .tarjeta-producto h3 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.variante-clasico .tarjeta-producto button {
+  border-width: 2.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  box-shadow: 3px 3px 0px var(--color-brand-texto, #18181b);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .variante-clasico .tarjeta-producto {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+  .variante-clasico .tarjeta-producto:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 8px 8px 0px var(--color-brand-texto, #18181b);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variante-clasico .tarjeta-producto {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------------------
+   2. VARIANTE MODERNO (PREDETERMINADA): "Neo-Pop Limpio y Amigable"
+   ESTILO POR DEFECTO: Intacto según especificación del usuario.
+   ------------------------------------------------------------------------------ */
 .variante-moderno .tarjeta-producto {
   border-radius: 0.75rem;
   border: 1px solid #e4e4e7;
@@ -81,13 +124,59 @@ body {
   }
 }
 
+/* ------------------------------------------------------------------------------
+   3. VARIANTE MINIMALISTA: "Galería de Arte Editorial & Boutique Zen"
+   Diferenciación total: desmaterialización de la caja. Sin bordes de caja ni sombras.
+   Las piezas artísticas flotan como láminas enmarcadas en un espacio diáfano.
+   Tipografía ligera, botones flat refinados y micro-interacciones sutiles.
+   ------------------------------------------------------------------------------ */
 .variante-minimalista .tarjeta-producto {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(228, 228, 231, 0.8);
+  border-radius: 0;
+  border: none;
   box-shadow: none;
+  background-color: transparent;
 }
-.variante-minimalista {
+
+.variante-minimalista .tarjeta-producto:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.variante-minimalista .tarjeta-producto .aspect-square {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
+}
+
+.variante-minimalista .tarjeta-producto h3 {
   font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.variante-minimalista button,
+.variante-minimalista .tarjeta-producto button {
+  box-shadow: none;
+  border-width: 1px;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .variante-minimalista .tarjeta-producto .aspect-square img {
+    transition: opacity 250ms ease;
+  }
+  .variante-minimalista .tarjeta-producto:hover .aspect-square img {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variante-minimalista .tarjeta-producto .aspect-square img {
+    transition: none;
+  }
 }
 
 /* RF-16: Overlay de patrón decorativo sutil, repetible y no invasivo */

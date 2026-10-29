@@ -13,6 +13,8 @@ import { computed, ref, watch } from 'vue';
 import { ShoppingBag, Sparkles } from 'lucide-vue-next';
 import CartDrawer from '~/components/CartDrawer.vue';
 import { useCart } from '~/composables/useCart';
+import { resolverTokensPaleta } from '~/plugins/palette';
+import { resolverClaseVariante, VARIANTES_PERMITIDAS } from '~/plugins/variant';
 import type { ConfiguracionGlobal } from '~/types/sanity';
 
 const { totalItems, toggleCart } = useCart();
@@ -30,7 +32,14 @@ try {
                 urlFacebook,
                 urlTikTok,
                 urlYouTube,
-                patronDecorativoActivo
+                patronDecorativoActivo,
+                varianteVisual,
+                paletaActiva,
+                paletaCustomPrimario,
+                paletaCustomSecundario,
+                paletaCustomAcento,
+                paletaCustomFondo,
+                paletaCustomTexto
             }`
         )
     );
@@ -39,6 +48,20 @@ try {
         (val) => {
             if (val) {
                 configGlobal.value = val;
+                if (typeof document !== 'undefined') {
+                    // Sincronización reactiva inmediata de variante visual
+                    const clase = resolverClaseVariante(val.varianteVisual);
+                    VARIANTES_PERMITIDAS.forEach((v) => {
+                        document.documentElement.classList.remove(`variante-${v}`);
+                    });
+                    document.documentElement.classList.add(clase);
+
+                    // Sincronización reactiva inmediata de tokens de paleta
+                    const tokens = resolverTokensPaleta(val);
+                    for (const [key, propVal] of Object.entries(tokens)) {
+                        document.documentElement.style.setProperty(key, propVal);
+                    }
+                }
             }
         },
         { immediate: true, flush: 'sync' }
@@ -72,7 +95,7 @@ const urlYouTube = computed(
 
 <template>
     <div
-        class="min-h-screen flex flex-col bg-zinc-50 text-brand-texto font-sans"
+        class="min-h-screen flex flex-col bg-brand-fondo text-brand-texto font-sans"
         :class="{ 'patron-decorativo-activo': configGlobal?.patronDecorativoActivo }"
     >
         <!-- Barra superior de anuncios del taller -->

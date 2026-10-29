@@ -31,7 +31,7 @@ export interface VariantPluginDeps {
     fetchConfig?: () => Promise<Partial<ConfiguracionGlobal> | null>;
     applyHead?: (headObj: {
         htmlAttrs: { class: string };
-        style?: Array<{ innerHTML: string }>;
+        style?: Array<{ innerHTML: string; id?: string }>;
     }) => void;
 }
 
@@ -59,7 +59,7 @@ function extraerSanityConfig(): { projectId?: string; dataset?: string } {
  */
 export function resolverEstilosPatron(
     configData?: Partial<ConfiguracionGlobal> | null
-): Array<{ innerHTML: string }> {
+): Array<{ innerHTML: string; id?: string }> {
     if (!configData?.patronDecorativoActivo || !configData.patronDecorativo) {
         return [];
     }
@@ -78,6 +78,7 @@ export function resolverEstilosPatron(
 
     return [
         {
+            id: 'lector-pobre-patron-decorativo',
             innerHTML: `:root { --bg-patron-decorativo: url("${urlPatron}"); }`,
         },
     ];
@@ -86,7 +87,7 @@ export function resolverEstilosPatron(
 function aplicarHead(
     headPayload: {
         htmlAttrs: { class: string };
-        style?: Array<{ innerHTML: string }>;
+        style?: Array<{ innerHTML: string; id?: string }>;
     },
     applyHeadFn?: VariantPluginDeps['applyHead']
 ): void {
@@ -102,7 +103,7 @@ function aplicarHead(
  */
 export async function ejecutarPluginVariante(
     deps: VariantPluginDeps = {}
-): Promise<{ claseVariante: string; estilosExtra: Array<{ innerHTML: string }> }> {
+): Promise<{ claseVariante: string; estilosExtra: Array<{ innerHTML: string; id?: string }> }> {
     const configData = await fetchGlobalConfigSafe(
         'varianteVisual, patronDecorativoActivo, patronDecorativo',
         deps.fetchConfig
@@ -117,6 +118,13 @@ export async function ejecutarPluginVariante(
     };
 
     aplicarHead(headPayload, deps.applyHead);
+
+    if (typeof document !== 'undefined') {
+        VARIANTES_PERMITIDAS.forEach((v) => {
+            document.documentElement.classList.remove(`variante-${v}`);
+        });
+        document.documentElement.classList.add(claseVariante);
+    }
 
     return { claseVariante, estilosExtra };
 }
