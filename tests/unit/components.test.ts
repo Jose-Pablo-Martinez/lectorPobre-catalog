@@ -29,24 +29,24 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         closeCart();
     });
 
-    it('UT-VUE-08: StockIndicator muestra En Stock, Pocas unidades, Agotado y Verificando stock', () => {
+    it('UT-VUE-08: StockIndicator muestra Disponibles, Quedan solo X, Agotado y Verificando disponibilidad', () => {
         const loadingWrapper = mount(StockIndicator, {
             props: { stock: 10, cargando: true },
         });
         expect(loadingWrapper.find('[data-testid="stock-cargando"]').exists()).toBe(true);
-        expect(loadingWrapper.text()).toContain('Verificando stock');
+        expect(loadingWrapper.text()).toContain('Verificando disponibilidad');
 
         const okWrapper = mount(StockIndicator, {
             props: { stock: 12, umbralStockBajo: 5, mostrarUnidades: true },
         });
         expect(okWrapper.find('[data-testid="stock-disponible"]').exists()).toBe(true);
-        expect(okWrapper.text()).toContain('En Stock (12)');
+        expect(okWrapper.text()).toContain('Disponibles');
 
         const lowWrapper = mount(StockIndicator, {
             props: { stock: 3, umbralStockBajo: 5, mostrarUnidades: true },
         });
         expect(lowWrapper.find('[data-testid="stock-bajo"]').exists()).toBe(true);
-        expect(lowWrapper.text()).toContain('3 disponibles');
+        expect(lowWrapper.text()).toContain('Quedan solo 3');
 
         const zeroWrapper = mount(StockIndicator, {
             props: { stock: 0, umbralStockBajo: 5 },

@@ -20,7 +20,7 @@ import {
     Image as ImageIcon,
     Search,
     ShoppingBag,
-    Sparkles,
+    Bird,
     Tag,
     X,
 } from 'lucide-vue-next';
@@ -306,7 +306,7 @@ try {
                         class="inline-flex items-center gap-1 px-3 py-1 bg-brand-acento text-brand-texto font-mono text-xs font-extrabold uppercase border border-brand-texto shadow-hard-sm"
                         data-testid="featured-product-badge"
                     >
-                        <Sparkles class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <Bird class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         <span>Me lo dijo un periquito...</span>
                     </span>
 
