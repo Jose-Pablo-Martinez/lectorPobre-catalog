@@ -2,7 +2,7 @@ name: CI — Tests + Build
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, backend-implementation]
   pull_request:
     branches: [main, develop]
 
@@ -54,6 +54,11 @@ jobs:
       - name: Run Vitest unit tests with coverage
         # Only runs *.test.ts files — *.integration.test.ts are excluded via vitest.config.ts
         run: pnpm run test -- --coverage --run
+      - name: Upload Frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/lcov.info
       - name: Verify Sanity TypeScript types are in sync (IT-SANITY-01)
         # Runs sanity typegen and fails if types/sanity.ts differs from the committed version.
         # Requires SANITY_PROJECT_ID_STAGING secret. Implements Hallazgo 4 from observations doc.
@@ -70,6 +75,28 @@ jobs:
         env:
           NUXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.SANITY_PROJECT_ID_STAGING }}
           NUXT_PUBLIC_SANITY_DATASET: staging
+
+  sonarcloud:
+    name: SonarQube Cloud Analysis
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download Go coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+      - name: Download Frontend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage
+      - name: SonarQube Cloud Scan
+        uses: SonarSource/sonarqube-scan-action@0303d6b62e310685c0e34d0b9cde218036885c4d # v5.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   # Integration tests run separately from unit tests — they require network access to Sanity staging.
   # Replicates the Go pattern: `go test -tags=integration ./sanity/...` (§5.7).
@@ -112,4 +139,3 @@ jobs:
         run: pnpm exec playwright test
         env:
           BASE_URL: ${{ secrets.VERCEL_PREVIEW_URL }}
-
