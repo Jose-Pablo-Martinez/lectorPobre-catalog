@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import {
+import defaultPalettePlugin, {
     ejecutarPluginPaleta,
     generarCssVariablesRoot,
     normalizarHexToken,
@@ -77,16 +77,18 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         expect(cssRule).toContain('--color-brand-primario:#112233');
     });
 
-    it('normalizarHexToken maneja entradas válidas, incompletas y fallbacks seguros', () => {
+    it('normalizarHexToken maneja entradas válidas, incompletas, formatos funcionales y fallbacks seguros', () => {
         expect(normalizarHexToken('e4007c', '#000000')).toBe('#e4007c');
         expect(normalizarHexToken('#e4007c', '#000000')).toBe('#e4007c');
         expect(normalizarHexToken('   #fff  ', '#000000')).toBe('#fff');
+        expect(normalizarHexToken('rgb(255, 0, 128)', '#000000')).toBe('rgb(255, 0, 128)');
+        expect(normalizarHexToken('hsl(120, 100%, 50%)', '#000000')).toBe('hsl(120, 100%, 50%)');
         expect(normalizarHexToken('', '#000000')).toBe('#000000');
         expect(normalizarHexToken(undefined, '#000000')).toBe('#000000');
         expect(normalizarHexToken('invalid-color', '#000000')).toBe('#000000');
     });
 
-    it('ejecutarPluginPaleta obtiene la configuración e inyecta la regla CSS en el head', async () => {
+    it('ejecutarPluginPaleta obtiene la configuración, inyecta CSS y sincroniza el DOM', async () => {
         const applyHead = vi.fn();
         const css = await ejecutarPluginPaleta({
             fetchConfig: async () => ({ paletaActiva: 'nocheFiesta' }),
@@ -95,6 +97,7 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
 
         expect(css).toContain('--color-brand-primario:#6d28d9');
         expect(applyHead).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.style.getPropertyValue('--color-brand-primario')).toBe('#6d28d9');
 
         // Si fetchConfig lanza error, aplica identidad por defecto sin fallar
         const cssFallback = await ejecutarPluginPaleta({
@@ -104,5 +107,13 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
             applyHead,
         });
         expect(cssFallback).toContain('--color-brand-primario:#e4007c');
+    });
+
+    it('export por defecto es invocable como función o plugin', async () => {
+        expect(typeof defaultPalettePlugin).toBe('function');
+        const css = await (defaultPalettePlugin as any)({
+            fetchConfig: async () => ({ paletaActiva: 'cenote' }),
+        });
+        expect(css).toContain('--color-brand-primario:#0f766e');
     });
 });
