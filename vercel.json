@@ -2,11 +2,23 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
   "functions": {
+    "api/comment/comment.go": {
+      "maxDuration": 15
+    },
+    "api/rating/rating.go": {
+      "maxDuration": 15
+    },
+    "api/search/search.go": {
+      "maxDuration": 15
+    },
     "api/webhook/rebuild.go": {
       "maxDuration": 15
     }
   },
   "rewrites": [
+    { "source": "/api/comentar", "destination": "/api/comment" },
+    { "source": "/api/calificar", "destination": "/api/rating" },
+    { "source": "/api/buscar", "destination": "/api/search" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
   "headers": [
