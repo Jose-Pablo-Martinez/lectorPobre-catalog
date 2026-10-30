@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
     compatibilityDate: '2024-04-03',
+    devtools: { enabled: false },
     modules: ['@nuxtjs/tailwindcss', '@nuxtjs/sanity'],
 
     css: ['~/assets/css/global.css'],
@@ -71,7 +72,7 @@ export default defineNuxtConfig({
     nitro: {
         preset: 'vercel-static', // Prepara el proyecto como Static Site Generation (SSG) en Vercel
         prerender: {
-            crawlLinks: true,
+            crawlLinks: process.env.NODE_ENV === 'production',
             routes: ['/'],
         },
     },

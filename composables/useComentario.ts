@@ -5,11 +5,7 @@
  * @satisfies RF-07, RNF-04
  */
 
-export {
-    COMMENT_MAX_LENGTH,
-    COMMENT_MIN_LENGTH,
-    type UseCommentOptions,
-    useComment,
-    useComment as useComentario,
-} from './useComment';
+import { useComment, type UseCommentOptions } from './useComment';
 
+export type UseComentarioOptions = UseCommentOptions;
+export const useComentario = useComment;
