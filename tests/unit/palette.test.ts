@@ -5,9 +5,10 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import {
+import defaultPalettePlugin, {
     ejecutarPluginPaleta,
     generarCssVariablesRoot,
+    normalizarHexToken,
     PALETAS_PREDEFINIDAS,
     resolverTokensPaleta,
 } from '~/plugins/palette';
@@ -35,7 +36,7 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
 
     it('resuelve correctamente una paleta predefinida y usa identidad como fallback', () => {
         const cenoteTokens = resolverTokensPaleta({ paletaActiva: 'cenote' });
-        expect(cenoteTokens['--color-brand-primario']).toBe('#0d9488');
+        expect(cenoteTokens['--color-brand-primario']).toBe('#0f766e');
 
         const fallbackTokens = resolverTokensPaleta(null);
         expect(fallbackTokens['--color-brand-primario']).toBe('#e4007c');
@@ -57,6 +58,15 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         expect(customTokens['--color-brand-fondo']).toBe('#fafafa');
         expect(customTokens['--color-brand-texto']).toBe('#101010');
 
+        // Soporte de hex sin almohadilla y auto-normalización
+        const sinAlmohadilla = resolverTokensPaleta({
+            paletaActiva: 'custom',
+            paletaCustomPrimario: 'ff0099',
+            paletaCustomSecundario: '00aaff',
+        });
+        expect(sinAlmohadilla['--color-brand-primario']).toBe('#ff0099');
+        expect(sinAlmohadilla['--color-brand-secundario']).toBe('#00aaff');
+
         const partialCustom = resolverTokensPaleta({
             paletaActiva: 'custom',
         });
@@ -67,15 +77,27 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         expect(cssRule).toContain('--color-brand-primario:#112233');
     });
 
-    it('ejecutarPluginPaleta obtiene la configuración e inyecta la regla CSS en el head', async () => {
+    it('normalizarHexToken maneja entradas válidas, incompletas, formatos funcionales y fallbacks seguros', () => {
+        expect(normalizarHexToken('e4007c', '#000000')).toBe('#e4007c');
+        expect(normalizarHexToken('#e4007c', '#000000')).toBe('#e4007c');
+        expect(normalizarHexToken('   #fff  ', '#000000')).toBe('#fff');
+        expect(normalizarHexToken('rgb(255, 0, 128)', '#000000')).toBe('rgb(255, 0, 128)');
+        expect(normalizarHexToken('hsl(120, 100%, 50%)', '#000000')).toBe('hsl(120, 100%, 50%)');
+        expect(normalizarHexToken('', '#000000')).toBe('#000000');
+        expect(normalizarHexToken(undefined, '#000000')).toBe('#000000');
+        expect(normalizarHexToken('invalid-color', '#000000')).toBe('#000000');
+    });
+
+    it('ejecutarPluginPaleta obtiene la configuración, inyecta CSS y sincroniza el DOM', async () => {
         const applyHead = vi.fn();
         const css = await ejecutarPluginPaleta({
             fetchConfig: async () => ({ paletaActiva: 'nocheFiesta' }),
             applyHead,
         });
 
-        expect(css).toContain('--color-brand-primario:#ff007f');
+        expect(css).toContain('--color-brand-primario:#6d28d9');
         expect(applyHead).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.style.getPropertyValue('--color-brand-primario')).toBe('#6d28d9');
 
         // Si fetchConfig lanza error, aplica identidad por defecto sin fallar
         const cssFallback = await ejecutarPluginPaleta({
@@ -85,5 +107,13 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
             applyHead,
         });
         expect(cssFallback).toContain('--color-brand-primario:#e4007c');
+    });
+
+    it('export por defecto es invocable como función o plugin', async () => {
+        expect(typeof defaultPalettePlugin).toBe('function');
+        const css = await (defaultPalettePlugin as any)({
+            fetchConfig: async () => ({ paletaActiva: 'cenote' }),
+        });
+        expect(css).toContain('--color-brand-primario:#0f766e');
     });
 });

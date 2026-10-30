@@ -29,14 +29,12 @@ const estado = computed<'cargando' | 'disponible' | 'bajo' | 'agotado'>(() => {
 });
 
 const etiquetaTexto = computed<string>(() => {
-    if (estado.value === 'cargando') return 'Verificando stock';
+    if (estado.value === 'cargando') return 'Verificando disponibilidad';
     if (estado.value === 'agotado') return 'Agotado';
     if (estado.value === 'bajo') {
-        return props.mostrarUnidades
-            ? `En Stock (${props.stock} disponibles)`
-            : 'En Stock · Pocas unidades';
+        return `Quedan solo ${props.stock}`;
     }
-    return props.mostrarUnidades ? `En Stock (${props.stock})` : 'En Stock';
+    return 'Disponibles';
 });
 
 const clasesBadge = computed<string>(() => {
@@ -71,7 +69,7 @@ const clasesDot = computed<string>(() => {
         class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 border-2 border-brand-texto font-mono text-[10px] sm:text-xs font-bold uppercase tracking-wide select-none"
         :class="clasesBadge"
         :data-testid="`stock-${estado}`"
-        :aria-label="`Estado de inventario: ${etiquetaTexto}`"
+        :aria-label="`Disponibilidad: ${etiquetaTexto}`"
     >
         <Loader2
             v-if="estado === 'cargando'"
