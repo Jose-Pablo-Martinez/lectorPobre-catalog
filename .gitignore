@@ -28,6 +28,8 @@ Thumbs.db
 
 # Coverage y tests
 coverage/
+coverage.out
+.scannerwork/
 playwright-report/
 test-results/
 

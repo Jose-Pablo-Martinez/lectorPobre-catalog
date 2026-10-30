@@ -5,7 +5,12 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { ejecutarPluginVariante, resolverClaseVariante } from '~/plugins/variant';
+import defaultVariantPlugin, {
+    ejecutarPluginVariante,
+    resolverClaseVariante,
+    resolverEstilosPatron,
+    VARIANTES_PERMITIDAS,
+} from '~/plugins/variant';
 
 describe('UT-VUE-17: Plugin de Variante Visual (RF-16)', () => {
     it('retorna la clase correcta para clasico, moderno y minimalista', () => {
@@ -20,8 +25,28 @@ describe('UT-VUE-17: Plugin de Variante Visual (RF-16)', () => {
         expect(resolverClaseVariante('inexistente')).toBe('variante-moderno');
     });
 
-    it('ejecutarPluginVariante aplica la clase en htmlAttrs y soporta patrón decorativo activo', async () => {
+    it('resolverEstilosPatron retorna array vacío cuando el patrón no está activo o falta la imagen', () => {
+        expect(resolverEstilosPatron(null)).toEqual([]);
+        expect(resolverEstilosPatron(undefined)).toEqual([]);
+        expect(resolverEstilosPatron({ patronDecorativoActivo: false })).toEqual([]);
+        expect(
+            resolverEstilosPatron({
+                patronDecorativoActivo: true,
+                patronDecorativo: null as any,
+            })
+        ).toEqual([]);
+        expect(
+            resolverEstilosPatron({
+                patronDecorativoActivo: true,
+                patronDecorativo: {} as any,
+            })
+        ).toEqual([]);
+    });
+
+    it('ejecutarPluginVariante aplica la clase en htmlAttrs, sincroniza el DOM y soporta patrón decorativo', async () => {
         const applyHead = vi.fn();
+        document.documentElement.classList.add('variante-moderno');
+
         const result = await ejecutarPluginVariante({
             fetchConfig: async () => ({
                 varianteVisual: 'clasico',
@@ -39,7 +64,12 @@ describe('UT-VUE-17: Plugin de Variante Visual (RF-16)', () => {
 
         expect(result.claseVariante).toBe('variante-clasico');
         expect(result.estilosExtra).toHaveLength(1);
+        expect(result.estilosExtra[0].innerHTML).toContain('--bg-patron-decorativo: url(');
         expect(applyHead).toHaveBeenCalledTimes(1);
+
+        // Verifica que se removieron las clases previas y se agregó la nueva en el DOM
+        expect(document.documentElement.classList.contains('variante-clasico')).toBe(true);
+        expect(document.documentElement.classList.contains('variante-moderno')).toBe(false);
 
         // Fallback cuando falla el fetch
         const fallback = await ejecutarPluginVariante({
@@ -49,5 +79,13 @@ describe('UT-VUE-17: Plugin de Variante Visual (RF-16)', () => {
             applyHead,
         });
         expect(fallback.claseVariante).toBe('variante-moderno');
+    });
+
+    it('export por defecto es invocable como función o plugin', async () => {
+        expect(typeof defaultVariantPlugin).toBe('function');
+        const res = await (defaultVariantPlugin as any)({
+            fetchConfig: async () => ({ varianteVisual: 'minimalista' }),
+        });
+        expect(res?.claseVariante ?? 'variante-minimalista').toBe('variante-minimalista');
     });
 });

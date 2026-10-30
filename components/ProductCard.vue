@@ -104,7 +104,10 @@ const manejarAgregar = (): void => {
             </a>
 
             <!-- Badge de Stock flotante superior izquierdo -->
-            <div class="absolute top-2 sm:top-2.5 left-2 sm:left-2.5 z-10 max-w-[calc(100%-1rem)]">
+            <div
+                v-if="agotado"
+                class="absolute top-2 sm:top-2.5 left-2 sm:left-2.5 z-10 max-w-[calc(100%-1rem)]"
+            >
                 <StockIndicator
                     :stock="producto.stock"
                     :umbral-stock-bajo="umbralStockBajo"

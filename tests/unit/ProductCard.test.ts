@@ -43,7 +43,7 @@ describe('UT-VUE-04 & UT-VUE-05: ProductCard.vue', () => {
         expect(wrapper.text()).toContain('Llaveros');
         expect(wrapper.find('[data-testid="product-price"]').text()).toBe('$120.00 MXN');
         expect(wrapper.find('[data-testid="product-image-placeholder"]').exists()).toBe(true);
-        expect(wrapper.find('[data-testid="stock-disponible"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="stock-disponible"]').exists()).toBe(false);
 
         const addBtn = wrapper.find('[data-testid="add-to-order-button"]');
         expect(addBtn.attributes('disabled')).toBeUndefined();

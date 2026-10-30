@@ -41,7 +41,7 @@ export const globalConfig = defineType({
             name: 'numeroWhatsApp',
             title: 'Número de WhatsApp (con lada, sin "+")',
             type: 'string',
-            description: 'Ejemplo: 5219991234567. Usado para generar el enlace directo wa.me (RF-17).',
+            description: 'Ejemplo: 5219991234567. Usado para generar el enlace directo wa.me.',
             validation: Rule => Rule.required().regex(/^\d{10,15}$/, {
                 name: 'número de teléfono internacional',
                 invert: false
@@ -70,10 +70,10 @@ export const globalConfig = defineType({
             description: 'Enlace a la página de Facebook (aparece en el footer).'
         }),
         defineField({
-            name: 'urlTikTok',
-            title: 'URL de TikTok',
+            name: 'urlYouTube',
+            title: 'URL de YouTube',
             type: 'url',
-            description: 'Enlace al perfil de TikTok (aparece en el footer).'
+            description: 'Enlace al canal de YouTube (aparece en el footer).'
         }),
 
         // ── Paleta de Colores (RF-15) ─────────────────────────────────────────
@@ -189,7 +189,7 @@ export const globalConfig = defineType({
             name: 'sinonimos',
             title: 'Sinónimos globales de búsqueda',
             type: 'array',
-            description: 'Grupos de términos equivalentes para la búsqueda y recomendaciones (ej. llavero, keychain, yavero). RF-23.',
+            description: 'Grupos de términos equivalentes para la búsqueda y recomendaciones (ej. llavero, keychain, yavero).',
             of: [
                 {
                     type: 'object',
