@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -12,11 +11,6 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/handlers"
 	"github.com/tu-org/lectorpobre/pkg/middleware"
 	"github.com/tu-org/lectorpobre/pkg/sanity"
-)
-
-const (
-	errInternalMsg  = "error interno"
-	applicationJSON = "application/json"
 )
 
 var defaultSanitySearcher sanity.Searcher
@@ -44,18 +38,11 @@ func getSanitySearcher() (sanity.Searcher, error) {
 //   - 429 Too Many Requests si se supera el rate limit por IP.
 //   - 500 Internal Server Error si falla la comunicación con Sanity.
 func Handler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", applicationJSON)
-
 	// 1. Guard contra panics: asegura que nunca se expongan trazas de ejecución (RNF-04, UT-GO-18)
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Printf("[PANIC RECOVERED] SearchHandler: %v", rec)
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-				Ok:    false,
-				Error: errInternalMsg,
-				Code:  constants.ErrCodes.InternalError,
-			})
+			handlers.SendInternalError(w)
 		}
 	}()
 
@@ -66,35 +53,20 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Verificación de método HTTP (solo GET permitido)
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-			Ok:    false,
-			Error: "método no permitido",
-			Code:  constants.ErrCodes.Unauthorized,
-		})
+		handlers.SendError(w, http.StatusMethodNotAllowed, "método no permitido", constants.ErrCodes.Unauthorized)
 		return
 	}
 
 	// 4. Rate limiting por IP (§9.5, UT-GO-22..23)
 	if !middleware.VerificarRateLimit(r, "buscar") {
-		w.WriteHeader(http.StatusTooManyRequests)
-		_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-			Ok:    false,
-			Error: "demasiadas solicitudes",
-			Code:  constants.ErrCodes.RateLimit,
-		})
+		handlers.SendError(w, http.StatusTooManyRequests, "demasiadas solicitudes", constants.ErrCodes.RateLimit)
 		return
 	}
 
 	// 5. Extracción y validación de parámetro de búsqueda q (§9.11, UT-GO-08..10)
 	query := r.URL.Query().Get("q")
 	if err := handlers.ValidateSearch(query); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-			Ok:    false,
-			Error: err.Error(),
-			Code:  constants.ErrCodes.InvalidQuery,
-		})
+		handlers.SendError(w, http.StatusBadRequest, err.Error(), constants.ErrCodes.InvalidQuery)
 		return
 	}
 
@@ -102,31 +74,17 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	searcher, err := getSanitySearcher()
 	if err != nil {
 		log.Printf("[ERROR] SearchHandler: error al inicializar cliente Sanity: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-			Ok:    false,
-			Error: errInternalMsg,
-			Code:  constants.ErrCodes.InternalError,
-		})
+		handlers.SendInternalError(w)
 		return
 	}
 
 	results, err := searcher.SearchProducts(r.Context(), query)
 	if err != nil {
 		log.Printf("[ERROR] SearchHandler: error al consultar Sanity: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-			Ok:    false,
-			Error: errInternalMsg,
-			Code:  constants.ErrCodes.InternalError,
-		})
+		handlers.SendInternalError(w)
 		return
 	}
 
 	// 7. Respuesta exitosa HTTP 200 OK (UT-GO-17)
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(handlers.ApiResponse{
-		Ok:   true,
-		Data: results,
-	})
+	handlers.SendSuccess(w, http.StatusOK, results)
 }
