@@ -101,6 +101,56 @@ func TestSanityClient_CreateRating_Exitoso(t *testing.T) {
 	}
 }
 
+// TestSanityClient_SearchProducts_Exitoso verifica la consulta parametrizada a Sanity.
+// Satisface: RF-18, RNF-04, §9.11.
+func TestSanityClient_SearchProducts_Exitoso(t *testing.T) {
+	var receivedBody map[string]interface{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(bodyBytes, &receivedBody)
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"result":[{"_id":"p1","nombre":"Libro Uno","slug":"libro-uno","precio":200}]}`))
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token-123", server.Client(), server.URL)
+
+	results, err := client.SearchProducts(context.Background(), "libro")
+	if err != nil {
+		t.Fatalf("SearchProducts esperaba nil, se obtuvo error: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("Esperado 1 resultado, obtenidos %d", len(results))
+	}
+
+	if results[0]["nombre"] != "Libro Uno" {
+		t.Errorf("Esperado nombre 'Libro Uno', obtenido %v", results[0]["nombre"])
+	}
+
+	// Verificar uso de parámetros en GROQ
+	params, ok := receivedBody["params"].(map[string]interface{})
+	if !ok || params["term"] != "libro*" {
+		t.Errorf("Esperado params con 'term' = 'libro*', obtenido %v", receivedBody["params"])
+	}
+}
+
+// TestSanityClient_SearchProducts_SanityError verifica manejo de errores en búsqueda.
+func TestSanityClient_SearchProducts_SanityError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	_, err := client.SearchProducts(context.Background(), "test")
+	if err == nil {
+		t.Fatalf("Se esperaba error cuando Sanity responde 500")
+	}
+}
+
 // TestSanityClient_CreateComment_SanityError_NoExponeToken verifica que ante un fallo de Sanity nunca se filtre el token.
 // Satisface: RNF-04, §8.
 func TestSanityClient_CreateComment_SanityError_NoExponeToken(t *testing.T) {
@@ -126,7 +176,6 @@ func TestSanityClient_CreateComment_SanityError_NoExponeToken(t *testing.T) {
 
 // TestSanityClient_RedError_RetornaError verifica manejo de errores de red o timeouts.
 func TestSanityClient_RedError_RetornaError(t *testing.T) {
-	// Cliente apuntando a un servidor cerrado
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	serverURL := server.URL
 	server.Close()
@@ -184,5 +233,14 @@ func TestCrearComentario_FuncionHelper(t *testing.T) {
 	err := sanity.CrearComentario(context.Background(), payload)
 	if err == nil {
 		t.Errorf("CrearComentario debió fallar por falta de credenciales")
+	}
+}
+
+// TestBuscarProductos_FuncionHelper verifica la función helper de conveniencia BuscarProductos.
+func TestBuscarProductos_FuncionHelper(t *testing.T) {
+	os.Unsetenv("SANITY_WRITE_TOKEN")
+	_, err := sanity.BuscarProductos(context.Background(), "libro")
+	if err == nil {
+		t.Errorf("BuscarProductos debió fallar por falta de credenciales")
 	}
 }

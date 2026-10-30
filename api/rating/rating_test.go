@@ -242,3 +242,4 @@ func TestCalificarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 		t.Fatalf("Esperado 500 para panic, obtenido %d", w.Code)
 	}
 }
+

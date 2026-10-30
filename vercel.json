@@ -5,6 +5,12 @@
     "api/comment/comment.go": {
       "maxDuration": 15
     },
+    "api/rating/rating.go": {
+      "maxDuration": 15
+    },
+    "api/search/search.go": {
+      "maxDuration": 15
+    },
     "api/webhook/rebuild.go": {
       "maxDuration": 15
     }
