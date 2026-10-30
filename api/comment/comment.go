@@ -4,26 +4,24 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
-	"github.com/tu-org/lectorpobre/pkg/constants"
 	"github.com/tu-org/lectorpobre/pkg/handlers"
-	"github.com/tu-org/lectorpobre/pkg/middleware"
 	"github.com/tu-org/lectorpobre/pkg/sanity"
 )
 
-var defaultSanityWriter sanity.Writer
+var commentSanityWriter sanity.Writer
 
-// SetSanityWriter permite inyectar un mock de sanity.Writer durante las pruebas unitarias.
+// SetSanityWriter permite inyectar un mock de sanity.Writer durante las pruebas unitarias de comentarios.
 func SetSanityWriter(w sanity.Writer) {
-	defaultSanityWriter = w
+	commentSanityWriter = w
 }
 
-func getSanityWriter() (sanity.Writer, error) {
-	if defaultSanityWriter != nil {
-		return defaultSanityWriter, nil
+func getCommentWriter() (sanity.Writer, error) {
+	if commentSanityWriter != nil {
+		return commentSanityWriter, nil
 	}
 	return sanity.NewClient()
 }
@@ -39,52 +37,21 @@ func getSanityWriter() (sanity.Writer, error) {
 //   - 429 Too Many Requests si se supera el rate limit por IP (10 req/min).
 //   - 500 Internal Server Error si falla la comunicación con Sanity (mensaje genérico al cliente).
 func Handler(w http.ResponseWriter, r *http.Request) {
-	// 1. Guard contra panics: asegura que nunca se expongan trazas de ejecución (RNF-04, UT-GO-18)
-	defer func() {
-		if rec := recover(); rec != nil {
-			log.Printf("[PANIC RECOVERED] CommentHandler: %v", rec)
-			handlers.SendInternalError(w)
-		}
-	}()
-
-	// 2, 3, 4. Control CORS, verificación de método POST y Content-Type JSON
-	if !handlers.ValidateJSONPostRequest(w, r) {
-		return
-	}
-
-	// 5. Rate limiting por IP (§9.5, UT-GO-22..23)
-	if !middleware.VerificarRateLimit(r, "comentar") {
-		handlers.SendError(w, http.StatusTooManyRequests, "demasiadas solicitudes", constants.ErrCodes.RateLimit)
-		return
-	}
-
-	// 6. Decodificación de payload JSON (UT-GO-12)
-	var payload handlers.CommentPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		handlers.SendError(w, http.StatusBadRequest, "payload inválido", constants.ErrCodes.InvalidPayload)
-		return
-	}
-
-	// 7. Validación de campos de negocio (RF-07, UT-GO-01..04)
-	if err := handlers.ValidateComment(payload); err != nil {
-		handlers.SendError(w, http.StatusBadRequest, err.Error(), constants.ErrCodes.InvalidPayload)
-		return
-	}
-
-	// 8. Escritura en Sanity usando token privado (RNF-04, §8, §9.9)
-	writer, err := getSanityWriter()
-	if err != nil {
-		log.Printf("[ERROR] CommentHandler: error al inicializar cliente Sanity: %v", err)
-		handlers.SendInternalError(w)
-		return
-	}
-
-	if err := writer.CreateComment(r.Context(), payload.ProductID, payload.Text); err != nil {
-		log.Printf("[ERROR] CommentHandler: error al escribir en Sanity: %v", err)
-		handlers.SendInternalError(w)
-		return
-	}
-
-	// 9. Respuesta exitosa HTTP 201 Created (UT-GO-11)
-	handlers.SendSuccess(w, http.StatusCreated, nil)
+	handlers.ExecuteMutation(w, r, handlers.MutationConfig[handlers.CommentPayload]{
+		HandlerName: "CommentHandler",
+		ActionName:  "comentar",
+		Decode: func(req *http.Request) (handlers.CommentPayload, error) {
+			var p handlers.CommentPayload
+			err := json.NewDecoder(req.Body).Decode(&p)
+			return p, err
+		},
+		Validate: handlers.ValidateComment,
+		Execute: func(ctx context.Context, p handlers.CommentPayload) error {
+			writer, err := getCommentWriter()
+			if err != nil {
+				return err
+			}
+			return writer.CreateComment(ctx, p.ProductID, p.Text)
+		},
+	})
 }

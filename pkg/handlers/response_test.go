@@ -1,12 +1,15 @@
 package handlers_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/tu-org/lectorpobre/pkg/handlers"
+	"github.com/tu-org/lectorpobre/pkg/middleware"
 )
 
 func TestSendJSON(t *testing.T) {
@@ -111,3 +114,159 @@ func TestValidateJSONPostRequest(t *testing.T) {
 	})
 }
 
+func TestExecuteMutation(t *testing.T) {
+	type samplePayload struct {
+		Name string
+	}
+
+	validCfg := handlers.MutationConfig[samplePayload]{
+		HandlerName: "TestHandler",
+		ActionName:  "test_action",
+		Decode: func(r *http.Request) (samplePayload, error) {
+			return samplePayload{Name: "ok"}, nil
+		},
+		Validate: func(p samplePayload) error {
+			if p.Name == "invalid" {
+				return errors.New("nombre inválido")
+			}
+			return nil
+		},
+		Execute: func(ctx context.Context, p samplePayload) error {
+			if p.Name == "fail" {
+				return errors.New("fallo en escritura")
+			}
+			if p.Name == "panic" {
+				panic("simulated panic")
+			}
+			return nil
+		},
+	}
+
+	t.Run("éxito 201", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handlers.ExecuteMutation(w, req, validCfg)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("esperado 201, obtenido %d", w.Code)
+		}
+	})
+
+	t.Run("fallo en decode 400", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		cfg := validCfg
+		cfg.Decode = func(r *http.Request) (samplePayload, error) {
+			return samplePayload{}, errors.New("bad json")
+		}
+
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperado 400, obtenido %d", w.Code)
+		}
+	})
+
+	t.Run("fallo en validación con código por defecto 400", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		cfg := validCfg
+		cfg.Decode = func(r *http.Request) (samplePayload, error) {
+			return samplePayload{Name: "invalid"}, nil
+		}
+
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperado 400, obtenido %d", w.Code)
+		}
+	})
+
+	t.Run("fallo en validación con código explícito", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		cfg := validCfg
+		cfg.ErrorCode = "CUSTOM_ERROR"
+		cfg.Decode = func(r *http.Request) (samplePayload, error) {
+			return samplePayload{Name: "invalid"}, nil
+		}
+
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperado 400, obtenido %d", w.Code)
+		}
+		if !strings.Contains(w.Body.String(), "CUSTOM_ERROR") {
+			t.Fatalf("esperado CUSTOM_ERROR en respuesta: %s", w.Body.String())
+		}
+	})
+
+	t.Run("fallo en execute 500", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		cfg := validCfg
+		cfg.Decode = func(r *http.Request) (samplePayload, error) {
+			return samplePayload{Name: "fail"}, nil
+		}
+
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperado 500, obtenido %d", w.Code)
+		}
+	})
+
+	t.Run("panic capturado 500", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		cfg := validCfg
+		cfg.Decode = func(r *http.Request) (samplePayload, error) {
+			return samplePayload{Name: "panic"}, nil
+		}
+
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("esperado 500, obtenido %d", w.Code)
+		}
+	})
+
+	t.Run("rate limit excedido 429", func(t *testing.T) {
+		middleware.DefaultRateLimiter.Reset()
+		cfg := validCfg
+		cfg.ActionName = "limited_action"
+
+		for i := 1; i <= 10; i++ {
+			req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+			req.RemoteAddr = "1.2.3.4:1234"
+			w := httptest.NewRecorder()
+			handlers.ExecuteMutation(w, req, cfg)
+			if w.Code != http.StatusCreated {
+				t.Fatalf("petición %d debió ser 201, fue %d", i, w.Code)
+			}
+		}
+
+		// 11th request
+		req11 := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req11.Header.Set("Content-Type", "application/json")
+		req11.RemoteAddr = "1.2.3.4:1234"
+		w11 := httptest.NewRecorder()
+		handlers.ExecuteMutation(w11, req11, cfg)
+		if w11.Code != http.StatusTooManyRequests {
+			t.Fatalf("esperado 429, obtenido %d", w11.Code)
+		}
+	})
+}
