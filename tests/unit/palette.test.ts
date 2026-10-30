@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     ejecutarPluginPaleta,
     generarCssVariablesRoot,
+    normalizarHexToken,
     PALETAS_PREDEFINIDAS,
     resolverTokensPaleta,
 } from '~/plugins/palette';
@@ -57,6 +58,15 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         expect(customTokens['--color-brand-fondo']).toBe('#fafafa');
         expect(customTokens['--color-brand-texto']).toBe('#101010');
 
+        // Soporte de hex sin almohadilla y auto-normalización
+        const sinAlmohadilla = resolverTokensPaleta({
+            paletaActiva: 'custom',
+            paletaCustomPrimario: 'ff0099',
+            paletaCustomSecundario: '00aaff',
+        });
+        expect(sinAlmohadilla['--color-brand-primario']).toBe('#ff0099');
+        expect(sinAlmohadilla['--color-brand-secundario']).toBe('#00aaff');
+
         const partialCustom = resolverTokensPaleta({
             paletaActiva: 'custom',
         });
@@ -65,6 +75,15 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         const cssRule = generarCssVariablesRoot(customTokens);
         expect(cssRule).toContain(':root {');
         expect(cssRule).toContain('--color-brand-primario:#112233');
+    });
+
+    it('normalizarHexToken maneja entradas válidas, incompletas y fallbacks seguros', () => {
+        expect(normalizarHexToken('e4007c', '#000000')).toBe('#e4007c');
+        expect(normalizarHexToken('#e4007c', '#000000')).toBe('#e4007c');
+        expect(normalizarHexToken('   #fff  ', '#000000')).toBe('#fff');
+        expect(normalizarHexToken('', '#000000')).toBe('#000000');
+        expect(normalizarHexToken(undefined, '#000000')).toBe('#000000');
+        expect(normalizarHexToken('invalid-color', '#000000')).toBe('#000000');
     });
 
     it('ejecutarPluginPaleta obtiene la configuración e inyecta la regla CSS en el head', async () => {
