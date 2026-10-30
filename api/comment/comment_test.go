@@ -85,7 +85,7 @@ func TestComentarHandler_CamposEspanol_Retorna201(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	handler.ComentarHandler(w, req)
+	handler.Handler(w, req)
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("Esperado 201 Created para payload en español, obtenido %d", w.Code)

@@ -151,8 +151,3 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		Ok: true,
 	})
 }
-
-// CalificarHandler es un alias en español para Handler conforme a DEVELOPMENT_GUIDELINES.md.
-func CalificarHandler(w http.ResponseWriter, r *http.Request) {
-	Handler(w, r)
-}

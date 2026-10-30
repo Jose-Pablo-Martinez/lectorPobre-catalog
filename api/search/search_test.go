@@ -173,8 +173,8 @@ func TestBuscarHandler_SanityError_Retorna500(t *testing.T) {
 	}
 }
 
-// TestBuscarHandler_AliasEspanol_Retorna200 verifica la función BuscarHandler.
-func TestBuscarHandler_AliasEspanol_Retorna200(t *testing.T) {
+// TestBuscarHandler_RutaEspanol_Retorna200 verifica la respuesta en la ruta /api/buscar.
+func TestBuscarHandler_RutaEspanol_Retorna200(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	mock := &mockSearcher{}
 	handler.SetSanitySearcher(mock)
@@ -182,10 +182,10 @@ func TestBuscarHandler_AliasEspanol_Retorna200(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/buscar?q=cuento", nil)
 	w := httptest.NewRecorder()
 
-	handler.BuscarHandler(w, req)
+	handler.Handler(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Fatalf("Esperado 200 OK para alias en español, obtenido %d", w.Code)
+		t.Fatalf("Esperado 200 OK para ruta /api/buscar, obtenido %d", w.Code)
 	}
 }
 

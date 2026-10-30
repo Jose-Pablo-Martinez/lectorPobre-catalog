@@ -130,8 +130,3 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		Data: results,
 	})
 }
-
-// BuscarHandler es un alias en español para Handler conforme a DEVELOPMENT_GUIDELINES.md.
-func BuscarHandler(w http.ResponseWriter, r *http.Request) {
-	Handler(w, r)
-}

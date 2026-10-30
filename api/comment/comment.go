@@ -152,8 +152,3 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		Ok: true,
 	})
 }
-
-// ComentarHandler es un alias para Handler conforme a las especificaciones de DEVELOPMENT_GUIDELINES.md.
-func ComentarHandler(w http.ResponseWriter, r *http.Request) {
-	Handler(w, r)
-}
