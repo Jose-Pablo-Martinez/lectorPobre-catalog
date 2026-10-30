@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "setup": "node scripts/setup-env.mjs",
+    "setup:go": "node scripts/setup-vercel-go.mjs",
     "seed:staging": "node scripts/seed-staging.mjs",
     "predev": "tsx scripts/recommendations/build.ts",
     "dev": "nuxt dev",
+    "dev:backend": "node scripts/setup-vercel-go.mjs && vercel dev",
     "prebuild": "tsx scripts/recommendations/build.ts",
     "build": "nuxt build",
     "pregenerate": "tsx scripts/recommendations/build.ts",

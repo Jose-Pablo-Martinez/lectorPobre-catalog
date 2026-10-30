@@ -14,12 +14,17 @@ import (
 // Probado por: UT-GO-19 a UT-GO-21 (VyV_LectorPobre.md §3.3).
 func ApplyCORS(w http.ResponseWriter, r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-	allowed := os.Getenv("ALLOWED_ORIGIN")
 
 	// Peticiones sin encabezado Origin (curl directo, llamadas internas server-to-server)
 	// se procesan con normalidad sin agregar encabezados CORS (§3.3 UT-GO-21).
 	if origin == "" {
 		return true
+	}
+
+	allowed := strings.Trim(strings.TrimSpace(os.Getenv("ALLOWED_ORIGIN")), `"'`)
+	if allowed == "" {
+		// Por defecto en desarrollo si no se especificó la variable, permitir localhost y loopback
+		allowed = "http://localhost:3000,http://127.0.0.1:3000"
 	}
 
 	// Comprobar si el origen está permitido (soporta comodín '*' o lista separada por comas)
@@ -28,7 +33,7 @@ func ApplyCORS(w http.ResponseWriter, r *http.Request) bool {
 		isAllowed = true
 	} else if strings.Contains(allowed, ",") {
 		for _, o := range strings.Split(allowed, ",") {
-			if strings.TrimSpace(o) == origin {
+			if strings.Trim(strings.TrimSpace(o), `"'`) == origin {
 				isAllowed = true
 				break
 			}
