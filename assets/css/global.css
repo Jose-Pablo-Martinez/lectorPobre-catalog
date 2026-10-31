@@ -238,3 +238,57 @@ input[type="search"]::-webkit-search-results-decoration {
   appearance: none;
   display: none;
 }
+
+
+/* ==============================================================================
+   Modo Oscuro (Dark Mode): Jerarquía de elevación sin negros puros y contraste accesible
+   ============================================================================== */
+html.dark {
+  /* Fondo y texto general: sin negros puros */
+  --color-brand-fondo: #0f1217;
+  --color-brand-texto: #f1f5f9;
+
+  /* Superficies de elevación (L0 a L4) */
+  --surface-ground: #0f1217;
+  --surface-card: #181e26;
+  --surface-input: #222a36;
+  --surface-control: #2d3746;
+  --surface-overlay: #374355;
+
+  /* Bordes accesibles */
+  --border-subtle: #2d3542;
+  --border-prominent: #475569;
+
+  /* Sombras táctiles Neo-Pop para fondos oscuros */
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-soft-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-hard: 4px 4px 0px #090b0e;
+  --shadow-hard-sm: 2px 2px 0px #090b0e;
+  --shadow-hard-lg: 6px 6px 0px #090b0e;
+}
+
+html.dark body {
+  background-color: var(--color-brand-fondo, #0f1217);
+  color: var(--color-brand-texto, #f1f5f9);
+}
+
+/* Adaptación de variantes en modo oscuro */
+html.dark .variante-clasico .tarjeta-producto {
+  border-color: #475569;
+  box-shadow: 5px 5px 0px #090b0e;
+  background-color: var(--surface-card, #181e26);
+}
+
+html.dark .variante-clasico .tarjeta-producto .aspect-square {
+  border-bottom-color: #475569;
+}
+
+html.dark .variante-moderno .tarjeta-producto {
+  border-color: var(--border-subtle, #2d3542);
+  background-color: var(--surface-card, #181e26);
+}
+
+html.dark .variante-minimalista .tarjeta-producto .aspect-square {
+  border-color: var(--border-subtle, #2d3542);
+  background-color: var(--surface-card, #181e26);
+}
