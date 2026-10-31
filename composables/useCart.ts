@@ -39,14 +39,17 @@ export function obtenerClasesBotonPedido(
     recienAgregado: boolean,
     sombra: 'hard' | 'hard-sm' = 'hard-sm'
 ): string {
-    const shadowClass = sombra === 'hard' ? 'shadow-hard' : 'shadow-hard-sm';
+    const shadowClass =
+        sombra === 'hard'
+            ? 'shadow-hard dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)]'
+            : 'shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)]';
     if (agotado) {
-        return 'bg-zinc-200 text-zinc-500 border-2 border-zinc-400 cursor-not-allowed';
+        return 'bg-zinc-200 dark:bg-slate-800 text-zinc-500 dark:text-slate-500 border-2 border-zinc-400 dark:border-slate-700 cursor-not-allowed';
     }
     if (recienAgregado) {
-        return `bg-emerald-400 text-brand-texto border-2 border-brand-texto ${shadowClass}`;
+        return `bg-emerald-400 text-zinc-950 border-2 border-zinc-950 ${shadowClass}`;
     }
-    return `bg-brand-primario text-white border-2 border-brand-texto ${shadowClass} hover:opacity-95 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`;
+    return `bg-brand-primario text-white border-2 border-brand-texto dark:border-slate-400 ${shadowClass} hover:opacity-95 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`;
 }
 
 function isValidCartItem(entry: unknown): entry is CartItem {

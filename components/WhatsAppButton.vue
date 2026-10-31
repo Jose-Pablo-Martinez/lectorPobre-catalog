@@ -2,8 +2,9 @@
   @file WhatsAppButton.vue
   @description Botón neobrutalista de acción principal para contacto y compra vía WhatsApp
   con color oficial #25D366, borde sólido de 2px e ícono vectorial SVG oficial.
+  Garantiza contraste accesible >= 4.5:1 con texto oscuro sobre verde (#25D366).
   Se deshabilita automáticamente cuando el producto está agotado.
-  @satisfies RF-03, RF-14, RF-17
+  @satisfies RF-03, RF-14, RF-15, RF-17, RNF-05
 -->
 <script setup lang="ts">
 export interface WhatsAppButtonProps {
@@ -27,7 +28,7 @@ withDefaults(defineProps<WhatsAppButtonProps>(), {
         target="_blank"
         rel="noopener noreferrer"
         :class="[
-            'inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-whatsapp hover:bg-whatsapp-hover text-brand-texto font-display font-bold text-base border-2 border-brand-texto shadow-hard transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario focus-visible:ring-offset-2',
+            'inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-whatsapp hover:bg-whatsapp-hover text-zinc-950 font-display font-bold text-base border-2 border-zinc-950 dark:border-slate-400 shadow-hard dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primario focus-visible:ring-offset-2',
             fullWidth ? 'w-full' : 'w-auto',
         ]"
         :aria-label="label"
@@ -35,7 +36,7 @@ withDefaults(defineProps<WhatsAppButtonProps>(), {
     >
         <!-- Ícono vectorial oficial de WhatsApp -->
         <svg
-            class="w-5 h-5 shrink-0 fill-current"
+            class="w-5 h-5 shrink-0 fill-current text-zinc-950"
             viewBox="0 0 24 24"
             aria-hidden="true"
             focusable="false"
@@ -53,7 +54,7 @@ withDefaults(defineProps<WhatsAppButtonProps>(), {
         disabled
         aria-disabled="true"
         :class="[
-            'inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-zinc-200 text-zinc-500 font-display font-bold text-base border-2 border-brand-texto opacity-70 cursor-not-allowed',
+            'inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-zinc-200 dark:bg-slate-800 text-zinc-500 dark:text-slate-500 font-display font-bold text-base border-2 border-zinc-400 dark:border-slate-700 opacity-70 cursor-not-allowed',
             fullWidth ? 'w-full' : 'w-auto',
         ]"
         data-testid="whatsapp-button-disabled"
