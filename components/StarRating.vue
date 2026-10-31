@@ -49,14 +49,14 @@ const promedioMostrado = computed<string>(() => {
 });
 
 const nivelesDesglose = computed(() => {
-    const conteoTotal = props.ratingCount ?? 0;
+    const conteoTotal = Math.max(0, props.ratingCount ?? 0);
     const divisor = Math.max(1, conteoTotal);
     return [
-        { nivel: 5, votos: props.rating5Count ?? 0 },
-        { nivel: 4, votos: props.rating4Count ?? 0 },
-        { nivel: 3, votos: props.rating3Count ?? 0 },
-        { nivel: 2, votos: props.rating2Count ?? 0 },
-        { nivel: 1, votos: props.rating1Count ?? 0 },
+        { nivel: 5, votos: Math.max(0, props.rating5Count ?? 0) },
+        { nivel: 4, votos: Math.max(0, props.rating4Count ?? 0) },
+        { nivel: 3, votos: Math.max(0, props.rating3Count ?? 0) },
+        { nivel: 2, votos: Math.max(0, props.rating2Count ?? 0) },
+        { nivel: 1, votos: Math.max(0, props.rating1Count ?? 0) },
     ].map((item) => ({
         ...item,
         porcentaje:

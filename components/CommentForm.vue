@@ -6,7 +6,7 @@
   @satisfies RF-06, RF-07, RNF-04
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
     AlertCircle,
     ArrowUpDown,
@@ -41,6 +41,12 @@ export interface CommentFormProps {
     fetcher?: (payload: any) => Promise<ApiResponse>;
 }
 
+export interface RatingUpdatedPayload {
+    nuevoValor: number;
+    valorPrevio?: number | null;
+    eraModificacion: boolean;
+}
+
 const props = withDefaults(defineProps<CommentFormProps>(), {
     comentarios: () => [],
     ratingFetcher: undefined,
@@ -49,7 +55,7 @@ const props = withDefaults(defineProps<CommentFormProps>(), {
 });
 
 const emit = defineEmits<{
-    (e: 'rating-updated', value: number): void;
+    (e: 'rating-updated', payload: RatingUpdatedPayload | number): void;
 }>();
 
 // Estado del formulario interactivo
@@ -60,10 +66,36 @@ const savedRating = ref<number | null>(null);
 const savedComment = ref<string>('');
 const enviando = ref<boolean>(false);
 
-// Retroalimentación independiente
+// Retroalimentación independiente con auto-cierre en 7 segundos
 const feedbackEstrellas = ref<string | null>(null);
 const feedbackComentario = ref<string | null>(null);
 const errorGeneral = ref<string | null>(null);
+
+let timeoutEstrellas: ReturnType<typeof setTimeout> | null = null;
+let timeoutComentario: ReturnType<typeof setTimeout> | null = null;
+
+const mostrarFeedbackEstrellas = (mensaje: string): void => {
+    if (timeoutEstrellas) clearTimeout(timeoutEstrellas);
+    feedbackEstrellas.value = mensaje;
+    timeoutEstrellas = setTimeout(() => {
+        feedbackEstrellas.value = null;
+        timeoutEstrellas = null;
+    }, 7000);
+};
+
+const mostrarFeedbackComentario = (mensaje: string): void => {
+    if (timeoutComentario) clearTimeout(timeoutComentario);
+    feedbackComentario.value = mensaje;
+    timeoutComentario = setTimeout(() => {
+        feedbackComentario.value = null;
+        timeoutComentario = null;
+    }, 7000);
+};
+
+onBeforeUnmount(() => {
+    if (timeoutEstrellas) clearTimeout(timeoutEstrellas);
+    if (timeoutComentario) clearTimeout(timeoutComentario);
+});
 
 // Filtrado, orden y paginación de comentarios
 const orden = ref<'recientes' | 'antiguos'>('recientes');
@@ -269,12 +301,18 @@ const procesarEnvioRating = async (
     }
 
     const eraModificacion = savedRating.value !== null;
+    const valorPrevio = savedRating.value;
     savedRating.value = estrellaSeleccionada.value;
     reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
-    feedbackEstrellas.value = eraModificacion
+    const mensajeRating = eraModificacion
         ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
         : `Tu calificación de ${estrellaSeleccionada.value} estrellas se registró correctamente.`;
-    emit('rating-updated', estrellaSeleccionada.value);
+    mostrarFeedbackEstrellas(mensajeRating);
+    emit('rating-updated', {
+        nuevoValor: estrellaSeleccionada.value,
+        valorPrevio,
+        eraModificacion,
+    });
     return true;
 };
 
@@ -306,9 +344,10 @@ const procesarEnvioComentario = async (
     savedComment.value = comentarioLimpio.value;
     reviewData.comment = comentarioLimpio.value;
     reviewData.commentStatus = 'pendiente';
-    feedbackComentario.value = eraModificacion
+    const mensajeComentario = eraModificacion
         ? 'Comentario actualizado y enviado a revisión.'
         : 'Tu comentario fue enviado correctamente y quedará visible cuando sea aprobado por moderación.';
+    mostrarFeedbackComentario(mensajeComentario);
     return true;
 };
 
@@ -440,7 +479,7 @@ const manejarSubmit = async (): Promise<void> => {
             <article
                 v-for="com in comentariosVisibles"
                 :key="com._id"
-                class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-1.5"
+                class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-1.5 overflow-hidden"
                 data-testid="comment-item"
             >
                 <!-- Calificación de la reseña si está disponible -->
@@ -463,7 +502,7 @@ const manejarSubmit = async (): Promise<void> => {
                     />
                 </div>
 
-                <p class="font-sans text-sm text-zinc-800 leading-relaxed">
+                <p class="font-sans text-sm text-zinc-800 leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-line">
                     {{ com.texto }}
                 </p>
                 <span

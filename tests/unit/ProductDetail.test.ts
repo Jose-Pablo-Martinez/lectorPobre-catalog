@@ -94,4 +94,36 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
         expect(decodedCart).toContain('- 1x Sticker Pack Anime: $40.00 MXN');
         expect(decodedCart).toContain('Total estimado: $210.00 MXN');
     });
+
+    it('UT-VUE-08: maneja actualización de reseña en [slug].vue sin incrementar ratingCount ni generar negativos', async () => {
+        const wrapper = mount(ProductDetailPage, {
+            props: {
+                initialProducto: {
+                    ...DETALLE_PRODUCTO,
+                    ratingCount: 1,
+                    calificacionPromedio: 5.0,
+                    rating5Count: 1,
+                    rating1Count: 0,
+                },
+                initialConfig: null,
+                initialComentarios: [],
+                initialCatalogo: [],
+            },
+        });
+
+        // Simular emisión de modificación de estrellas (de 5 a 1)
+        const commentFormComponent = wrapper.findComponent({ name: "CommentForm" });
+        commentFormComponent.vm.$emit("rating-updated", {
+            nuevoValor: 1,
+            valorPrevio: 5,
+            eraModificacion: true,
+        });
+        await wrapper.vm.$nextTick();
+
+        // El número total de reseñas NO debe aumentar (sigue siendo 1)
+        expect(wrapper.find('[data-testid="rating-count"]').text()).toBe("1 reseña");
+
+        // El promedio se recalculó a 1.0
+        expect(wrapper.find('[data-testid="rating-average"]').text()).toBe("1.0");
+    });
 });

@@ -241,16 +241,51 @@ const clasesBotonDetallePedido = computed<string>(() =>
     obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard')
 );
 
-const manejarRatingActualizado = (nuevoValor: number): void => {
+const manejarRatingActualizado = (
+    data: number | { nuevoValor: number; valorPrevio?: number | null; eraModificacion?: boolean }
+): void => {
     if (!producto.value) return;
-    const count = producto.value.ratingCount ?? 0;
+    const nuevoValor = typeof data === 'number' ? data : data.nuevoValor;
+    const valorPrevio = typeof data === 'number' ? null : (data.valorPrevio ?? null);
+    const eraModificacion = typeof data === 'number' ? false : Boolean(data.eraModificacion);
+
+    const count = Math.max(0, producto.value.ratingCount ?? 0);
     const prom = producto.value.calificacionPromedio ?? 0;
-    const nuevoCount = count + 1;
-    const nuevoPromedio = Number(((prom * count + nuevoValor) / nuevoCount).toFixed(1));
+    const sumaActual = prom * count;
+
+    let nuevoCount = count;
+    let nuevaSuma: number;
+
+    const r1 = Math.max(0, producto.value.rating1Count ?? 0);
+    const r2 = Math.max(0, producto.value.rating2Count ?? 0);
+    const r3 = Math.max(0, producto.value.rating3Count ?? 0);
+    const r4 = Math.max(0, producto.value.rating4Count ?? 0);
+    const r5 = Math.max(0, producto.value.rating5Count ?? 0);
+    const counts: Record<number, number> = { 1: r1, 2: r2, 3: r3, 4: r4, 5: r5 };
+
+    if (eraModificacion && valorPrevio && valorPrevio >= 1 && valorPrevio <= 5) {
+        nuevaSuma = sumaActual - valorPrevio + nuevoValor;
+        counts[valorPrevio] = Math.max(0, (counts[valorPrevio] ?? 1) - 1);
+        counts[nuevoValor] = (counts[nuevoValor] ?? 0) + 1;
+    } else {
+        nuevoCount = count + 1;
+        nuevaSuma = sumaActual + nuevoValor;
+        counts[nuevoValor] = (counts[nuevoValor] ?? 0) + 1;
+    }
+
+    const nuevoPromedio = nuevoCount > 0
+        ? Number((nuevaSuma / nuevoCount).toFixed(1))
+        : null;
+
     producto.value = {
         ...producto.value,
         ratingCount: nuevoCount,
         calificacionPromedio: nuevoPromedio,
+        rating1Count: counts[1],
+        rating2Count: counts[2],
+        rating3Count: counts[3],
+        rating4Count: counts[4],
+        rating5Count: counts[5],
     };
 };
 

@@ -129,6 +129,19 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(wrapper.find('[data-testid="rating-average"]').text()).toBe('4.5');
         expect(wrapper.find('[data-testid="rating-breakdown"]').exists()).toBe(true);
 
+        // Protección contra conteos negativos en desglose
+        const wrapperNegativo = mount(StarRating, {
+            props: {
+                productoId: 'prod-star-neg',
+                calificacionPromedio: 1.0,
+                ratingCount: 1,
+                rating5Count: -1,
+                rating1Count: 1,
+                mostrarDesglose: true,
+            },
+        });
+        expect(wrapperNegativo.text()).not.toContain('-1');
+
         // Validar casos de useRating directo
         const rValido = useRating('prod-star-1', { fetcher: mockFetcher });
         expect(await rValido.enviarCalificacion(5)).toBe(true);
@@ -290,6 +303,19 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Reseña enviada');
         expect(wrapper.find('[data-testid="comment-submit-button"]').attributes('disabled')).toBeDefined();
 
+        // Ajuste de texto largo (break-words y contenedor sin desborde)
+        expect(wrapper.find('[data-testid="comment-item"] p').classes()).toContain('break-words');
+
+        // Emisión de evento rating-updated con metadatos completos
+        const emitsRating = wrapper.emitted('rating-updated');
+        expect(emitsRating).toBeDefined();
+        expect(emitsRating![0][0]).toEqual(
+            expect.objectContaining({ nuevoValor: 5, eraModificacion: false })
+        );
+        expect(emitsRating![1][0]).toEqual(
+            expect.objectContaining({ nuevoValor: 4, valorPrevio: 5, eraModificacion: true })
+        );
+
         // Validaciones directas de useComment
         const cCorto = useComment('prod-com-2', {
             fetcher: async () => ({ ok: false, error: 'Rechazado' }),
@@ -405,5 +431,28 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         );
         expect(resolvedUrl).toContain('cdn.sanity.io');
         expect(resolvedUrl).toContain('w=400');
+    });
+
+    it('CommentForm descarta automáticamente los mensajes de éxito tras 7 segundos', async () => {
+        vi.useFakeTimers();
+        const mockFetcher = vi.fn().mockResolvedValue({ ok: true });
+        const wrapper = mount(CommentForm, {
+            props: {
+                productoId: 'prod-timer-1',
+                ratingFetcher: mockFetcher,
+                commentFetcher: mockFetcher,
+            },
+        });
+
+        await wrapper.find('[data-testid="star-select-button-5"]').trigger('click');
+        await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="rating-success-message"]').exists()).toBe(true);
+
+        // Avanzar 7 segundos (7000ms)
+        vi.advanceTimersByTime(7000);
+        await flushPromises();
+        expect(wrapper.find('[data-testid="rating-success-message"]').exists()).toBe(false);
+        vi.useRealTimers();
     });
 });
