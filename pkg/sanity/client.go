@@ -12,10 +12,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/tu-org/lectorpobre/pkg/handlers"
 )
+
+const contentTypeJSON = "application/json"
 
 // Writer define la interfaz para todas las operaciones de escritura en Sanity utilizadas por los handlers de LectorPobre.
 // El uso de una interfaz permite a los tests unitarios (UT-GO-11 a UT-GO-18) inyectar un mock
@@ -29,6 +32,14 @@ type Writer interface {
 	// CreateRating escribe un nuevo documento de calificación en Sanity.
 	// Satisface: RF-06 (Calificaciones, rango 1-5).
 	CreateRating(ctx context.Context, productID string, value int) error
+}
+
+// ReviewWriter extiende Writer para soportar actualización determinista por usuario (upsert)
+// y asociación de calificación por estrellas dentro del documento de comentario.
+type ReviewWriter interface {
+	Writer
+	UpsertComment(ctx context.Context, p handlers.CommentPayload) error
+	UpsertRating(ctx context.Context, p handlers.RatingPayload) error
 }
 
 // Searcher define la interfaz para la consulta parametrizada de productos en Sanity (§9.11, RF-18).
@@ -49,22 +60,22 @@ type Client struct {
 // NewClient crea una nueva instancia de Client leyendo credenciales desde las variables de entorno.
 // Retorna un error descriptivo si falta el token o el ID de proyecto requerido.
 func NewClient() (*Client, error) {
-	token := os.Getenv("SANITY_WRITE_TOKEN")
+	token := strings.Trim(strings.TrimSpace(os.Getenv("SANITY_WRITE_TOKEN")), `"'`)
 	if token == "" {
 		return nil, errors.New("SANITY_WRITE_TOKEN es requerido en las variables de entorno")
 	}
 
-	projectID := os.Getenv("NUXT_PUBLIC_SANITY_PROJECT_ID")
+	projectID := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_PROJECT_ID")), `"'`)
 	if projectID == "" {
-		projectID = os.Getenv("SANITY_PROJECT_ID")
+		projectID = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_PROJECT_ID")), `"'`)
 	}
 	if projectID == "" {
 		return nil, errors.New("NUXT_PUBLIC_SANITY_PROJECT_ID o SANITY_PROJECT_ID es requerido")
 	}
 
-	dataset := os.Getenv("NUXT_PUBLIC_SANITY_DATASET")
+	dataset := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_DATASET")), `"'`)
 	if dataset == "" {
-		dataset = os.Getenv("SANITY_DATASET")
+		dataset = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_DATASET")), `"'`)
 	}
 	if dataset == "" {
 		dataset = "production"
@@ -109,45 +120,151 @@ func (c *Client) getQueryURL() string {
 	return fmt.Sprintf("https://%s.api.sanity.io/v2024-01-01/data/query/%s", c.projectID, c.dataset)
 }
 
-// CreateComment implementa Writer.CreateComment.
-// Crea un documento de tipo "comentario" con estado "pendiente" para moderación manual (§4, RF-07).
-func (c *Client) CreateComment(ctx context.Context, productID string, text string) error {
+func sanitizeIDSegment(raw string) string {
+	var b strings.Builder
+	for _, r := range strings.TrimSpace(raw) {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func buildDeterministicID(prefix, productID, userID string) string {
+	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), sanitizeIDSegment(userID))
+}
+
+// UpsertComment crea o reemplaza el comentario de un usuario para un producto en estado "pendiente".
+// Cuando se proporciona UserID, utiliza createOrReplace con ID determinista para mantener un único comentario por usuario.
+func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
 	now := time.Now().UTC().Format(time.RFC3339)
+	doc := map[string]interface{}{
+		"_type":         "comentario",
+		"texto":         p.Text,
+		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
+		"estado":        "pendiente",
+		"fechaCreacion": now,
+	}
+	if p.Rating >= 1 && p.Rating <= 5 {
+		doc["calificacion"] = p.Rating
+	}
+
+	mutationKey := "create"
+	userID := strings.TrimSpace(p.UserID)
+	if userID != "" {
+		doc["_id"] = buildDeterministicID("comentario", p.ProductID, userID)
+		doc["usuarioId"] = userID
+		mutationKey = "createOrReplace"
+	}
+
 	payload := map[string]interface{}{
 		"mutations": []map[string]interface{}{
-			{
-				"create": map[string]interface{}{
-					"_type":         "comentario",
-					"texto":         text,
-					"producto":      map[string]string{"_type": "reference", "_ref": productID},
-					"estado":        "pendiente",
-					"fechaCreacion": now,
-				},
-			},
+			{mutationKey: doc},
 		},
 	}
 
 	return c.executeMutation(ctx, payload)
 }
 
+// CreateComment implementa Writer.CreateComment.
+// Crea un documento de tipo "comentario" con estado "pendiente" para moderación manual (§4, RF-07).
+func (c *Client) CreateComment(ctx context.Context, productID string, text string) error {
+	return c.UpsertComment(ctx, handlers.CommentPayload{
+		ProductID: productID,
+		Text:      text,
+	})
+}
+
+func buildRatingCounterPatch(productID string, value int, previousValue int) map[string]interface{} {
+	setIfMissing := map[string]interface{}{
+		"ratingSum":    0,
+		"ratingCount":  0,
+		"rating1Count": 0,
+		"rating2Count": 0,
+		"rating3Count": 0,
+		"rating4Count": 0,
+		"rating5Count": 0,
+	}
+
+	if previousValue >= 1 && previousValue <= 5 {
+		if previousValue == value {
+			return nil
+		}
+		return map[string]interface{}{
+			"id":           productID,
+			"setIfMissing": setIfMissing,
+			"inc": map[string]interface{}{
+				"ratingSum":                                value - previousValue,
+				fmt.Sprintf("rating%dCount", previousValue): -1,
+				fmt.Sprintf("rating%dCount", value):         1,
+			},
+		}
+	}
+
+	return map[string]interface{}{
+		"id":           productID,
+		"setIfMissing": setIfMissing,
+		"inc": map[string]interface{}{
+			"ratingSum":                        value,
+			"ratingCount":                      1,
+			fmt.Sprintf("rating%dCount", value): 1,
+		},
+	}
+}
+
+// UpsertRating crea o reemplaza la calificación de un usuario y actualiza atómicamente los contadores del producto.
+func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	doc := map[string]interface{}{
+		"_type":         "calificacion",
+		"valor":         p.Value,
+		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
+		"fechaCreacion": now,
+	}
+
+	mutationKey := "create"
+	userID := strings.TrimSpace(p.UserID)
+	if userID != "" {
+		doc["_id"] = buildDeterministicID("calificacion", p.ProductID, userID)
+		doc["usuarioId"] = userID
+		mutationKey = "createOrReplace"
+	}
+
+	mutations := []map[string]interface{}{
+		{mutationKey: doc},
+	}
+	if patch := buildRatingCounterPatch(p.ProductID, p.Value, p.PreviousValue); patch != nil {
+		mutations = append(mutations, map[string]interface{}{"patch": patch})
+	}
+
+	return c.executeMutation(ctx, map[string]interface{}{"mutations": mutations})
+}
+
 // CreateRating implementa Writer.CreateRating.
 // Crea un documento de tipo "calificacion" con el valor numérico especificado [1, 5] (RF-06).
 func (c *Client) CreateRating(ctx context.Context, productID string, value int) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	payload := map[string]interface{}{
-		"mutations": []map[string]interface{}{
-			{
-				"create": map[string]interface{}{
-					"_type":         "calificacion",
-					"valor":         value,
-					"producto":      map[string]string{"_type": "reference", "_ref": productID},
-					"fechaCreacion": now,
-				},
-			},
-		},
-	}
+	return c.UpsertRating(ctx, handlers.RatingPayload{
+		ProductID: productID,
+		Value:     value,
+	})
+}
 
-	return c.executeMutation(ctx, payload)
+// DispatchComment enruta la escritura de un comentario hacia ReviewWriter (si soporta upsert/calificación) o Writer.
+func DispatchComment(ctx context.Context, w Writer, p handlers.CommentPayload) error {
+	if rw, ok := w.(ReviewWriter); ok && (p.Rating > 0 || strings.TrimSpace(p.UserID) != "") {
+		return rw.UpsertComment(ctx, p)
+	}
+	return w.CreateComment(ctx, p.ProductID, p.Text)
+}
+
+// DispatchRating enruta la escritura de una calificación hacia ReviewWriter (si soporta upsert) o Writer.
+func DispatchRating(ctx context.Context, w Writer, p handlers.RatingPayload) error {
+	if rw, ok := w.(ReviewWriter); ok && (p.PreviousValue > 0 || strings.TrimSpace(p.UserID) != "") {
+		return rw.UpsertRating(ctx, p)
+	}
+	return w.CreateRating(ctx, p.ProductID, p.Value)
 }
 
 // SearchProducts implementa Searcher.SearchProducts.
@@ -171,7 +288,7 @@ func (c *Client) SearchProducts(ctx context.Context, query string) ([]map[string
 		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
@@ -210,7 +327,7 @@ func (c *Client) executeMutation(ctx context.Context, payload map[string]interfa
 		return fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	resp, err := c.httpClient.Do(req)
@@ -232,7 +349,7 @@ func CrearComentario(ctx context.Context, payload handlers.CommentPayload) error
 	if err != nil {
 		return err
 	}
-	return client.CreateComment(ctx, payload.ProductID, payload.Text)
+	return DispatchComment(ctx, client, payload)
 }
 
 // BuscarProductos es una función helper de conveniencia para consultar productos.

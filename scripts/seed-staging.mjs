@@ -68,7 +68,9 @@ const envVars = Object.fromEntries(
         .filter(l => /^[A-Z_]+=.+/.test(l))
         .map(l => {
             const [key, ...rest] = l.split('=');
-            return [key.trim(), rest.join('=').trim()];
+            const rawVal = rest.join('=').trim();
+            const cleanVal = rawVal.replace(/^["']|["']$/g, '');
+            return [key.trim(), cleanVal];
         })
 );
 
@@ -118,8 +120,20 @@ async function upsert(doc) {
 async function patchRating(productId, valor) {
     await client
         .patch(productId)
-        .setIfMissing({ ratingSum: 0, ratingCount: 0 })
-        .inc({ ratingSum: valor, ratingCount: 1 })
+        .setIfMissing({
+            ratingSum: 0,
+            ratingCount: 0,
+            rating1Count: 0,
+            rating2Count: 0,
+            rating3Count: 0,
+            rating4Count: 0,
+            rating5Count: 0,
+        })
+        .inc({
+            ratingSum: valor,
+            ratingCount: 1,
+            [`rating${valor}Count`]: 1,
+        })
         .commit();
 }
 
@@ -238,6 +252,11 @@ const productos = [
         palabrasClave: ['gato', 'kawaii', 'resina', 'pastel', 'michi', 'hecho a mano'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
     {
         _id:         'seed-prod-llavero-studio-ghibli',
@@ -252,6 +271,11 @@ const productos = [
         palabrasClave: ['totoro', 'ghibli', 'anime', 'metal', 'pelicula', 'bosque'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
     // ── Pins ──
     {
@@ -267,6 +291,11 @@ const productos = [
         palabrasClave: ['goku', 'dragon ball', 'anime', 'manga', 'ultra instinto', 'saiyajin'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
     {
         _id:         'seed-prod-pin-mushroom',
@@ -281,6 +310,11 @@ const productos = [
         palabrasClave: ['hongo', 'mushroom', 'retro', 'pixel art', '8 bits', 'arcade'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
     // ── Stickers ──
     {
@@ -296,6 +330,11 @@ const productos = [
         palabrasClave: ['anime', 'mix', 'vinilo', 'impermeable', 'otaku', 'pack'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
     {
         _id:         'seed-prod-sticker-bookish',
@@ -310,6 +349,11 @@ const productos = [
         palabrasClave: ['libros', 'lectura', 'bookish', 'vintage', 'literatura'],
         ratingSum:   0,
         ratingCount: 0,
+        rating1Count: 0,
+        rating2Count: 0,
+        rating3Count: 0,
+        rating4Count: 0,
+        rating5Count: 0,
     },
 ];
 

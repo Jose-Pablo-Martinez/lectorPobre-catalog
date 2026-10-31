@@ -25,6 +25,11 @@ export const rating = defineType({
             validation: Rule => Rule.required().min(1).max(5).integer()
         }),
         defineField({
+            name: 'usuarioId',
+            title: 'Identificador de usuario / dispositivo',
+            type: 'string',
+        }),
+        defineField({
             name: 'producto',
             title: 'Producto calificado',
             type: 'reference',

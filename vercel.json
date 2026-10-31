@@ -16,9 +16,13 @@
     }
   },
   "rewrites": [
-    { "source": "/api/comentar", "destination": "/api/comment" },
-    { "source": "/api/calificar", "destination": "/api/rating" },
-    { "source": "/api/buscar", "destination": "/api/search" },
+    { "source": "/api/comment", "destination": "/api/comment/comment" },
+    { "source": "/api/comentar", "destination": "/api/comment/comment" },
+    { "source": "/api/rating", "destination": "/api/rating/rating" },
+    { "source": "/api/calificar", "destination": "/api/rating/rating" },
+    { "source": "/api/search", "destination": "/api/search/search" },
+    { "source": "/api/buscar", "destination": "/api/search/search" },
+    { "source": "/api/webhook/rebuild", "destination": "/api/webhook/rebuild" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
   "headers": [

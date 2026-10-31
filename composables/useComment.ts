@@ -3,11 +3,17 @@
  * @description Composable para validar y enviar comentarios de usuarios sobre un producto
  * hacia la función serverless `/api/comment`. Los comentarios quedan en estado "pendiente"
  * hasta que el administrador los apruebe desde Sanity Studio.
+ * Soporta asociar calificación de estrellas y asociar ID determinista por usuario.
  * @satisfies RF-07, RNF-04
  */
 
 import { computed, ref } from 'vue';
-import type { ApiResponse, CommentPayload } from '~/types/api';
+import {
+    getOrCreateUserId,
+    getStoredUserReview,
+    saveStoredUserReview,
+} from '~/composables/useReviewStorage';
+import type { ApiResponse, CommentPayload, StarRatingValue } from '~/types/api';
 
 export const COMMENT_MAX_LENGTH = 500;
 export const COMMENT_MIN_LENGTH = 3;
@@ -32,13 +38,16 @@ export function useComment(productoId: string, options: UseCommentOptions = {}) 
         () => COMMENT_MAX_LENGTH - texto.value.length
     );
 
-    const validarComentario = (rawText = texto.value): string | null => {
+    const validarComentario = (
+        rawText = texto.value,
+        permitirVacio = false
+    ): string | null => {
         if (!productoId || productoId.trim().length === 0) {
             return 'Producto no válido.';
         }
         const limpio = rawText.trim();
         if (limpio.length === 0) {
-            return 'El comentario no puede estar vacío.';
+            return permitirVacio ? null : 'El comentario no puede estar vacío.';
         }
         if (limpio.length < COMMENT_MIN_LENGTH) {
             return `El comentario debe tener al menos ${COMMENT_MIN_LENGTH} caracteres.`;
@@ -60,8 +69,14 @@ export function useComment(productoId: string, options: UseCommentOptions = {}) 
 
     /**
      * Valida y envía el comentario hacia `/api/comment`.
+     *
+     * @param rating Calificación asociada opcional (1 a 5).
+     * @param uid Identificador del usuario (opcional).
      */
-    const enviarComentario = async (): Promise<boolean> => {
+    const enviarComentario = async (
+        rating?: number,
+        uid?: string
+    ): Promise<boolean> => {
         error.value = null;
         enviado.value = false;
 
@@ -74,13 +89,25 @@ export function useComment(productoId: string, options: UseCommentOptions = {}) 
         enviando.value = true;
         try {
             const runFetch = options.fetcher ?? defaultFetcher;
-            const res = await runFetch({
+            const userId = uid ?? getOrCreateUserId();
+            const payload: CommentPayload = {
                 productId: productoId,
                 text: texto.value.trim(),
-            });
+                userId,
+            };
+            if (rating && rating >= 1 && rating <= 5) {
+                payload.rating = rating as StarRatingValue;
+            }
+
+            const res = await runFetch(payload);
 
             if (res?.ok) {
-                texto.value = '';
+                const existing = getStoredUserReview(productoId) ?? {};
+                saveStoredUserReview(productoId, {
+                    ...existing,
+                    comment: texto.value.trim(),
+                    commentStatus: 'pendiente',
+                });
                 enviado.value = true;
                 return true;
             }

@@ -120,16 +120,17 @@ export const PRODUCTO_GROQ_FIELDS = `
     precio,
     activo,
     palabrasClave,
+    "ratingCount": count(*[_type == "calificacion" && producto._ref == ^._id]),
+    "rating1Count": count(*[_type == "calificacion" && producto._ref == ^._id && valor == 1]),
+    "rating2Count": count(*[_type == "calificacion" && producto._ref == ^._id && valor == 2]),
+    "rating3Count": count(*[_type == "calificacion" && producto._ref == ^._id && valor == 3]),
+    "rating4Count": count(*[_type == "calificacion" && producto._ref == ^._id && valor == 4]),
+    "rating5Count": count(*[_type == "calificacion" && producto._ref == ^._id && valor == 5]),
     "calificacionPromedio": select(
-        ratingCount > 0 => round(ratingSum / ratingCount, 1),
+        count(*[_type == "calificacion" && producto._ref == ^._id]) > 0 =>
+            round(math::avg(*[_type == "calificacion" && producto._ref == ^._id].valor), 1),
         null
-    ),
-    ratingCount,
-    rating1Count,
-    rating2Count,
-    rating3Count,
-    rating4Count,
-    rating5Count
+    )
 `;
 
 export const CATALOG_PRODUCTS_QUERY = `*[_type == "producto" && activo == true] | order(_createdAt desc) { ${PRODUCTO_GROQ_FIELDS} }`;

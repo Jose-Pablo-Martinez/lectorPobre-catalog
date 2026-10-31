@@ -6,10 +6,6 @@
  */
 
 export {
-    COMMENT_MAX_LENGTH,
-    COMMENT_MIN_LENGTH,
-    type UseCommentOptions,
-    useComment,
     useComment as useComentario,
+    type UseCommentOptions as UseComentarioOptions,
 } from './useComment';
-

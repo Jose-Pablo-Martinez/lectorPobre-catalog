@@ -13,19 +13,25 @@ type CommentPayload struct {
 	ProductID string `json:"productId"`
 	// Text es el cuerpo del comentario. Máximo 1000 caracteres (validado en validation.go).
 	Text string `json:"text"`
+	// Rating es la calificación de 1 a 5 estrellas asociada al comentario (opcional en payloads heredados).
+	Rating int `json:"rating,omitempty"`
+	// UserID es el identificador anónimo del cliente para garantizar un único comentario activo por producto.
+	UserID string `json:"userId,omitempty"`
 }
 
 // ComentarioPayload es un alias para CommentPayload en español para compatibilidad con las especificaciones de arquitectura.
 type ComentarioPayload = CommentPayload
 
-// UnmarshalJSON permite deserializar tanto nombres de campo en inglés (productId, text)
-// como en español (productoId, texto) para máxima compatibilidad con frontend y pruebas.
+// UnmarshalJSON permite deserializar tanto nombres de campo en inglés (productId, text, rating, userId)
+// como en español (productoId, texto, calificacion, usuarioId) para máxima compatibilidad con frontend y pruebas.
 func (c *CommentPayload) UnmarshalJSON(data []byte) error {
 	type Alias CommentPayload
 	aux := struct {
 		*Alias
-		ProductoID string `json:"productoId"`
-		Texto      string `json:"texto"`
+		ProductoID   string `json:"productoId"`
+		Texto        string `json:"texto"`
+		Calificacion int    `json:"calificacion"`
+		UsuarioID    string `json:"usuarioId"`
 	}{
 		Alias: (*Alias)(c),
 	}
@@ -40,6 +46,12 @@ func (c *CommentPayload) UnmarshalJSON(data []byte) error {
 	if c.Text == "" && aux.Texto != "" {
 		c.Text = aux.Texto
 	}
+	if c.Rating == 0 && aux.Calificacion != 0 {
+		c.Rating = aux.Calificacion
+	}
+	if c.UserID == "" && aux.UsuarioID != "" {
+		c.UserID = aux.UsuarioID
+	}
 	return nil
 }
 
@@ -50,19 +62,25 @@ type RatingPayload struct {
 	ProductID string `json:"productId"`
 	// Value es la calificación por estrellas. Debe ser un entero en el rango [1, 5].
 	Value int `json:"value"`
+	// PreviousValue es la calificación anterior del usuario cuando actualiza su calificación [1, 5].
+	PreviousValue int `json:"previousValue,omitempty"`
+	// UserID es el identificador anónimo del cliente para garantizar una única calificación activa por producto.
+	UserID string `json:"userId,omitempty"`
 }
 
 // CalificacionPayload es un alias para RatingPayload en español para compatibilidad.
 type CalificacionPayload = RatingPayload
 
-// UnmarshalJSON permite deserializar nombres de campo en inglés (productId, value)
-// y en español (productoId, valor).
+// UnmarshalJSON permite deserializar nombres de campo en inglés (productId, value, previousValue, userId)
+// y en español (productoId, valor, valorPrevio, usuarioId).
 func (r *RatingPayload) UnmarshalJSON(data []byte) error {
 	type Alias RatingPayload
 	aux := struct {
 		*Alias
-		ProductoID string `json:"productoId"`
-		Valor      int    `json:"valor"`
+		ProductoID  string `json:"productoId"`
+		Valor       int    `json:"valor"`
+		ValorPrevio int    `json:"valorPrevio"`
+		UsuarioID   string `json:"usuarioId"`
 	}{
 		Alias: (*Alias)(r),
 	}
@@ -76,6 +94,12 @@ func (r *RatingPayload) UnmarshalJSON(data []byte) error {
 	}
 	if r.Value == 0 && aux.Valor != 0 {
 		r.Value = aux.Valor
+	}
+	if r.PreviousValue == 0 && aux.ValorPrevio != 0 {
+		r.PreviousValue = aux.ValorPrevio
+	}
+	if r.UserID == "" && aux.UsuarioID != "" {
+		r.UserID = aux.UsuarioID
 	}
 	return nil
 }

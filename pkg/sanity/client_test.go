@@ -244,3 +244,138 @@ func TestBuscarProductos_FuncionHelper(t *testing.T) {
 		t.Errorf("BuscarProductos debió fallar por falta de credenciales")
 	}
 }
+
+
+// TestSanityClient_UpsertComment_ConUserIDYRating verifica createOrReplace y calificación asociada.
+func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(bodyBytes, &receivedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	err := client.UpsertComment(context.Background(), handlers.CommentPayload{
+		ProductID: "prod-1",
+		Text:      "Muy buen libro",
+		Rating:    4,
+		UserID:    "user:abc@123",
+	})
+	if err != nil {
+		t.Fatalf("UpsertComment esperaba nil, obtuvo: %v", err)
+	}
+
+	mutations := receivedBody["mutations"].([]interface{})
+	upsertMap := mutations[0].(map[string]interface{})["createOrReplace"].(map[string]interface{})
+
+	if upsertMap["_id"] != "comentario-prod-1-user-abc-123" {
+		t.Errorf("Esperado _id determinista 'comentario-prod-1-user-abc-123', obtenido %v", upsertMap["_id"])
+	}
+	if int(upsertMap["calificacion"].(float64)) != 4 {
+		t.Errorf("Esperado calificacion 4, obtenido %v", upsertMap["calificacion"])
+	}
+	if upsertMap["usuarioId"] != "user:abc@123" {
+		t.Errorf("Esperado usuarioId 'user:abc@123', obtenido %v", upsertMap["usuarioId"])
+	}
+}
+
+// TestSanityClient_UpsertRating_ActualizacionContadores verifica createOrReplace y patch diferencial con PreviousValue.
+func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(bodyBytes, &receivedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	err := client.UpsertRating(context.Background(), handlers.RatingPayload{
+		ProductID:     "prod-1",
+		Value:         5,
+		PreviousValue: 3,
+		UserID:        "usr-99",
+	})
+	if err != nil {
+		t.Fatalf("UpsertRating esperaba nil, obtuvo: %v", err)
+	}
+
+	mutations := receivedBody["mutations"].([]interface{})
+	if len(mutations) != 2 {
+		t.Fatalf("Esperadas 2 mutaciones (createOrReplace + patch), obtenidas %d", len(mutations))
+	}
+
+	upsertMap := mutations[0].(map[string]interface{})["createOrReplace"].(map[string]interface{})
+	if upsertMap["_id"] != "calificacion-prod-1-usr-99" {
+		t.Errorf("Esperado _id 'calificacion-prod-1-usr-99', obtenido %v", upsertMap["_id"])
+	}
+
+	patchMap := mutations[1].(map[string]interface{})["patch"].(map[string]interface{})
+	incMap := patchMap["inc"].(map[string]interface{})
+	if int(incMap["ratingSum"].(float64)) != 2 {
+		t.Errorf("Esperado delta ratingSum = 2, obtenido %v", incMap["ratingSum"])
+	}
+	if int(incMap["rating3Count"].(float64)) != -1 {
+		t.Errorf("Esperado rating3Count = -1, obtenido %v", incMap["rating3Count"])
+	}
+	if int(incMap["rating5Count"].(float64)) != 1 {
+		t.Errorf("Esperado rating5Count = 1, obtenido %v", incMap["rating5Count"])
+	}
+}
+
+// TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch verifica que si previousValue == value no se parchen contadores.
+func TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(bodyBytes, &receivedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	err := sanity.DispatchRating(context.Background(), client, handlers.RatingPayload{
+		ProductID:     "prod-1",
+		Value:         4,
+		PreviousValue: 4,
+		UserID:        "usr-99",
+	})
+	if err != nil {
+		t.Fatalf("DispatchRating esperaba nil, obtuvo: %v", err)
+	}
+
+	mutations := receivedBody["mutations"].([]interface{})
+	if len(mutations) != 1 {
+		t.Fatalf("Esperada solo 1 mutación cuando previousValue == value, obtenidas %d", len(mutations))
+	}
+}
+
+// TestDispatchComment_EnrutaCorrectamente verifica DispatchComment con ReviewWriter.
+func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
+	var receivedBody map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(bodyBytes, &receivedBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	if err := sanity.DispatchComment(context.Background(), client, handlers.CommentPayload{
+		ProductID: "p1",
+		Text:      "Texto válido",
+		Rating:    5,
+		UserID:    "u1",
+	}); err != nil {
+		t.Fatalf("DispatchComment con ReviewWriter falló: %v", err)
+	}
+
+	if err := sanity.DispatchComment(context.Background(), client, handlers.CommentPayload{
+		ProductID: "p1",
+		Text:      "Texto sin user",
+	}); err != nil {
+		t.Fatalf("DispatchComment básico falló: %v", err)
+	}
+}

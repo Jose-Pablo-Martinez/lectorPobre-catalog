@@ -1,19 +1,18 @@
 /**
  * @file useRating.ts
  * @description Composable para consultar y enviar calificaciones con estrellas (1 a 5)
- * hacia la función serverless `/api/rating`. Incluye validación de rango en cliente
- * y control local en `localStorage` para prevenir calificaciones duplicadas por dispositivo.
+ * hacia la función serverless `/api/rating`. Incluye validación de rango en cliente,
+ * soporte para actualizar calificación previa y persistencia segura en `localStorage`.
  * @satisfies RF-06, RNF-04
  */
 
 import { getCurrentInstance, onMounted, ref } from 'vue';
 import {
-    readLocalStorageSafe,
-    writeLocalStorageSafe,
-} from '~/composables/useRecentlyViewed';
-import type { ApiResponse, RatingPayload } from '~/types/api';
-
-const RATING_STORAGE_PREFIX = 'lp:rated:';
+    getOrCreateUserId,
+    getStoredUserReview,
+    saveStoredUserReview,
+} from '~/composables/useReviewStorage';
+import type { ApiResponse, RatingPayload, StarRatingValue } from '~/types/api';
 
 export interface UseRatingOptions {
     fetcher?: (payload: RatingPayload) => Promise<ApiResponse>;
@@ -31,17 +30,12 @@ export function useRating(productoId: string, options: UseRatingOptions = {}) {
     const enviado = ref(false);
     const error = ref<string | null>(null);
 
-    const storageKey = `${RATING_STORAGE_PREFIX}${productoId}`;
-
     const cargarEstadoLocal = (): void => {
         if (!productoId) return;
-        const guardado = readLocalStorageSafe(storageKey);
-        if (guardado) {
-            const parsed = Number(guardado);
-            if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 5) {
-                calificacionUsuario.value = parsed;
-                enviado.value = true;
-            }
+        const guardado = getStoredUserReview(productoId);
+        if (guardado?.rating && guardado.rating >= 1 && guardado.rating <= 5) {
+            calificacionUsuario.value = guardado.rating;
+            enviado.value = true;
         }
     };
 
@@ -64,11 +58,18 @@ export function useRating(productoId: string, options: UseRatingOptions = {}) {
 
     /**
      * Valida y envía una calificación entera entre 1 y 5.
+     * Soporta modificar una calificación previa indicando `previousValue`.
      *
      * @param valor Estrellas seleccionadas (1–5).
-     * @returns `true` si la calificación se registró correctamente.
+     * @param valorPrevio Calificación anterior (opcional).
+     * @param uid Identificador del usuario (opcional).
+     * @returns `true` si la calificación se registró o actualizó correctamente.
      */
-    const enviarCalificacion = async (valor: number): Promise<boolean> => {
+    const enviarCalificacion = async (
+        valor: number,
+        valorPrevio?: number,
+        uid?: string
+    ): Promise<boolean> => {
         error.value = null;
 
         if (!productoId || productoId.trim().length === 0) {
@@ -82,23 +83,31 @@ export function useRating(productoId: string, options: UseRatingOptions = {}) {
             return false;
         }
 
-        if (enviado.value) {
-            error.value = 'Ya calificaste este producto desde este navegador.';
+        const prev = valorPrevio ?? calificacionUsuario.value ?? undefined;
+        if (prev === valor && enviado.value) {
+            error.value = 'Ya calificaste este producto con la misma puntuación.';
             return false;
         }
 
         enviando.value = true;
         try {
             const runFetch = options.fetcher ?? defaultFetcher;
+            const userId = uid ?? getOrCreateUserId();
             const res = await runFetch({
                 productId: productoId,
-                value: valor as RatingPayload['value'],
+                value: valor as StarRatingValue,
+                previousValue: (prev && prev >= 1 && prev <= 5) ? (prev as StarRatingValue) : undefined,
+                userId,
             });
 
             if (res?.ok) {
                 calificacionUsuario.value = valor;
                 enviado.value = true;
-                writeLocalStorageSafe(storageKey, String(valor));
+                const existing = getStoredUserReview(productoId) ?? {};
+                saveStoredUserReview(productoId, {
+                    ...existing,
+                    rating: valor as StarRatingValue,
+                });
                 return true;
             }
 

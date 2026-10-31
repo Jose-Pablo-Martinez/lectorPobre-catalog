@@ -6,8 +6,6 @@
  */
 
 export {
-    type UseRatingOptions,
-    useRating,
     useRating as useCalificacion,
+    type UseRatingOptions as UseCalificacionOptions,
 } from './useRating';
-

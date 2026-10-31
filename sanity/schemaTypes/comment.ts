@@ -18,6 +18,17 @@ export const comment = defineType({
             validation: Rule => Rule.required().max(1000)
         }),
         defineField({
+            name: 'calificacion',
+            title: 'Calificación asociada (1–5)',
+            type: 'number',
+            validation: Rule => Rule.required().min(1).max(5).integer()
+        }),
+        defineField({
+            name: 'usuarioId',
+            title: 'Identificador de usuario / dispositivo',
+            type: 'string',
+        }),
+        defineField({
             name: 'producto',
             title: 'Producto comentado',
             type: 'reference',
@@ -51,11 +62,13 @@ export const comment = defineType({
         }),
     ],
     preview: {
-        select: { title: 'texto', subtitle: 'estado' },
+        select: { title: 'texto', subtitle: 'estado', rating: 'calificacion' },
         prepare(selection) {
             const estado = selection.subtitle as string;
+            const rating = (selection.rating as number) ?? 0;
+            const stars = rating > 0 ? ` (${'★'.repeat(rating)}${'☆'.repeat(5 - rating)})` : '';
             const icon = estado === 'aprobado' ? '✓' : estado === 'rechazado' ? '✗' : '⏳';
-            return { title: selection.title as string, subtitle: `${icon} ${estado}` };
+            return { title: selection.title as string, subtitle: `${icon} ${estado}${stars}` };
         }
     }
 });

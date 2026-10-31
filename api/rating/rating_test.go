@@ -17,6 +17,7 @@ import (
 
 type mockRatingWriter struct {
 	createRatingFunc func(ctx context.Context, productID string, value int) error
+	upsertRatingFunc func(ctx context.Context, p handlers.RatingPayload) error
 }
 
 func (m *mockRatingWriter) CreateComment(ctx context.Context, productID string, text string) error {
@@ -28,6 +29,61 @@ func (m *mockRatingWriter) CreateRating(ctx context.Context, productID string, v
 		return m.createRatingFunc(ctx, productID, value)
 	}
 	return nil
+}
+
+func (m *mockRatingWriter) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
+	return nil
+}
+
+func (m *mockRatingWriter) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
+	if m.upsertRatingFunc != nil {
+		return m.upsertRatingFunc(ctx, p)
+	}
+	return nil
+}
+
+// TestCalificarHandler_ConPreviousValueYUserId_Retorna201 verifica actualización con valor previo y usuario.
+func TestCalificarHandler_ConPreviousValueYUserId_Retorna201(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	var captured handlers.RatingPayload
+	mock := &mockRatingWriter{
+		upsertRatingFunc: func(ctx context.Context, p handlers.RatingPayload) error {
+			captured = p
+			return nil
+		},
+	}
+	handler.SetSanityWriter(mock)
+
+	payload := `{"productId":"p1","value":5,"previousValue":3,"userId":"usr-99"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Esperado 201 Created, obtenido %d", w.Code)
+	}
+	if captured.Value != 5 || captured.PreviousValue != 3 || captured.UserID != "usr-99" {
+		t.Errorf("Payload capturado incorrecto: %+v", captured)
+	}
+}
+
+// TestCalificarHandler_PreviousValueInvalido_Retorna400 verifica que valor previo fuera de rango retorne 400.
+func TestCalificarHandler_PreviousValueInvalido_Retorna400(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	handler.SetSanityWriter(&mockRatingWriter{})
+
+	payload := `{"productId":"p1","value":5,"previousValue":8}`
+	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Esperado 400 Bad Request para previousValue = 8, obtenido %d", w.Code)
+	}
 }
 
 // UT-GO-15: TestCalificarHandler_Valor5_Retorna201 verifica el registro exitoso de una calificación de 5 estrellas.

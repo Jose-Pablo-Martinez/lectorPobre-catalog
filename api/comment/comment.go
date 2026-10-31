@@ -51,7 +51,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
-			return writer.CreateComment(ctx, p.ProductID, p.Text)
+			return sanity.DispatchComment(ctx, writer, p)
 		},
 	})
 }
