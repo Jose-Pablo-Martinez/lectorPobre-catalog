@@ -3,6 +3,7 @@
   @description Layout público principal del catálogo "Lector Pobre" bajo la dirección
   "Neo-Pop Limpio con Carácter de Taller" y arquitectura Mobile-First.
   Incluye barra de anuncios superior refinada, encabezado tipográfico limpio,
+  botón conmutador de tema claro/oscuro (RF-15, RNF-05),
   botón táctil de acceso a la Lista de Pedido con contador en Amarillo Cempasúchil,
   contenedor centrado `max-w-7xl`, pie de página con enlaces a redes sociales
   (Instagram, Facebook y YouTube — RF-05) y el cajón global `CartDrawer.vue`.
@@ -10,16 +11,31 @@
 -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ShoppingBag, Sparkles } from 'lucide-vue-next';
+import { Moon, ShoppingBag, Sparkles, Sun } from 'lucide-vue-next';
 import CartDrawer from '~/components/CartDrawer.vue';
 import { useCart } from '~/composables/useCart';
+import { useTheme } from '~/composables/useTheme';
 import { resolverTokensPaleta } from '~/plugins/palette';
 import { resolverClaseVariante, VARIANTES_PERMITIDAS } from '~/plugins/variant';
 import type { ConfiguracionGlobal } from '~/types/sanity';
 
 const { totalItems, toggleCart } = useCart();
+const { isDark, toggleTheme } = useTheme();
 
 const configGlobal = ref<Partial<ConfiguracionGlobal> | null>(null);
+
+// Sincronización reactiva de tokens CSS de paleta ante cambios de tema claro/oscuro
+watch(
+    () => isDark.value,
+    (dark) => {
+        if (typeof document !== 'undefined') {
+            const tokens = resolverTokensPaleta(configGlobal.value, dark);
+            for (const [key, propVal] of Object.entries(tokens)) {
+                document.documentElement.style.setProperty(key, propVal);
+            }
+        }
+    }
+);
 
 try {
     const sanity = useSanity();
@@ -57,7 +73,7 @@ try {
                     document.documentElement.classList.add(clase);
 
                     // Sincronización reactiva inmediata de tokens de paleta
-                    const tokens = resolverTokensPaleta(val);
+                    const tokens = resolverTokensPaleta(val, isDark.value);
                     for (const [key, propVal] of Object.entries(tokens)) {
                         document.documentElement.style.setProperty(key, propVal);
                     }
@@ -95,11 +111,11 @@ const urlYouTube = computed(
 
 <template>
     <div
-        class="min-h-screen flex flex-col bg-brand-fondo text-brand-texto font-sans"
+        class="min-h-screen flex flex-col bg-brand-fondo text-brand-texto font-sans transition-colors duration-200"
         :class="{ 'patron-decorativo-activo': configGlobal?.patronDecorativoActivo }"
     >
         <!-- Barra superior de anuncios del taller -->
-        <div class="bg-zinc-900 text-white border-b border-zinc-800 py-2 px-4">
+        <div class="bg-zinc-900 dark:bg-slate-950 text-white border-b border-zinc-800 py-2 px-4">
             <div class="max-w-7xl mx-auto flex items-center justify-center gap-2 font-sans text-xs font-medium tracking-wide text-center">
                 <Sparkles class="w-3.5 h-3.5 text-brand-acento shrink-0" aria-hidden="true" />
                 <span>
@@ -109,7 +125,7 @@ const urlYouTube = computed(
         </div>
 
         <!-- Encabezado principal Mobile-First con altura adaptada para presencia destacada de marca -->
-        <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-zinc-200">
+        <header class="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-slate-800 transition-colors duration-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[5.5rem] sm:min-h-[6.5rem] py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4">
                 <!-- Identidad de marca con logotipo del periquito artesano y tipografía -->
                 <a
@@ -127,7 +143,7 @@ const urlYouTube = computed(
                         decoding="async"
                     />
                     <div class="flex flex-col justify-center">
-                        <span class="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-zinc-900 leading-none group-hover:text-brand-primario transition-colors">
+                        <span class="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-zinc-900 dark:text-slate-100 leading-none group-hover:text-brand-primario transition-colors">
                             {{ nombreSitio }}
                         </span>
                         <span class="font-sans text-xs sm:text-sm font-semibold text-brand-secundario tracking-wide mt-1">
@@ -136,8 +152,8 @@ const urlYouTube = computed(
                     </div>
                 </a>
 
-                <!-- Acciones del Header: Navegación + Botón Táctil Lista de Pedido -->
-                <div class="flex items-center gap-3 sm:gap-4">
+                <!-- Acciones del Header: Navegación + Conmutador Dark Mode + Botón Táctil Lista de Pedido -->
+                <div class="flex items-center gap-2.5 sm:gap-4">
                     <a
                         href="/"
                         class="hidden sm:inline-flex items-center min-h-[44px] px-3 py-2 font-display font-bold text-sm text-brand-texto hover:text-brand-secundario transition-colors focus-visible:outline-none focus-visible:underline"
@@ -145,9 +161,22 @@ const urlYouTube = computed(
                         Catálogo
                     </a>
 
+                    <!-- Botón Conmutador de Modo Oscuro (RF-15, RNF-05) con contraste >= 4.5:1 -->
                     <button
                         type="button"
-                        class="min-h-[44px] inline-flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2 rounded-lg bg-brand-primario text-white font-display font-bold text-sm border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
+                        class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-zinc-800 dark:text-amber-400 border-2 border-zinc-900 dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] hover:bg-zinc-100 dark:hover:bg-slate-700 transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                        :aria-label="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                        :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+                        data-testid="theme-toggle-button"
+                        @click="toggleTheme"
+                    >
+                        <Sun v-if="isDark" class="w-5 h-5 text-amber-400 transition-transform duration-200 rotate-0 hover:rotate-45" aria-hidden="true" />
+                        <Moon v-else class="w-5 h-5 text-zinc-800 transition-transform duration-200 -rotate-12 hover:rotate-0" aria-hidden="true" />
+                    </button>
+
+                    <button
+                        type="button"
+                        class="min-h-[44px] inline-flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2 rounded-lg bg-brand-primario text-white font-display font-bold text-sm border-2 border-brand-texto dark:border-slate-400 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
                         aria-label="Abrir mi lista de pedido"
                         data-testid="open-cart-button"
                         @click="toggleCart"
@@ -155,7 +184,7 @@ const urlYouTube = computed(
                         <ShoppingBag class="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span class="hidden sm:inline">Carrito de Compras</span>
                         <span
-                            class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded bg-brand-acento text-brand-texto font-mono text-xs font-black border border-brand-texto"
+                            class="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded bg-brand-acento text-zinc-950 font-mono text-xs font-black border border-zinc-950"
                             data-testid="cart-badge-count"
                         >
                             {{ totalItems }}
@@ -171,20 +200,20 @@ const urlYouTube = computed(
         </main>
 
         <!-- Pie de página con redes sociales (RF-05) -->
-        <footer class="bg-white border-t border-zinc-200 py-10 sm:py-12 mt-12">
+        <footer class="bg-white dark:bg-slate-900 border-t border-zinc-200 dark:border-slate-800 py-10 sm:py-12 mt-12 transition-colors duration-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div class="space-y-2 max-w-md">
                     <p class="font-display font-extrabold text-lg text-brand-texto">
                         {{ nombreSitio }} · Arte de Yucatán
                     </p>
-                    <p class="font-sans text-sm text-zinc-600 leading-relaxed">
+                    <p class="font-sans text-sm text-zinc-600 dark:text-slate-400 leading-relaxed">
                         Llaveros acrílicos con protección de resina, pines, art prints, tote bags y stickers ilustrados. Diseños originales. Cotizaciones por WhatsApp.
                     </p>
                 </div>
 
                 <!-- Iconos vectoriales de redes sociales con estilo táctil (RF-05) -->
                 <div class="flex flex-col sm:items-end gap-3">
-                    <span class="font-mono text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    <span class="font-mono text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-slate-400">
                         Síguenos en nuestras redes sociales
                     </span>
                     <div class="flex flex-wrap items-center gap-2.5" data-testid="social-links">
@@ -193,7 +222,7 @@ const urlYouTube = computed(
                             :href="urlInstagram"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-mono text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-mono text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                             aria-label="Visitar Instagram de Lector Pobre"
                             data-testid="social-instagram"
                         >
@@ -208,7 +237,7 @@ const urlYouTube = computed(
                             :href="urlFacebook"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-mono text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-mono text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                             aria-label="Visitar Facebook de Lector Pobre"
                             data-testid="social-facebook"
                         >
@@ -223,7 +252,7 @@ const urlYouTube = computed(
                             :href="urlYouTube"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-mono text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                            class="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-mono text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                             aria-label="Visitar YouTube de Lector Pobre"
                             data-testid="social-youtube"
                         >
