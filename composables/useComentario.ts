@@ -5,7 +5,7 @@
  * @satisfies RF-07, RNF-04
  */
 
-import { useComment, type UseCommentOptions } from './useComment';
+import { useComment as baseUseComment, type UseCommentOptions } from './useComment';
 
 export type UseComentarioOptions = UseCommentOptions;
-export const useComentario = useComment;
+export const useComentario = baseUseComment;

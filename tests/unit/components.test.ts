@@ -6,7 +6,7 @@
  * @satisfies UT-VUE-08, UT-VUE-09, UT-VUE-10, UT-VUE-11, UT-VUE-12, UT-VUE-13
  */
 
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CartDrawer from '~/components/CartDrawer.vue';
 import CommentForm from '~/components/CommentForm.vue';
@@ -112,7 +112,7 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(loadingBtn.attributes('aria-busy')).toBe('true');
     });
 
-    it('UT-VUE-11: StarRating y useRating validan rango, previenen duplicados y manejan errores', async () => {
+    it('UT-VUE-11: StarRating como resumen de solo lectura y useRating valida rangos y errores', async () => {
         const mockFetcher = vi.fn().mockResolvedValue({ ok: true });
         const wrapper = mount(StarRating, {
             props: {
@@ -129,17 +129,16 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(wrapper.find('[data-testid="rating-average"]').text()).toBe('4.5');
         expect(wrapper.find('[data-testid="rating-breakdown"]').exists()).toBe(true);
 
-        await wrapper.find('[data-testid="star-button-5"]').trigger('mouseenter');
-        await wrapper.find('[data-testid="star-button-5"]').trigger('mouseleave');
-        await wrapper.find('[data-testid="star-button-5"]').trigger('click');
+        // Validar casos de useRating directo
+        const rValido = useRating('prod-star-1', { fetcher: mockFetcher });
+        expect(await rValido.enviarCalificacion(5)).toBe(true);
+        expect(mockFetcher).toHaveBeenCalledWith(
+            expect.objectContaining({
+                productId: 'prod-star-1',
+                value: 5,
+            })
+        );
 
-        expect(mockFetcher).toHaveBeenCalledWith({
-            productId: 'prod-star-1',
-            value: 5,
-        });
-        expect(wrapper.find('[data-testid="rating-success"]').exists()).toBe(true);
-
-        // Validar casos de error en useRating directo
         const rInvalido = useRating('', { fetcher: mockFetcher });
         expect(await rInvalido.enviarCalificacion(5)).toBe(false);
 
@@ -155,57 +154,117 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(rFalloRed.error.value).toContain('conectar con el servidor');
     });
 
-    it('UT-VUE-12: CommentForm y useComment validan longitud mínima/máxima, ordenamiento y errores', async () => {
+    it('UT-VUE-12: CommentForm y useComment validan estrellas obligatorias, comentarios opcionales, filtros y límites', async () => {
         const mockFetcher = vi.fn().mockResolvedValue({ ok: true });
+        const comentariosPrueba = [
+            {
+                _id: 'c1',
+                _type: 'comentario' as const,
+                _createdAt: '2026-09-01T10:00:00Z',
+                _updatedAt: '2026-09-01T10:00:00Z',
+                _rev: '1',
+                texto: 'Primer comentario aprobado.',
+                calificacion: 5,
+                producto: { _type: 'reference' as const, _ref: 'prod-com-1' },
+                fechaCreacion: '2026-09-01T10:00:00Z',
+                estado: 'aprobado' as const,
+            },
+            {
+                _id: 'c2',
+                _type: 'comentario' as const,
+                _createdAt: '2026-09-05T10:00:00Z',
+                _updatedAt: '2026-09-05T10:00:00Z',
+                _rev: '1',
+                texto: 'Segundo comentario más reciente.',
+                calificacion: 4,
+                producto: { _type: 'reference' as const, _ref: 'prod-com-1' },
+                fechaCreacion: '2026-09-05T10:00:00Z',
+                estado: 'aprobado' as const,
+            },
+            {
+                _id: 'c3',
+                _type: 'comentario' as const,
+                _createdAt: '2026-09-06T10:00:00Z',
+                texto: 'Tercer comentario.',
+                calificacion: 5,
+                producto: { _type: 'reference' as const, _ref: 'prod-com-1' },
+                fechaCreacion: '2026-09-06T10:00:00Z',
+                estado: 'aprobado' as const,
+            },
+            {
+                _id: 'c4',
+                _type: 'comentario' as const,
+                _createdAt: '2026-09-07T10:00:00Z',
+                texto: 'Cuarto comentario.',
+                calificacion: 3,
+                producto: { _type: 'reference' as const, _ref: 'prod-com-1' },
+                fechaCreacion: '2026-09-07T10:00:00Z',
+                estado: 'aprobado' as const,
+            },
+            {
+                _id: 'c5',
+                _type: 'comentario' as const,
+                _createdAt: '2026-09-08T10:00:00Z',
+                texto: 'Quinto comentario.',
+                calificacion: 5,
+                producto: { _type: 'reference' as const, _ref: 'prod-com-1' },
+                fechaCreacion: '2026-09-08T10:00:00Z',
+                estado: 'aprobado' as const,
+            },
+        ];
+
         const wrapper = mount(CommentForm, {
             props: {
                 productoId: 'prod-com-1',
-                comentarios: [
-                    {
-                        _id: 'c1',
-                        _type: 'comentario',
-                        _createdAt: '2026-09-01T10:00:00Z',
-                        _updatedAt: '2026-09-01T10:00:00Z',
-                        _rev: '1',
-                        texto: 'Primer comentario aprobado.',
-                        producto: { _type: 'reference', _ref: 'prod-com-1' },
-                        fechaCreacion: '2026-09-01T10:00:00Z',
-                        estado: 'aprobado',
-                    },
-                    {
-                        _id: 'c2',
-                        _type: 'comentario',
-                        _createdAt: '2026-09-05T10:00:00Z',
-                        _updatedAt: '2026-09-05T10:00:00Z',
-                        _rev: '1',
-                        texto: 'Segundo comentario más reciente.',
-                        producto: { _type: 'reference', _ref: 'prod-com-1' },
-                        fechaCreacion: '2026-09-05T10:00:00Z',
-                        estado: 'aprobado',
-                    },
-                ],
+                comentarios: comentariosPrueba,
                 fetcher: mockFetcher,
             },
         });
 
-        expect(wrapper.findAll('[data-testid="comment-item"]')).toHaveLength(2);
+        // Inicialmente muestra máximo 4 comentarios y botón de toggle
+        expect(wrapper.findAll('[data-testid="comment-item"]')).toHaveLength(4);
+        expect(wrapper.find('[data-testid="toggle-comments-button"]').exists()).toBe(true);
+
+        // Expandir todos los comentarios
+        await wrapper.find('[data-testid="toggle-comments-button"]').trigger('click');
+        expect(wrapper.findAll('[data-testid="comment-item"]')).toHaveLength(5);
+
+        // Filtrar por 4 estrellas (solo hay 1)
+        await wrapper.find('[data-testid="filter-star-4"]').trigger('click');
+        expect(wrapper.findAll('[data-testid="comment-item"]')).toHaveLength(1);
+
+        // Resetear a todos
+        await wrapper.find('[data-testid="filter-star-all"]').trigger('click');
+        expect(wrapper.findAll('[data-testid="comment-item"]')).toHaveLength(5);
+
+        // Ordenar por antiguos
         await wrapper.find('[data-testid="comment-sort-select"]').setValue('antiguos');
         expect(wrapper.findAll('[data-testid="comment-item"]')[0]?.text()).toContain(
             'Primer comentario aprobado.'
         );
 
-        // Intento vacío -> muestra error de validación
+        // Intento de envío sin estrellas -> bloqueado con error
         await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
         expect(wrapper.find('[data-testid="comment-error"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="comment-error"]').text()).toContain('Debes seleccionar una calificación');
 
-        // Comentario válido
+        // Seleccionar 5 estrellas sin comentario -> botón "Enviar calificación"
+        await wrapper.find('[data-testid="star-select-button-5"]').trigger('click');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Enviar calificación');
+        await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="rating-success-message"]').exists()).toBe(true);
+
+        // Escribir comentario válido -> botón cambia a reseña / actualización
         await wrapper
             .find('[data-testid="comment-textarea"]')
             .setValue('Me gustó mucho el detalle del broche.');
         await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
         expect(wrapper.find('[data-testid="comment-success"]').exists()).toBe(true);
 
-        // Validaciones adicionales de useComment
+        // Validaciones directas de useComment
         const cCorto = useComment('prod-com-2', {
             fetcher: async () => ({ ok: false, error: 'Rechazado' }),
         });

@@ -22,6 +22,12 @@ export const ErrorCode = {
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 /**
+ * Valor entero permitido para calificaciones por estrellas (1 a 5).
+ * @satisfies RF-06
+ */
+export type StarRatingValue = 1 | 2 | 3 | 4 | 5;
+
+/**
  * Payload para publicar un comentario en un producto (POST /api/comment).
  * @satisfies RF-07
  */
@@ -31,7 +37,7 @@ export interface CommentPayload {
   /** Contenido del comentario (mínimo 3, máximo 1000 caracteres). */
   text: string;
   /** Calificación por estrellas (1 a 5) asociada a la reseña. */
-  rating?: 1 | 2 | 3 | 4 | 5;
+  rating?: StarRatingValue;
   /** Identificador anónimo del cliente para mantener un único comentario activo por producto. */
   userId?: string;
 }
@@ -44,9 +50,9 @@ export interface RatingPayload {
   /** ID del documento de producto en Sanity.io. */
   productId: string;
   /** Valor entero entre 1 y 5 estrellas. */
-  value: 1 | 2 | 3 | 4 | 5;
+  value: StarRatingValue;
   /** Calificación previa del usuario (1–5) cuando modifica su calificación existente. */
-  previousValue?: 1 | 2 | 3 | 4 | 5;
+  previousValue?: StarRatingValue;
   /** Identificador anónimo del cliente para mantener una única calificación activa por producto. */
   userId?: string;
 }

@@ -5,7 +5,7 @@
  * @satisfies RF-06, RNF-04
  */
 
-import { useRating, type UseRatingOptions } from './useRating';
+import { useRating as baseUseRating, type UseRatingOptions } from './useRating';
 
 export type UseCalificacionOptions = UseRatingOptions;
-export const useCalificacion = useRating;
+export const useCalificacion = baseUseRating;

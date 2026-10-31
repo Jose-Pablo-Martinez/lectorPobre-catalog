@@ -93,6 +93,8 @@ if (props.initialProducto === undefined) {
                                   _updatedAt,
                                   _rev,
                                   texto,
+                                  calificacion,
+                                  usuarioId,
                                   producto,
                                   fechaCreacion,
                                   estado
@@ -238,6 +240,19 @@ const precioFormateado = computed<string>(() =>
 const clasesBotonDetallePedido = computed<string>(() =>
     obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard')
 );
+
+const manejarRatingActualizado = (nuevoValor: number): void => {
+    if (!producto.value) return;
+    const count = producto.value.ratingCount ?? 0;
+    const prom = producto.value.calificacionPromedio ?? 0;
+    const nuevoCount = count + 1;
+    const nuevoPromedio = Number(((prom * count + nuevoValor) / nuevoCount).toFixed(1));
+    producto.value = {
+        ...producto.value,
+        ratingCount: nuevoCount,
+        calificacionPromedio: nuevoPromedio,
+    };
+};
 
 onMounted(() => {
     if (producto.value) {
@@ -527,6 +542,7 @@ try {
             <CommentForm
                 :producto-id="producto._id"
                 :comentarios="comentarios"
+                @rating-updated="manejarRatingActualizado"
             />
 
             <!-- Productos similares basados en contenido (RF-21) -->
