@@ -243,6 +243,75 @@ const validarEnvio = (): string | null => {
     return null;
 };
 
+const procesarEnvioRating = async (
+    userId: string,
+    reviewData: StoredUserReview
+): Promise<boolean> => {
+    const debeEnviarRating =
+        cambiaronEstrellas.value || savedRating.value === null;
+    if (!debeEnviarRating) {
+        return true;
+    }
+
+    const resRating = await ejecutarFetchRating({
+        productId: props.productoId,
+        value: estrellaSeleccionada.value as StarRatingValue,
+        previousValue: savedRating.value
+            ? (savedRating.value as StarRatingValue)
+            : undefined,
+        userId,
+    });
+
+    if (!resRating?.ok) {
+        errorGeneral.value =
+            resRating?.error ?? 'Error al registrar tu calificación.';
+        return false;
+    }
+
+    const eraModificacion = savedRating.value !== null;
+    savedRating.value = estrellaSeleccionada.value;
+    reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
+    feedbackEstrellas.value = eraModificacion
+        ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
+        : `Tu calificación de ${estrellaSeleccionada.value} estrellas se registró correctamente.`;
+    emit('rating-updated', estrellaSeleccionada.value);
+    return true;
+};
+
+const procesarEnvioComentario = async (
+    userId: string,
+    reviewData: StoredUserReview
+): Promise<boolean> => {
+    const debeEnviarComentario =
+        !comentarioVacio.value &&
+        (cambioComentario.value || !savedComment.value);
+    if (!debeEnviarComentario) {
+        return true;
+    }
+
+    const resComment = await ejecutarFetchComment({
+        productId: props.productoId,
+        text: comentarioLimpio.value,
+        rating: estrellaSeleccionada.value as StarRatingValue,
+        userId,
+    });
+
+    if (!resComment?.ok) {
+        errorGeneral.value =
+            resComment?.error ?? 'Error al enviar tu comentario.';
+        return false;
+    }
+
+    const eraModificacion = Boolean(savedComment.value);
+    savedComment.value = comentarioLimpio.value;
+    reviewData.comment = comentarioLimpio.value;
+    reviewData.commentStatus = 'pendiente';
+    feedbackComentario.value = eraModificacion
+        ? 'Comentario actualizado y enviado a revisión.'
+        : 'Tu comentario fue enviado correctamente y quedará visible cuando sea aprobado por moderación.';
+    return true;
+};
+
 const manejarSubmit = async (): Promise<void> => {
     errorGeneral.value = null;
     feedbackEstrellas.value = null;
@@ -256,64 +325,16 @@ const manejarSubmit = async (): Promise<void> => {
 
     enviando.value = true;
     const userId = getOrCreateUserId();
-    const reviewData: StoredUserReview = getStoredUserReview(props.productoId) ?? {};
+    const reviewData: StoredUserReview =
+        getStoredUserReview(props.productoId) ?? {};
 
     try {
-        const debeEnviarRating =
-            cambiaronEstrellas.value || savedRating.value === null;
-        const debeEnviarComentario =
-            !comentarioVacio.value &&
-            (cambioComentario.value || !savedComment.value);
-
-        let ratingOk = true;
-        let commentOk = true;
-
-        if (debeEnviarRating) {
-            const resRating = await ejecutarFetchRating({
-                productId: props.productoId,
-                value: estrellaSeleccionada.value as StarRatingValue,
-                previousValue: savedRating.value
-                    ? (savedRating.value as StarRatingValue)
-                    : undefined,
-                userId,
-            });
-            if (resRating?.ok) {
-                const eraModificacion = savedRating.value !== null;
-                savedRating.value = estrellaSeleccionada.value;
-                reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
-                feedbackEstrellas.value = eraModificacion
-                    ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
-                    : `Tu calificación de ${estrellaSeleccionada.value} estrellas se registró correctamente.`;
-                emit('rating-updated', estrellaSeleccionada.value);
-            } else {
-                ratingOk = false;
-                errorGeneral.value =
-                    resRating?.error ?? 'Error al registrar tu calificación.';
-            }
+        const ratingOk = await procesarEnvioRating(userId, reviewData);
+        if (!ratingOk) {
+            return;
         }
 
-        if (debeEnviarComentario && ratingOk) {
-            const resComment = await ejecutarFetchComment({
-                productId: props.productoId,
-                text: comentarioLimpio.value,
-                rating: estrellaSeleccionada.value as StarRatingValue,
-                userId,
-            });
-            if (resComment?.ok) {
-                const eraModificacion = Boolean(savedComment.value);
-                savedComment.value = comentarioLimpio.value;
-                reviewData.comment = comentarioLimpio.value;
-                reviewData.commentStatus = 'pendiente';
-                feedbackComentario.value = eraModificacion
-                    ? 'Comentario actualizado y enviado a revisión.'
-                    : 'Tu comentario fue enviado correctamente y quedará visible cuando sea aprobado por moderación.';
-            } else {
-                commentOk = false;
-                errorGeneral.value =
-                    resComment?.error ?? 'Error al enviar tu comentario.';
-            }
-        }
-
+        const commentOk = await procesarEnvioComentario(userId, reviewData);
         if (ratingOk || commentOk) {
             saveStoredUserReview(props.productoId, reviewData);
         }
@@ -508,12 +529,15 @@ const manejarSubmit = async (): Promise<void> => {
 
             <!-- Selector interactivo de estrellas (1 a 5) -->
             <div class="space-y-1.5" data-testid="interactive-star-selector">
-                <label class="block font-sans text-xs font-semibold text-zinc-700">
+                <span
+                    id="star-selector-label"
+                    class="block font-sans text-xs font-semibold text-zinc-700"
+                >
                     Calificación general:
-                </label>
+                </span>
                 <fieldset
                     class="inline-flex items-center gap-1.5 m-0 p-0 border-0"
-                    aria-label="Selecciona una calificación de 1 a 5 estrellas"
+                    aria-labelledby="star-selector-label"
                 >
                     <button
                         v-for="n in 5"
