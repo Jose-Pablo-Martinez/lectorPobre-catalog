@@ -15,10 +15,12 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/middleware"
 )
 
-// mockSanityWriter implementa sanity.Writer para pruebas unitarias.
+// mockSanityWriter implementa sanity.Writer y sanity.ReviewWriter para pruebas unitarias.
 type mockSanityWriter struct {
 	createCommentFunc func(ctx context.Context, productID string, text string) error
 	createRatingFunc  func(ctx context.Context, productID string, value int) error
+	upsertCommentFunc func(ctx context.Context, p handlers.CommentPayload) error
+	upsertRatingFunc  func(ctx context.Context, p handlers.RatingPayload) error
 }
 
 func (m *mockSanityWriter) CreateComment(ctx context.Context, productID string, text string) error {
@@ -33,6 +35,64 @@ func (m *mockSanityWriter) CreateRating(ctx context.Context, productID string, v
 		return m.createRatingFunc(ctx, productID, value)
 	}
 	return nil
+}
+
+func (m *mockSanityWriter) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
+	if m.upsertCommentFunc != nil {
+		return m.upsertCommentFunc(ctx, p)
+	}
+	return nil
+}
+
+func (m *mockSanityWriter) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
+	if m.upsertRatingFunc != nil {
+		return m.upsertRatingFunc(ctx, p)
+	}
+	return nil
+}
+
+// TestComentarHandler_ConRatingYUserId_Retorna201 verifica asociar calificacion y usuario en comentario.
+func TestComentarHandler_ConRatingYUserId_Retorna201(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	var capturedPayload handlers.CommentPayload
+	mock := &mockSanityWriter{
+		upsertCommentFunc: func(ctx context.Context, p handlers.CommentPayload) error {
+			capturedPayload = p
+			return nil
+		},
+	}
+	handler.SetSanityWriter(mock)
+
+	payload := `{"productId":"prod-xyz","text":"Gran pieza artesanal","rating":4,"userId":"usr-42"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Esperado 201 Created, obtenido %d", w.Code)
+	}
+	if capturedPayload.Rating != 4 || capturedPayload.UserID != "usr-42" {
+		t.Errorf("Payload capturado incorrecto: %+v", capturedPayload)
+	}
+}
+
+// TestComentarHandler_RatingInvalido_Retorna400 verifica que rating fuera de 1-5 retorne 400.
+func TestComentarHandler_RatingInvalido_Retorna400(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	handler.SetSanityWriter(&mockSanityWriter{})
+
+	payload := `{"productId":"prod-xyz","text":"Gran pieza","rating":6}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Esperado 400 Bad Request para rating = 6, obtenido %d", w.Code)
+	}
 }
 
 // UT-GO-11: TestComentarHandler_PayloadJSON_Retorna201 verifica el flujo exitoso de publicación de comentario.

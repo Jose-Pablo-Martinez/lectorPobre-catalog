@@ -270,6 +270,26 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         await flushPromises();
         expect(wrapper.find('[data-testid="comment-success"]').exists()).toBe(true);
 
+        // Modificación parcial: solo estrellas (de 5 a 4)
+        await wrapper.find('[data-testid="star-select-button-4"]').trigger('click');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Actualizar calificación');
+        await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="rating-success-message"]').text()).toContain('4 estrellas');
+
+        // Modificación parcial: solo texto de comentario
+        await wrapper
+            .find('[data-testid="comment-textarea"]')
+            .setValue('Comentario actualizado con más detalles.');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Actualizar comentario');
+        await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="comment-success"]').text()).toContain('actualizado y enviado');
+
+        // Sin cambios posteriores -> botón deshabilitado "Reseña enviada"
+        expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Reseña enviada');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').attributes('disabled')).toBeDefined();
+
         // Validaciones directas de useComment
         const cCorto = useComment('prod-com-2', {
             fetcher: async () => ({ ok: false, error: 'Rechazado' }),
