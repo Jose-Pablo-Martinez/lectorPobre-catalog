@@ -28,8 +28,12 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 export interface CommentPayload {
   /** ID del documento de producto en Sanity.io. */
   productId: string;
-  /** Contenido del comentario (máximo 1000 caracteres). */
+  /** Contenido del comentario (mínimo 3, máximo 1000 caracteres). */
   text: string;
+  /** Calificación por estrellas (1 a 5) asociada a la reseña. */
+  rating?: 1 | 2 | 3 | 4 | 5;
+  /** Identificador anónimo del cliente para mantener un único comentario activo por producto. */
+  userId?: string;
 }
 
 /**
@@ -41,6 +45,10 @@ export interface RatingPayload {
   productId: string;
   /** Valor entero entre 1 y 5 estrellas. */
   value: 1 | 2 | 3 | 4 | 5;
+  /** Calificación previa del usuario (1–5) cuando modifica su calificación existente. */
+  previousValue?: 1 | 2 | 3 | 4 | 5;
+  /** Identificador anónimo del cliente para mantener una única calificación activa por producto. */
+  userId?: string;
 }
 
 /**

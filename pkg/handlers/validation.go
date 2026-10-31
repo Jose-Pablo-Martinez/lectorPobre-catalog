@@ -20,11 +20,18 @@ func ValidateComment(p CommentPayload) error {
 	if strings.TrimSpace(p.ProductID) == "" {
 		return errors.New("productoId requerido")
 	}
-	if strings.TrimSpace(p.Text) == "" {
+	trimmed := strings.TrimSpace(p.Text)
+	if trimmed == "" {
 		return errors.New("texto no puede estar vacío")
+	}
+	if utf8.RuneCountInString(trimmed) < 3 {
+		return errors.New("el texto debe tener al menos 3 caracteres")
 	}
 	if utf8.RuneCountInString(p.Text) > 1000 {
 		return errors.New("el texto no puede exceder 1000 caracteres")
+	}
+	if p.Rating != 0 && (p.Rating < 1 || p.Rating > 5) {
+		return errors.New("calificación fuera de rango [1, 5]")
 	}
 	return nil
 }
@@ -45,6 +52,9 @@ func ValidateRating(p RatingPayload) error {
 	}
 	if p.Value < 1 || p.Value > 5 {
 		return errors.New("calificación fuera de rango [1, 5]")
+	}
+	if p.PreviousValue != 0 && (p.PreviousValue < 1 || p.PreviousValue > 5) {
+		return errors.New("calificación previa fuera de rango [1, 5]")
 	}
 	return nil
 }

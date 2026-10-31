@@ -13,6 +13,7 @@ func TestValidarComentario_TextoValido_RetornaNil(t *testing.T) {
 	payload := handlers.CommentPayload{
 		ProductID: "prod-12345",
 		Text:      "Excelente producto, llegó en perfectas condiciones y rápido.",
+		Rating:    5,
 	}
 
 	if err := handlers.ValidateComment(payload); err != nil {
@@ -24,10 +25,10 @@ func TestValidarComentario_TextoValido_RetornaNil(t *testing.T) {
 	}
 }
 
-// UT-GO-02: TestValidarComentario_TextoVacio_RetornaError verifica que un texto vacío o de solo espacios sea rechazado.
+// UT-GO-02: TestValidarComentario_TextoVacio_RetornaError verifica que un texto vacío, de solo espacios o menor a 3 caracteres sea rechazado.
 // Satisface: RF-07, VyV §3.1.
 func TestValidarComentario_TextoVacio_RetornaError(t *testing.T) {
-	testCases := []string{"", "   ", "\t\n"}
+	testCases := []string{"", "   ", "\t\n", "a", "ab"}
 
 	for _, text := range testCases {
 		payload := handlers.CommentPayload{
@@ -38,6 +39,20 @@ func TestValidarComentario_TextoVacio_RetornaError(t *testing.T) {
 		err := handlers.ValidateComment(payload)
 		if err == nil {
 			t.Errorf("ValidateComment esperaba error para texto %q, se obtuvo nil", text)
+		}
+	}
+}
+
+// TestValidarComentario_RatingFueraDeRango_RetornaError verifica que un comentario con calificación fuera de [1, 5] sea rechazado.
+func TestValidarComentario_RatingFueraDeRango_RetornaError(t *testing.T) {
+	for _, r := range []int{-1, 6, 99} {
+		payload := handlers.CommentPayload{
+			ProductID: "prod-12345",
+			Text:      "Comentario válido",
+			Rating:    r,
+		}
+		if err := handlers.ValidateComment(payload); err == nil {
+			t.Errorf("ValidateComment esperaba error para rating %d, se obtuvo nil", r)
 		}
 	}
 }
@@ -89,8 +104,9 @@ func TestValidarComentario_ProductoIDVacio_RetornaError(t *testing.T) {
 // Satisface: RF-06, VyV §3.1.
 func TestValidarCalificacion_Valor3_RetornaNil(t *testing.T) {
 	payload := handlers.RatingPayload{
-		ProductID: "prod-12345",
-		Value:     3,
+		ProductID:     "prod-12345",
+		Value:         3,
+		PreviousValue: 2,
 	}
 
 	if err := handlers.ValidateRating(payload); err != nil {
@@ -133,6 +149,20 @@ func TestValidarCalificacion_Valor6_RetornaError(t *testing.T) {
 
 	if err := handlers.ValidateRating(payload); err == nil {
 		t.Errorf("ValidateRating esperaba error para valor 6, se obtuvo nil")
+	}
+}
+
+// TestValidarCalificacion_PreviousValueInvalido_RetornaError verifica que previousValue fuera de [1, 5] sea rechazado.
+func TestValidarCalificacion_PreviousValueInvalido_RetornaError(t *testing.T) {
+	for _, prev := range []int{-1, 6} {
+		payload := handlers.RatingPayload{
+			ProductID:     "prod-12345",
+			Value:         4,
+			PreviousValue: prev,
+		}
+		if err := handlers.ValidateRating(payload); err == nil {
+			t.Errorf("ValidateRating esperaba error para previousValue %d, se obtuvo nil", prev)
+		}
 	}
 }
 
@@ -203,4 +233,3 @@ func TestValidarBusqueda_QueryExcedeLongitud_RetornaError(t *testing.T) {
 		t.Errorf("ValidateSearch esperaba error para query que excede 200 caracteres")
 	}
 }
-

@@ -53,7 +53,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
-			return writer.CreateRating(ctx, p.ProductID, p.Value)
+			return sanity.DispatchRating(ctx, writer, p)
 		},
 	})
 }
