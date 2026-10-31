@@ -6,7 +6,8 @@
   (`WhatsAppButton`, RF-17), sistema de calificación por estrellas con desglose (`StarRating`, RF-06),
   sección de comentarios moderados (`CommentForm`, RF-07), productos similares (`SimilarProducts`, RF-21)
   y registro automático en "Vistos recientemente" (`useRecentlyViewed`, RF-22).
-  @satisfies RF-02, RF-03, RF-06, RF-07, RF-14, RF-17, RF-20, RF-21, RF-22
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-02, RF-03, RF-06, RF-07, RF-14, RF-15, RF-17, RF-20, RF-21, RF-22, RNF-05
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
@@ -19,7 +20,7 @@ import {
     ShoppingBag,
     Tag,
 } from 'lucide-vue-next';
-import CommentForm from '~/components/CommentForm.vue';
+import CommentForm, { type RatingUpdatedPayload } from '~/components/CommentForm.vue';
 import RecentlyViewed from '~/components/RecentlyViewed.vue';
 import SimilarProducts from '~/components/SimilarProducts.vue';
 import StarRating from '~/components/StarRating.vue';
@@ -163,7 +164,7 @@ const stockActual = computed<number>(
 
 const agotado = computed<boolean>(() => stockActual.value <= 0);
 
-// Galería de imágenes (imagenPrincipal + imagenes adicionales)
+// Galería de imágenes (principal + galería secundaria)
 const galeriaImagenes = computed<SanityImage[]>(() => {
     if (!producto.value) return [];
     const lista: SanityImage[] = [];
@@ -172,7 +173,7 @@ const galeriaImagenes = computed<SanityImage[]>(() => {
     }
     if (Array.isArray(producto.value.imagenes)) {
         for (const img of producto.value.imagenes) {
-            if (img?.asset) {
+            if (img && !lista.some((existente) => existente.asset?._ref === img.asset?._ref)) {
                 lista.push(img);
             }
         }
@@ -180,78 +181,73 @@ const galeriaImagenes = computed<SanityImage[]>(() => {
     return lista;
 });
 
-const indiceImagenActiva = ref<number>(0);
-const errorImagenActiva = ref<boolean>(false);
+const indiceImagenActiva = ref(0);
+const errorImagenActiva = ref(false);
 
 const imagenActivaUrl = computed<string | null>(() => {
     if (errorImagenActiva.value) return null;
-    const activa = galeriaImagenes.value[indiceImagenActiva.value];
-    if (!activa) return null;
-    return urlFor(activa, { width: 900, height: 900 });
+    const imagen = galeriaImagenes.value[indiceImagenActiva.value];
+    if (!imagen) return null;
+    return urlFor(imagen, { width: 900, height: 900 });
 });
 
-const obtenerMiniaturaGaleria = (img: SanityImage): string | null =>
-    urlFor(img, { width: 200, height: 200 });
-
-const cantidadSeleccionada = ref<number>(1);
-const recienAgregado = ref<boolean>(false);
-
-const disminuirCantidad = (): void => {
-    cantidadSeleccionada.value = Math.max(1, cantidadSeleccionada.value - 1);
+const obtenerMiniaturaGaleria = (img: SanityImage): string | null => {
+    return urlFor(img, { width: 140, height: 140 });
 };
+
+const precioFormateado = computed<string>(() =>
+    formatearPrecioMXN(producto.value?.precio, 'Precio por cotizar')
+);
+
+const cantidadSeleccionada = ref(1);
 
 const aumentarCantidad = (): void => {
     const tope = Math.max(1, stockActual.value);
     cantidadSeleccionada.value = Math.min(tope, cantidadSeleccionada.value + 1);
 };
 
-const manejarAgregarLista = (): void => {
-    if (!producto.value || agotado.value) return;
-    const exito = addItem(
-        {
-            ...producto.value,
-            stock: stockActual.value,
-        },
-        cantidadSeleccionada.value
-    );
-    if (exito) {
-        recienAgregado.value = true;
-        openCart();
-        setTimeout(() => {
-            recienAgregado.value = false;
-        }, 1500);
-    }
+const disminuirCantidad = (): void => {
+    cantidadSeleccionada.value = Math.max(1, cantidadSeleccionada.value - 1);
 };
 
-// Enlace directo de WhatsApp para este producto (RF-17)
-const urlWhatsApp = computed<string>(() =>
-    construirUrlWhatsApp(
+// Enlace directo de WhatsApp con mensaje parametrizado (RF-02, RF-17)
+const urlWhatsApp = computed<string>(() => {
+    if (!producto.value) return '';
+    return construirUrlWhatsApp(
         configGlobal.value?.numeroWhatsApp ?? '',
-        producto.value?.nombre ?? '',
+        producto.value.nombre,
         configGlobal.value?.mensajeWhatsApp,
-        producto.value?.precio
-    )
-);
+        producto.value.precio
+    );
+});
 
-const precioFormateado = computed<string>(() =>
-    formatearPrecioMXN(producto.value?.precio, 'Precio por cotizar')
-);
+// Agregar a la Lista de Pedido (RF-14)
+const recienAgregado = ref(false);
 
 const clasesBotonDetallePedido = computed<string>(() =>
     obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard')
 );
 
-const manejarRatingActualizado = (
-    data: number | { nuevoValor: number; valorPrevio?: number | null; eraModificacion?: boolean }
-): void => {
-    if (!producto.value) return;
-    const nuevoValor = typeof data === 'number' ? data : data.nuevoValor;
-    const valorPrevio = typeof data === 'number' ? null : (data.valorPrevio ?? null);
-    const eraModificacion = typeof data === 'number' ? false : Boolean(data.eraModificacion);
+const manejarAgregarLista = (): void => {
+    if (!producto.value || agotado.value) return;
+    const exito = addItem(producto.value, cantidadSeleccionada.value);
+    if (exito) {
+        recienAgregado.value = true;
+        openCart();
+        setTimeout(() => {
+            recienAgregado.value = false;
+        }, 1200);
+    }
+};
 
-    const count = Math.max(0, producto.value.ratingCount ?? 0);
-    const prom = producto.value.calificacionPromedio ?? 0;
-    const sumaActual = prom * count;
+const manejarRatingActualizado = (evento: RatingUpdatedPayload | number): void => {
+    if (!producto.value) return;
+    const nuevoValor = typeof evento === 'number' ? evento : evento.nuevoValor;
+    const valorPrevio = typeof evento === 'number' ? null : (evento.valorPrevio ?? null);
+    const eraModificacion = typeof evento === 'number' ? false : evento.eraModificacion;
+    const count = producto.value.ratingCount ?? 0;
+    const promActual = producto.value.calificacionPromedio ?? 0;
+    const sumaActual = promActual * count;
 
     let nuevoCount = count;
     let nuevaSuma: number;
@@ -335,7 +331,7 @@ try {
         <nav aria-label="Ruta de navegación">
             <a
                 href="/"
-                class="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-display text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+                class="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
                 data-testid="back-to-catalog-link"
             >
                 <ArrowLeft class="w-4 h-4" aria-hidden="true" />
@@ -350,7 +346,7 @@ try {
         >
             <!-- Columna izquierda: Galería 1:1 y miniaturas -->
             <div class="lg:col-span-6 space-y-4">
-                <div class="aspect-square w-full bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex items-center justify-center">
+                <div class="aspect-square w-full bg-white dark:bg-slate-900/90 rounded-2xl border border-zinc-200 dark:border-slate-800 shadow-sm overflow-hidden flex items-center justify-center transition-colors">
                     <img
                         v-if="imagenActivaUrl"
                         :src="imagenActivaUrl"
@@ -363,7 +359,7 @@ try {
                     />
                     <div
                         v-else
-                        class="w-full h-full flex flex-col items-center justify-center gap-3 p-8 bg-zinc-50 text-zinc-400"
+                        class="w-full h-full flex flex-col items-center justify-center gap-3 p-8 bg-zinc-50 dark:bg-slate-950 text-zinc-400 dark:text-slate-500"
                         data-testid="detail-image-placeholder"
                     >
                         <ImageIcon class="w-16 h-16 stroke-[1.5]" aria-hidden="true" />
@@ -384,7 +380,7 @@ try {
                         v-for="(img, idx) in galeriaImagenes"
                         :key="idx"
                         type="button"
-                        class="aspect-square bg-white rounded-lg border border-zinc-200 overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40"
+                        class="aspect-square bg-white dark:bg-slate-900 rounded-lg border border-zinc-200 dark:border-slate-700 overflow-hidden transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 cursor-pointer"
                         :class="
                             idx === indiceImagenActiva
                                 ? 'ring-2 ring-brand-secundario border-brand-secundario shadow-sm'
@@ -408,12 +404,12 @@ try {
 
             <!-- Columna derecha: Información, stock, compra y calificación -->
             <div class="lg:col-span-6 space-y-6">
-                <div class="p-6 sm:p-7 bg-white rounded-2xl border border-zinc-200 shadow-sm space-y-5">
+                <div class="p-6 sm:p-7 bg-white dark:bg-slate-900/90 rounded-2xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-5 transition-colors">
                     <!-- Categoría y badge de stock en tiempo real (RF-03) -->
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <span
                             v-if="producto.categoria?.nombre"
-                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secundario/10 border border-brand-secundario/20 font-sans text-xs font-semibold text-brand-secundario"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secundario/10 dark:bg-sky-950/40 border border-brand-secundario/20 dark:border-sky-800/60 font-sans text-xs font-semibold text-brand-secundario dark:text-sky-300"
                             data-testid="detail-category"
                         >
                             <Tag class="w-3.5 h-3.5" aria-hidden="true" />
@@ -431,7 +427,7 @@ try {
                     <!-- Título y precio -->
                     <div class="space-y-2">
                         <h1
-                            class="font-display font-extrabold text-2xl sm:text-3xl text-zinc-900 leading-tight"
+                            class="font-display font-extrabold text-2xl sm:text-3xl text-zinc-900 dark:text-slate-100 leading-tight"
                             data-testid="detail-title"
                         >
                             {{ producto.nombre }}
@@ -448,7 +444,7 @@ try {
                     <!-- Descripción completa -->
                     <p
                         v-if="producto.descripcion"
-                        class="font-sans text-sm sm:text-base text-zinc-600 leading-relaxed pt-3 border-t border-zinc-100"
+                        class="font-sans text-sm sm:text-base text-zinc-600 dark:text-slate-300 leading-relaxed pt-3 border-t border-zinc-100 dark:border-slate-800"
                         data-testid="detail-description"
                     >
                         {{ producto.descripcion }}
@@ -463,25 +459,25 @@ try {
                         <span
                             v-for="tag in producto.palabrasClave"
                             :key="tag"
-                            class="px-2.5 py-0.5 rounded-full bg-zinc-100 border border-zinc-200 font-sans text-xs text-zinc-600"
+                            class="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-slate-800 border border-zinc-200 dark:border-slate-700 font-sans text-xs text-zinc-600 dark:text-slate-300"
                         >
                             #{{ tag }}
                         </span>
                     </div>
 
                     <!-- Selector de cantidad y botones de acción (Lista de Pedido + WhatsApp directo) -->
-                    <div class="pt-4 border-t border-zinc-200 space-y-3">
+                    <div class="pt-4 border-t border-zinc-200 dark:border-slate-800 space-y-3">
                         <div
                             v-if="!agotado"
                             class="flex items-center justify-between gap-4"
                         >
-                            <span class="font-sans text-xs font-semibold text-zinc-700">
+                            <span class="font-sans text-xs font-semibold text-zinc-700 dark:text-slate-300">
                                 Cantidad:
                             </span>
-                            <div class="inline-flex items-center rounded-lg border border-zinc-300 bg-zinc-50 overflow-hidden">
+                            <div class="inline-flex items-center rounded-lg border border-zinc-300 dark:border-slate-700 bg-zinc-50 dark:bg-slate-800 overflow-hidden">
                                 <button
                                     type="button"
-                                    class="px-3 py-1.5 hover:bg-zinc-200 text-zinc-700 transition-colors"
+                                    class="px-3 py-1.5 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 transition-colors cursor-pointer"
                                     aria-label="Disminuir cantidad"
                                     data-testid="detail-decrease-qty"
                                     @click="disminuirCantidad"
@@ -489,7 +485,7 @@ try {
                                     <Minus class="w-4 h-4" aria-hidden="true" />
                                 </button>
                                 <span
-                                    class="px-4 py-1 font-mono text-sm font-bold text-zinc-900 border-x border-zinc-300"
+                                    class="px-4 py-1 font-mono text-sm font-bold text-zinc-900 dark:text-slate-100 border-x border-zinc-300 dark:border-slate-700"
                                     data-testid="detail-qty-value"
                                 >
                                     {{ cantidadSeleccionada }}
@@ -497,7 +493,7 @@ try {
                                 <button
                                     type="button"
                                     :disabled="cantidadSeleccionada >= stockActual"
-                                    class="px-3 py-1.5 hover:bg-zinc-200 text-zinc-700 disabled:opacity-40 transition-colors"
+                                    class="px-3 py-1.5 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 disabled:opacity-40 transition-colors cursor-pointer"
                                     aria-label="Aumentar cantidad"
                                     data-testid="detail-increase-qty"
                                     @click="aumentarCantidad"
@@ -513,7 +509,7 @@ try {
                             :disabled="agotado"
                             :aria-disabled="agotado"
                             :class="[
-                                'min-h-[48px] w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg font-display font-bold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario',
+                                'min-h-[48px] w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg font-display font-bold text-base transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer',
                                 clasesBotonDetallePedido,
                             ]"
                             data-testid="detail-add-to-order"
@@ -532,7 +528,7 @@ try {
                             </template>
                         </button>
 
-                        <!-- Botón directo de WhatsApp (RF-17) - Diseño visual intacto -->
+                        <!-- Botón directo de WhatsApp (RF-17) -->
                         <WhatsAppButton
                             :href="urlWhatsApp"
                             :disabled="agotado"
@@ -560,13 +556,13 @@ try {
         <!-- Estado de producto no encontrado -->
         <div
             v-else
-            class="p-8 bg-white rounded-2xl border border-zinc-200 shadow-sm text-center space-y-3"
+            class="p-8 bg-white dark:bg-slate-900/90 rounded-2xl border border-zinc-200 dark:border-slate-800 shadow-sm text-center space-y-3 transition-colors"
             data-testid="product-not-found"
         >
-            <h1 class="font-display font-bold text-2xl text-zinc-900">
+            <h1 class="font-display font-bold text-2xl text-zinc-900 dark:text-slate-100">
                 Al periquito se le perdió la pieza.
             </h1>
-            <p class="font-sans text-sm text-zinc-600">
+            <p class="font-sans text-sm text-zinc-600 dark:text-slate-300">
                 El producto que buscas no existe o ya no se encuentra activo en el catálogo.
             </p>
         </div>

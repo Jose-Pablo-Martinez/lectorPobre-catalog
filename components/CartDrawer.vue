@@ -3,7 +3,8 @@
   @description Organismo de Lista de Pedido (carrito de cotización estilo Steam sin pasarela de pago).
   Se presenta como panel lateral slide-over en escritorio y bottom-sheet en móvil, permitiendo
   ajustar cantidades, revisar el total estimado y enviar el desglose directo a WhatsApp.
-  @satisfies RF-14, RF-17, RNF-05
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-14, RF-15, RF-17, RNF-05
 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue';
@@ -101,22 +102,22 @@ onBeforeUnmount(() => {
 
         <!-- Panel del cotizador -->
         <aside
-            class="relative z-10 w-full max-h-[88vh] md:max-h-none md:max-w-md bg-zinc-50 text-zinc-900 rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-zinc-200 shadow-xl flex flex-col justify-between overflow-hidden"
+            class="relative z-10 w-full max-h-[88vh] md:max-h-none md:max-w-md bg-zinc-50 dark:bg-slate-900 text-zinc-900 dark:text-slate-100 rounded-t-2xl md:rounded-none border-t md:border-t-0 md:border-l border-zinc-200 dark:border-slate-800 shadow-xl flex flex-col justify-between overflow-hidden transition-colors"
         >
             <!-- Encabezado -->
-            <header class="flex items-center justify-between px-5 py-4 bg-white border-b border-zinc-200">
+            <header class="flex items-center justify-between px-5 py-4 bg-white dark:bg-slate-900 border-b border-zinc-200 dark:border-slate-800">
                 <div class="flex items-center gap-2.5">
-                    <div class="p-2 rounded-lg bg-brand-secundario/10 text-brand-secundario">
+                    <div class="p-2 rounded-lg bg-brand-secundario/10 dark:bg-sky-950/40 text-brand-secundario dark:text-sky-300">
                         <ShoppingBag class="w-5 h-5" aria-hidden="true" />
                     </div>
                     <div>
                         <h2
                             id="cart-drawer-title"
-                            class="font-display font-bold text-lg text-zinc-900 leading-tight"
+                            class="font-display font-bold text-lg text-zinc-900 dark:text-slate-100 leading-tight"
                         >
                             Mi carrito de compras
                         </h2>
-                        <p class="font-sans text-xs text-zinc-500">
+                        <p class="font-sans text-xs text-zinc-500 dark:text-slate-400">
                             {{ totalItems }} {{ totalItems === 1 ? 'artículo seleccionado' : 'artículos seleccionados' }}
                         </p>
                     </div>
@@ -124,7 +125,7 @@ onBeforeUnmount(() => {
 
                 <button
                     type="button"
-                    class="p-2 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40"
+                    class="p-2 rounded-full bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 cursor-pointer"
                     aria-label="Cerrar lista de pedido"
                     data-testid="close-cart-button"
                     @click="closeCart"
@@ -137,14 +138,14 @@ onBeforeUnmount(() => {
             <div class="flex-1 overflow-y-auto p-5 space-y-3">
                 <div
                     v-if="items.length === 0"
-                    class="py-12 px-4 text-center bg-white rounded-xl border border-zinc-200 shadow-sm space-y-3"
+                    class="py-12 px-4 text-center bg-white dark:bg-slate-850 rounded-xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-3"
                     data-testid="cart-empty-state"
                 >
-                    <ShoppingBag class="w-12 h-12 mx-auto text-zinc-400 stroke-[1.5]" aria-hidden="true" />
-                    <p class="font-display font-bold text-base text-zinc-900">
+                    <ShoppingBag class="w-12 h-12 mx-auto text-zinc-400 dark:text-slate-500 stroke-[1.5]" aria-hidden="true" />
+                    <p class="font-display font-bold text-base text-zinc-900 dark:text-slate-100">
                         Tu carrito de compras está vacío
                     </p>
-                    <p class="font-sans text-sm text-zinc-600 max-w-xs mx-auto">
+                    <p class="font-sans text-sm text-zinc-600 dark:text-slate-300 max-w-xs mx-auto">
                         Agrega llaveros, pines o stickers del catálogo para armar tu cotización directa por WhatsApp.
                     </p>
                 </div>
@@ -153,11 +154,11 @@ onBeforeUnmount(() => {
                     <li
                         v-for="item in items"
                         :key="item.id"
-                        class="flex gap-3 p-3.5 bg-white rounded-xl border border-zinc-200 shadow-sm"
+                        class="flex gap-3 p-3.5 bg-white dark:bg-slate-800/90 rounded-xl border border-zinc-200 dark:border-slate-700/80 shadow-sm transition-colors"
                         data-testid="cart-item"
                     >
                         <!-- Miniatura 1:1 -->
-                        <div class="w-16 h-16 shrink-0 aspect-square bg-zinc-50 rounded-lg border border-zinc-200 flex items-center justify-center overflow-hidden">
+                        <div class="w-16 h-16 shrink-0 aspect-square bg-zinc-50 dark:bg-slate-900 rounded-lg border border-zinc-200 dark:border-slate-700 flex items-center justify-center overflow-hidden">
                             <img
                                 v-if="obtenerMiniatura(item.imagenPrincipal)"
                                 :src="obtenerMiniatura(item.imagenPrincipal) ?? ''"
@@ -166,7 +167,7 @@ onBeforeUnmount(() => {
                             />
                             <ImageIcon
                                 v-else
-                                class="w-6 h-6 text-zinc-400"
+                                class="w-6 h-6 text-zinc-400 dark:text-slate-500"
                                 aria-hidden="true"
                             />
                         </div>
@@ -175,12 +176,12 @@ onBeforeUnmount(() => {
                         <div class="flex-1 min-w-0 flex flex-col justify-between gap-2">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
-                                    <span class="block text-[11px] uppercase tracking-wider font-semibold text-brand-secundario">
+                                    <span class="block text-[11px] uppercase tracking-wider font-semibold text-brand-secundario dark:text-sky-300">
                                         {{ item.categoria }}
                                     </span>
                                     <a
                                         :href="`/product/${item.slug}`"
-                                        class="font-display font-bold text-sm text-zinc-900 hover:text-brand-primario line-clamp-1"
+                                        class="font-display font-bold text-sm text-zinc-900 dark:text-slate-100 hover:text-brand-primario line-clamp-1"
                                         @click="closeCart"
                                     >
                                         {{ item.nombre }}
@@ -189,7 +190,7 @@ onBeforeUnmount(() => {
 
                                 <button
                                     type="button"
-                                    class="p-1 text-zinc-400 hover:text-rose-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 rounded"
+                                    class="p-1 text-zinc-400 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 rounded cursor-pointer"
                                     :aria-label="`Quitar ${item.nombre} de la lista`"
                                     data-testid="remove-cart-item"
                                     @click="removeItem(item.id)"
@@ -200,10 +201,10 @@ onBeforeUnmount(() => {
 
                             <div class="flex items-center justify-between gap-2 pt-1">
                                 <!-- Selector de cantidad -->
-                                <div class="inline-flex items-center rounded-lg border border-zinc-200 bg-zinc-50 overflow-hidden">
+                                <div class="inline-flex items-center rounded-lg border border-zinc-200 dark:border-slate-700 bg-zinc-50 dark:bg-slate-900 overflow-hidden">
                                     <button
                                         type="button"
-                                        class="px-2 py-1 hover:bg-zinc-200 text-zinc-700 transition-colors focus-visible:outline-none"
+                                        class="px-2 py-1 hover:bg-zinc-200 dark:hover:bg-slate-800 text-zinc-700 dark:text-slate-200 transition-colors focus-visible:outline-none cursor-pointer"
                                         :aria-label="`Disminuir cantidad de ${item.nombre}`"
                                         data-testid="decrease-qty"
                                         @click="updateQuantity(item.id, item.cantidad - 1)"
@@ -211,7 +212,7 @@ onBeforeUnmount(() => {
                                         <Minus class="w-3.5 h-3.5" aria-hidden="true" />
                                     </button>
                                     <span
-                                        class="px-2.5 py-0.5 font-mono text-xs font-bold text-zinc-900 border-x border-zinc-200"
+                                        class="px-2.5 py-0.5 font-mono text-xs font-bold text-zinc-900 dark:text-slate-100 border-x border-zinc-200 dark:border-slate-700"
                                         data-testid="item-qty"
                                     >
                                         {{ item.cantidad }}
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
                                     <button
                                         type="button"
                                         :disabled="item.cantidad >= item.stockMax"
-                                        class="px-2 py-1 hover:bg-zinc-200 text-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none"
+                                        class="px-2 py-1 hover:bg-zinc-200 dark:hover:bg-slate-800 text-zinc-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none cursor-pointer"
                                         :aria-label="`Aumentar cantidad de ${item.nombre}`"
                                         data-testid="increase-qty"
                                         @click="updateQuantity(item.id, item.cantidad + 1)"
@@ -228,7 +229,7 @@ onBeforeUnmount(() => {
                                     </button>
                                 </div>
 
-                                <span class="font-mono font-bold text-sm text-zinc-900">
+                                <span class="font-mono font-bold text-sm text-zinc-900 dark:text-slate-100">
                                     {{ formatearPrecioMXN(item.precio * item.cantidad) }}
                                 </span>
                             </div>
@@ -240,21 +241,21 @@ onBeforeUnmount(() => {
             <!-- Pie con resumen y CTA de WhatsApp -->
             <footer
                 v-if="items.length > 0"
-                class="p-5 bg-white border-t border-zinc-200 space-y-4"
+                class="p-5 bg-white dark:bg-slate-900 border-t border-zinc-200 dark:border-slate-800 space-y-4"
             >
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
-                        <span class="font-sans text-sm text-zinc-600 font-medium">
+                        <span class="font-sans text-sm text-zinc-600 dark:text-slate-300 font-medium">
                             Total estimado del pedido
                         </span>
                         <span
-                            class="font-mono font-extrabold text-xl text-zinc-900"
+                            class="font-mono font-extrabold text-xl text-zinc-900 dark:text-slate-100"
                             data-testid="cart-total"
                         >
                             {{ formatearPrecioMXN(totalAmount) }}
                         </span>
                     </div>
-                    <p class="font-sans text-xs text-zinc-500">
+                    <p class="font-sans text-xs text-zinc-500 dark:text-slate-400">
                         Sin cobros automáticos. Tu lista se enviará por WhatsApp para confirmar existencias y entrega con la artista.
                     </p>
                 </div>
@@ -268,7 +269,7 @@ onBeforeUnmount(() => {
 
                     <button
                         type="button"
-                        class="w-full py-2 rounded-lg font-sans text-xs font-semibold text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        class="w-full py-2 rounded-lg font-sans text-xs font-semibold text-zinc-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                         data-testid="clear-cart-button"
                         @click="clearCart"
                     >
