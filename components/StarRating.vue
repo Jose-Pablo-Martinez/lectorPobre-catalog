@@ -2,8 +2,8 @@
   @file StarRating.vue
   @description Componente visual de solo lectura para el resumen de calificaciones por estrellas (1 a 5).
   Muestra promedio numérico, estrellas representativas, contador total de reseñas y desglose por nivel.
-  Las acciones de calificar se gestionan exclusivamente en el formulario unificado de reseñas (CommentForm.vue).
-  @satisfies RF-06
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-06, RF-15, RNF-05
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
@@ -77,7 +77,7 @@ const estrellaActiva = (indice: number): boolean => {
 
 <template>
     <div
-        class="p-5 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-3"
+        class="p-5 bg-white dark:bg-slate-900/90 rounded-xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-3 transition-colors"
         data-testid="star-rating"
     >
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -93,15 +93,15 @@ const estrellaActiva = (indice: number): boolean => {
                         class="w-5 h-5 stroke-[2]"
                         :class="
                             estrellaActiva(n)
-                                ? 'fill-brand-acento text-brand-texto'
-                                : 'fill-transparent text-zinc-300'
+                                ? 'fill-brand-acento text-amber-500 dark:text-amber-400'
+                                : 'fill-transparent text-zinc-300 dark:text-slate-600'
                         "
                         aria-hidden="true"
                     />
                 </div>
 
                 <span
-                    class="font-mono font-bold text-sm text-zinc-900"
+                    class="font-mono font-bold text-sm text-zinc-900 dark:text-slate-100"
                     data-testid="rating-average"
                 >
                     {{ promedioMostrado }}
@@ -110,7 +110,7 @@ const estrellaActiva = (indice: number): boolean => {
 
             <span
                 v-if="(ratingCount ?? 0) > 0"
-                class="font-sans text-xs font-medium text-zinc-500"
+                class="font-sans text-xs font-medium text-zinc-500 dark:text-slate-400"
                 data-testid="rating-count"
             >
                 {{ ratingCount }} {{ ratingCount === 1 ? 'reseña' : 'reseñas' }}
@@ -120,7 +120,7 @@ const estrellaActiva = (indice: number): boolean => {
         <!-- Desglose por nivel de estrella (RF-06) -->
         <div
             v-if="mostrarDesglose && (ratingCount ?? 0) > 0"
-            class="pt-3 border-t border-zinc-100 space-y-1.5"
+            class="pt-3 border-t border-zinc-100 dark:border-slate-800 space-y-1.5"
             data-testid="rating-breakdown"
         >
             <div
@@ -129,21 +129,21 @@ const estrellaActiva = (indice: number): boolean => {
                 class="flex items-center gap-2.5 font-sans text-xs"
             >
                 <span
-                    class="w-12 flex items-center gap-1 font-semibold text-zinc-700"
+                    class="w-12 flex items-center gap-1 font-semibold text-zinc-700 dark:text-slate-300"
                 >
                     <span>{{ fila.nivel }}</span>
                     <Star
-                        class="w-3.5 h-3.5 fill-brand-acento text-amber-500"
+                        class="w-3.5 h-3.5 fill-brand-acento text-amber-500 dark:text-amber-400"
                         aria-hidden="true"
                     />
                 </span>
                 <progress
                     :value="fila.porcentaje"
                     max="100"
-                    class="flex-1 h-2 w-full appearance-none rounded-full bg-zinc-100 border border-zinc-200 overflow-hidden [&::-webkit-progress-bar]:bg-zinc-100 [&::-webkit-progress-value]:bg-brand-acento [&::-moz-progress-bar]:bg-brand-acento"
+                    class="flex-1 h-2 w-full appearance-none rounded-full bg-zinc-100 dark:bg-slate-800 border border-zinc-200 dark:border-slate-700 overflow-hidden [&::-webkit-progress-bar]:bg-zinc-100 dark:[&::-webkit-progress-bar]:bg-slate-800 [&::-webkit-progress-value]:bg-brand-acento [&::-moz-progress-bar]:bg-brand-acento"
                     :aria-label="`Porcentaje de calificaciones de ${fila.nivel} estrellas`"
                 />
-                <span class="w-10 text-right font-mono text-zinc-500">
+                <span class="w-10 text-right font-mono text-zinc-500 dark:text-slate-400">
                     {{ fila.votos }}
                 </span>
             </div>

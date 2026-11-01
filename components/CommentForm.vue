@@ -3,7 +3,8 @@
   @description Componente unificado para reseñas de clientes: selector interactivo de estrellas (1-5),
   comentario opcional con moderación previa, dirty-checking por dispositivo, filtrado por estrellas
   y límite inicial de 4 comentarios con paginación/scroll.
-  @satisfies RF-06, RF-07, RNF-04
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-06, RF-07, RF-15, RNF-04, RNF-05
 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -353,8 +354,6 @@ const procesarEnvioComentario = async (
 
 const manejarSubmit = async (): Promise<void> => {
     errorGeneral.value = null;
-    feedbackEstrellas.value = null;
-    feedbackComentario.value = null;
 
     const errorValidacion = validarEnvio();
     if (errorValidacion) {
@@ -363,20 +362,23 @@ const manejarSubmit = async (): Promise<void> => {
     }
 
     enviando.value = true;
-    const userId = getOrCreateUserId();
-    const reviewData: StoredUserReview =
-        getStoredUserReview(props.productoId) ?? {};
-
     try {
-        const ratingOk = await procesarEnvioRating(userId, reviewData);
-        if (!ratingOk) {
-            return;
-        }
+        const userId = getOrCreateUserId();
+        const stored: StoredUserReview = getStoredUserReview(props.productoId) ?? {
+            rating: null,
+            comment: undefined,
+            commentStatus: undefined,
+            updatedAt: new Date().toISOString(),
+        };
 
-        const commentOk = await procesarEnvioComentario(userId, reviewData);
-        if (ratingOk || commentOk) {
-            saveStoredUserReview(props.productoId, reviewData);
-        }
+        const ratingOk = await procesarEnvioRating(userId, stored);
+        if (!ratingOk) return;
+
+        const commentOk = await procesarEnvioComentario(userId, stored);
+        if (!commentOk) return;
+
+        stored.updatedAt = new Date().toISOString();
+        saveStoredUserReview(props.productoId, stored);
     } catch {
         errorGeneral.value =
             'No fue posible conectar con el servidor. Inténtalo más tarde.';
@@ -388,7 +390,7 @@ const manejarSubmit = async (): Promise<void> => {
 
 <template>
     <section
-        class="space-y-6"
+        class="space-y-6 pt-8 border-t border-zinc-200 dark:border-slate-800 transition-colors"
         aria-labelledby="comments-heading"
         data-testid="comment-section"
     >
@@ -401,7 +403,7 @@ const manejarSubmit = async (): Promise<void> => {
                 />
                 <h2
                     id="comments-heading"
-                    class="font-display font-bold text-xl text-zinc-900"
+                    class="font-display font-bold text-xl text-zinc-900 dark:text-slate-100"
                 >
                     Comentarios de clientes ({{ comentariosAprobados.length }})
                 </h2>
@@ -412,16 +414,16 @@ const manejarSubmit = async (): Promise<void> => {
                 class="flex items-center gap-2 font-sans text-xs"
             >
                 <ArrowUpDown
-                    class="w-3.5 h-3.5 text-zinc-500"
+                    class="w-3.5 h-3.5 text-zinc-500 dark:text-slate-400"
                     aria-hidden="true"
                 />
-                <label for="comment-sort" class="font-semibold text-zinc-600">
+                <label for="comment-sort" class="font-semibold text-zinc-600 dark:text-slate-300">
                     Ordenar:
                 </label>
                 <select
                     id="comment-sort"
                     v-model="orden"
-                    class="px-3 py-1.5 bg-white rounded-lg border border-zinc-300 font-sans text-xs font-medium text-zinc-700 shadow-sm focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none"
+                    class="px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-zinc-300 dark:border-slate-700 font-sans text-xs font-medium text-zinc-700 dark:text-slate-200 shadow-sm focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none"
                     data-testid="comment-sort-select"
                 >
                     <option value="recientes">Más recientes primero</option>
@@ -439,11 +441,11 @@ const manejarSubmit = async (): Promise<void> => {
         >
             <button
                 type="button"
-                class="px-3 py-1 rounded-full font-sans text-xs font-semibold transition-colors"
+                class="px-3 py-1 rounded-full font-sans text-xs font-semibold transition-colors cursor-pointer"
                 :class="
                     filtroEstrella === null
                         ? 'bg-brand-secundario text-white shadow-sm'
-                        : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                        : 'bg-zinc-100 dark:bg-slate-800 text-zinc-700 dark:text-slate-200 hover:bg-zinc-200 dark:hover:bg-slate-700'
                 "
                 data-testid="filter-star-all"
                 @click="filtroEstrella = null"
@@ -454,17 +456,17 @@ const manejarSubmit = async (): Promise<void> => {
                 v-for="estrella in [5, 4, 3, 2, 1]"
                 :key="estrella"
                 type="button"
-                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-sans text-xs font-semibold transition-colors"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-sans text-xs font-semibold transition-colors cursor-pointer"
                 :class="
                     filtroEstrella === estrella
                         ? 'bg-brand-secundario text-white shadow-sm'
-                        : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                        : 'bg-zinc-100 dark:bg-slate-800 text-zinc-700 dark:text-slate-200 hover:bg-zinc-200 dark:hover:bg-slate-700'
                 "
                 :data-testid="`filter-star-${estrella}`"
                 @click="filtroEstrella = estrella"
             >
                 <span>{{ estrella }}</span>
-                <Star class="w-3 h-3 fill-amber-400 text-amber-500" aria-hidden="true" />
+                <Star class="w-3 h-3 fill-brand-acento text-amber-500 dark:text-amber-400" aria-hidden="true" />
                 <span>({{ conteoPorNivel[estrella] ?? 0 }})</span>
             </button>
         </div>
@@ -479,7 +481,7 @@ const manejarSubmit = async (): Promise<void> => {
             <article
                 v-for="com in comentariosVisibles"
                 :key="com._id"
-                class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-1.5 overflow-hidden"
+                class="p-4 bg-white dark:bg-slate-800/90 rounded-xl border border-zinc-200 dark:border-slate-700/80 shadow-sm space-y-1.5 overflow-hidden transition-colors"
                 data-testid="comment-item"
             >
                 <!-- Calificación de la reseña si está disponible -->
@@ -495,19 +497,19 @@ const manejarSubmit = async (): Promise<void> => {
                         class="w-3.5 h-3.5"
                         :class="
                             s <= com.calificacion
-                                ? 'fill-brand-acento text-amber-500'
-                                : 'fill-transparent text-zinc-300'
+                                ? 'fill-brand-acento text-amber-500 dark:text-amber-400'
+                                : 'fill-transparent text-zinc-300 dark:text-slate-600'
                         "
                         aria-hidden="true"
                     />
                 </div>
 
-                <p class="font-sans text-sm text-zinc-800 leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-line">
+                <p class="font-sans text-sm text-zinc-800 dark:text-slate-100 leading-relaxed break-words [overflow-wrap:anywhere] whitespace-pre-line">
                     {{ com.texto }}
                 </p>
                 <span
                     v-if="com.fechaCreacion ?? com._createdAt"
-                    class="block font-sans text-xs text-zinc-500"
+                    class="block font-sans text-xs text-zinc-500 dark:text-slate-400"
                 >
                     {{ formatearFecha(com.fechaCreacion ?? com._createdAt) }}
                 </span>
@@ -517,7 +519,7 @@ const manejarSubmit = async (): Promise<void> => {
         <!-- Mensaje cuando no hay comentarios para el filtro o en general -->
         <p
             v-else
-            class="p-4 bg-white rounded-xl border border-zinc-200 shadow-sm font-sans text-sm text-zinc-600"
+            class="p-4 bg-white dark:bg-slate-800/90 rounded-xl border border-zinc-200 dark:border-slate-700/80 shadow-sm font-sans text-sm text-zinc-600 dark:text-slate-300 transition-colors"
             data-testid="no-comments-message"
         >
             <template v-if="filtroEstrella !== null">
@@ -535,7 +537,7 @@ const manejarSubmit = async (): Promise<void> => {
         >
             <button
                 type="button"
-                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 font-sans text-xs font-semibold text-zinc-700 transition-colors"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 font-sans text-xs font-semibold text-zinc-700 dark:text-slate-200 transition-colors cursor-pointer"
                 data-testid="toggle-comments-button"
                 @click="mostrarTodos = !mostrarTodos"
             >
@@ -552,16 +554,16 @@ const manejarSubmit = async (): Promise<void> => {
 
         <!-- Formulario unificado para dejar calificación y comentario -->
         <form
-            class="p-5 sm:p-6 bg-white rounded-xl border border-zinc-200 shadow-sm space-y-4"
+            class="p-5 sm:p-6 bg-white dark:bg-slate-900/90 rounded-xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors"
             novalidate
             data-testid="comment-form"
             @submit.prevent="manejarSubmit"
         >
             <div class="space-y-1">
-                <h3 class="font-display font-bold text-base text-zinc-900">
+                <h3 class="font-display font-bold text-base text-zinc-900 dark:text-slate-100">
                     Tu opinión sobre este producto
                 </h3>
-                <p class="font-sans text-xs text-zinc-600">
+                <p class="font-sans text-xs text-zinc-600 dark:text-slate-300">
                     Selecciona tu calificación con estrellas (obligatorio). Puedes incluir un comentario si deseas compartir detalles de tu experiencia.
                 </p>
             </div>
@@ -570,7 +572,7 @@ const manejarSubmit = async (): Promise<void> => {
             <div class="space-y-1.5" data-testid="interactive-star-selector">
                 <span
                     id="star-selector-label"
-                    class="block font-sans text-xs font-semibold text-zinc-700"
+                    class="block font-sans text-xs font-semibold text-zinc-700 dark:text-slate-300"
                 >
                     Calificación general:
                 </span>
@@ -582,7 +584,7 @@ const manejarSubmit = async (): Promise<void> => {
                         v-for="n in 5"
                         :key="n"
                         type="button"
-                        class="p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 transition-transform hover:scale-110"
+                        class="p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario/40 transition-transform hover:scale-110 cursor-pointer"
                         :aria-label="`Calificar con ${n} de 5 estrellas`"
                         :data-testid="`star-select-button-${n}`"
                         @mouseenter="hoverEstrella = n"
@@ -593,8 +595,8 @@ const manejarSubmit = async (): Promise<void> => {
                             class="w-6 h-6 stroke-[2]"
                             :class="
                                 estrellaFormActiva(n)
-                                    ? 'fill-brand-acento text-brand-texto'
-                                    : 'fill-transparent text-zinc-300'
+                                    ? 'fill-brand-acento text-amber-500 dark:text-amber-400'
+                                    : 'fill-transparent text-zinc-300 dark:text-slate-600'
                             "
                             aria-hidden="true"
                         />
@@ -602,7 +604,7 @@ const manejarSubmit = async (): Promise<void> => {
                 </fieldset>
                 <span
                     v-if="estrellaSeleccionada > 0"
-                    class="block font-sans text-xs font-medium text-zinc-500"
+                    class="block font-sans text-xs font-medium text-zinc-500 dark:text-slate-400"
                     data-testid="selected-star-label"
                 >
                     {{ estrellaSeleccionada }} de 5 estrellas
@@ -613,7 +615,7 @@ const manejarSubmit = async (): Promise<void> => {
             <div class="space-y-1.5">
                 <label
                     for="comment-textarea"
-                    class="block font-sans text-xs font-semibold text-zinc-700"
+                    class="block font-sans text-xs font-semibold text-zinc-700 dark:text-slate-300"
                 >
                     Comentario (opcional):
                 </label>
@@ -623,11 +625,11 @@ const manejarSubmit = async (): Promise<void> => {
                     rows="3"
                     :maxlength="COMMENT_MAX_LENGTH"
                     placeholder="Escribe qué te pareció el artículo, tu experiencia de compra, etc..."
-                    class="w-full p-3 bg-zinc-50 text-zinc-900 rounded-lg font-sans text-sm border border-zinc-300 focus:bg-white focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none transition-all"
+                    class="w-full p-3 bg-zinc-50 dark:bg-slate-800 text-zinc-900 dark:text-slate-100 placeholder-zinc-400 dark:placeholder-slate-400 rounded-lg font-sans text-sm border border-zinc-300 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 focus:outline-none transition-all"
                     data-testid="comment-textarea"
                 />
 
-                <div class="flex items-center justify-between font-sans text-xs text-zinc-500">
+                <div class="flex items-center justify-between font-sans text-xs text-zinc-500 dark:text-slate-400">
                     <span>Mínimo 3 caracteres si incluyes comentario</span>
                     <span data-testid="comment-char-counter">
                         {{ caracteresRestantes }} / {{ COMMENT_MAX_LENGTH }} caracteres restantes
@@ -638,7 +640,7 @@ const manejarSubmit = async (): Promise<void> => {
             <!-- Alerta de error -->
             <div
                 v-if="errorGeneral"
-                class="flex items-center gap-2 p-3 bg-rose-50 rounded-lg border border-rose-200 text-rose-800 font-sans text-xs font-semibold"
+                class="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 font-sans text-xs font-semibold"
                 role="alert"
                 data-testid="comment-error"
             >
@@ -649,7 +651,7 @@ const manejarSubmit = async (): Promise<void> => {
             <!-- Retroalimentación individual para estrellas -->
             <output
                 v-if="feedbackEstrellas"
-                class="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-800 font-sans text-xs font-semibold"
+                class="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 font-sans text-xs font-semibold"
                 data-testid="rating-success-message"
             >
                 <CheckCircle2 class="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -659,7 +661,7 @@ const manejarSubmit = async (): Promise<void> => {
             <!-- Retroalimentación individual para comentario -->
             <output
                 v-if="feedbackComentario"
-                class="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-emerald-800 font-sans text-xs font-semibold"
+                class="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 font-sans text-xs font-semibold"
                 data-testid="comment-success"
             >
                 <CheckCircle2 class="w-4 h-4 shrink-0" aria-hidden="true" />
