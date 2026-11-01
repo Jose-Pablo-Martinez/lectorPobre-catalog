@@ -3,6 +3,7 @@ package sanity_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -245,7 +246,6 @@ func TestBuscarProductos_FuncionHelper(t *testing.T) {
 	}
 }
 
-
 // TestSanityClient_UpsertComment_ConUserIDYRating verifica createOrReplace y calificación asociada.
 func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
 	var receivedBody map[string]interface{}
@@ -378,4 +378,104 @@ func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("DispatchComment básico falló: %v", err)
 	}
+}
+
+func createSanityMockServer(existingTexto string, captured *[]interface{}) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, `{"result":{"_id":"comentario-p1-u1","texto":%q,"estado":"aprobado"}}`, existingTexto)
+			return
+		}
+
+		bodyBytes, _ := io.ReadAll(r.Body)
+		var body map[string]interface{}
+		_ = json.Unmarshal(bodyBytes, &body)
+		if m, ok := body["mutations"].([]interface{}); ok {
+			*captured = m
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+}
+
+func executeUpsertCommentTest(t *testing.T, existingTexto, newTexto string, rating int) map[string]interface{} {
+	t.Helper()
+	var capturedMutations []interface{}
+	server := createSanityMockServer(existingTexto, &capturedMutations)
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+	err := client.UpsertComment(context.Background(), handlers.CommentPayload{
+		ProductID: "p1",
+		Text:      newTexto,
+		Rating:    rating,
+		UserID:    "u1",
+	})
+	if err != nil {
+		t.Fatalf("UpsertComment retorno error inesperado: %v", err)
+	}
+
+	if len(capturedMutations) != 1 {
+		t.Fatalf("Se esperaba 1 mutacion, obtenidas %d", len(capturedMutations))
+	}
+
+	rawMutation, ok := capturedMutations[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Formato de mutacion inesperado: %v", capturedMutations[0])
+	}
+	return rawMutation
+}
+
+func verifyPatchMutation(t *testing.T, mutation map[string]interface{}, expectedRating int) {
+	t.Helper()
+	patchMap, ok := mutation["patch"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Esperada mutacion patch, obtenida: %v", mutation)
+	}
+	if patchMap["id"] != "comentario-p1-u1" {
+		t.Errorf("ID de patch esperado 'comentario-p1-u1', obtenido %v", patchMap["id"])
+	}
+	setMap, ok := patchMap["set"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("setMap invalido: %v", patchMap["set"])
+	}
+	if int(setMap["calificacion"].(float64)) != expectedRating {
+		t.Errorf("Calificacion en patch esperada %d, obtenida %v", expectedRating, setMap["calificacion"])
+	}
+	if _, hasEstado := setMap["estado"]; hasEstado {
+		t.Errorf("Patch no debe alterar el estado de moderacion previo: %v", setMap)
+	}
+}
+
+func verifyCreateOrReplaceMutation(t *testing.T, mutation map[string]interface{}, expectedText, expectedEstado string, expectedRating int) {
+	t.Helper()
+	createMap, ok := mutation["createOrReplace"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Esperada mutacion createOrReplace, obtenida: %v", mutation)
+	}
+	if createMap["estado"] != expectedEstado {
+		t.Errorf("Estado esperado %q, obtenido %v", expectedEstado, createMap["estado"])
+	}
+	if createMap["texto"] != expectedText {
+		t.Errorf("Texto esperado %q, obtenido %v", expectedText, createMap["texto"])
+	}
+	if int(createMap["calificacion"].(float64)) != expectedRating {
+		t.Errorf("Calificacion esperada %d, obtenida %v", expectedRating, createMap["calificacion"])
+	}
+}
+
+// TestSanityClient_UpsertComment_ReglasModeracion verifica mediante subtests que:
+// 1) Si solo cambia la calificación, se envía patch y se conserva el estado de moderación (RF-07).
+// 2) Si se modifica el texto, pasa obligatoriamente a estado 'pendiente' para re-moderación (RF-07).
+func TestSanityClient_UpsertComment_ReglasModeracion(t *testing.T) {
+	t.Run("Solo calificacion conserva estado", func(t *testing.T) {
+		mutation := executeUpsertCommentTest(t, "Mismo texto", "Mismo texto", 1)
+		verifyPatchMutation(t, mutation, 1)
+	})
+
+	t.Run("Modifica texto pasa a pendiente", func(t *testing.T) {
+		mutation := executeUpsertCommentTest(t, "Texto anterior", "Texto con cambios sustanciales", 2)
+		verifyCreateOrReplaceMutation(t, mutation, "Texto con cambios sustanciales", "pendiente", 2)
+	})
 }

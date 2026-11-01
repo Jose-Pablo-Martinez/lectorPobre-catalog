@@ -14,6 +14,8 @@
 
 The platform allows customers to browse products by category, search the catalog, view stock availability in real time, rate and comment on products, and contact the store directly through WhatsApp. In **Release 1**, content is managed through Sanity Studio without writing code. A dedicated **Control Panel** hosted on its own domain with complete management features and metrics is planned for **Release 2** (see `docs/panelControlImplementacion.md`).
 
+> **Deployment & Latency Note:** Deployments are hosted on Vercel. Public updates to comments and star ratings have an edge-propagation delay of approximately 2 minutes for other visitors due to technical design choices (Jamstack SSG and Sanity API CDN caching) driven by the project's limited budget constraints.
+
 ### Table of Contents
 
 - [Technology Stack](#technology-stack)
@@ -246,6 +248,9 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 | [`VyV_LectorPobre.md`](docs/VyV_LectorPobre.md) | Verification & Validation (V&V) test plan |
 | [`implementationPlan.md`](docs/implementationPlan.md) | Phased implementation plan (Release 1: Public Store) |
 | [`panelControlImplementacion.md`](docs/panelControlImplementacion.md) | Phased implementation plan (Release 2: Dedicated Control Panel) |
+| [`Analisis_Busqueda_Recomendacion_LectorPobre.md`](docs/Analisis_Busqueda_Recomendacion_LectorPobre.md) | Fuzzy search & content-based recommendations ADR |
+| [`COMO_ANADIR_CLUSTERING.md`](docs/COMO_ANADIR_CLUSTERING.md) | Guide to add K-Means clustering over `product-vectors.json` |
+| [`Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md`](docs/Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md) | Resolution for esbuild `write EPIPE` error and watcher optimization |
 
 ---
 
@@ -273,6 +278,8 @@ Full technical documentation is available in the [`docs/`](docs/) folder:
 **LectorPobre** es una plataforma web de catálogo de productos para una empresa de artesanías (llaveros, pines, stickers, y en un futuro libros). Está construida con **arquitectura Jamstack**: un frontend generado estáticamente con Nuxt.js (SSG), contenido gestionado a través de Sanity.io (Headless CMS), lógica de backend serverless escrita en Go desplegada como Vercel Functions, y distribución global a través de la CDN de Vercel.
 
 La plataforma permite a los clientes explorar productos por categoría, buscar en el catálogo, ver la disponibilidad de stock en tiempo real, calificar y comentar productos, y contactar directamente a la tienda por WhatsApp. En el **Release 1**, la gestión de contenido se realiza mediante Sanity Studio sin código. En el **Release 2**, se entregará un **Panel de Control propio** alojado en un dominio independiente con todas las funcionalidades de gestión y métricas (ver `docs/panelControlImplementacion.md`).
+
+> **Nota sobre despliegue y actualización de datos:** Los despliegues se realizan en Vercel. La actualización de comentarios y estrellas para otros usuarios presenta un retraso de aproximadamente 2 minutos debido a restricciones técnicas de diseño (arquitectura Jamstack SSG y caché CDN de Sanity) asociadas al presupuesto limitado del proyecto.
 
 ### Tabla de Contenidos
 

@@ -77,6 +77,20 @@ El desarrollo se divide en dos entregas secuenciales e independientes:
 
 ---
 
+### 3.1 Resolución de Deuda Técnica y TODOs de SonarCloud (Transición Release 1 → Release 2)
+
+Durante el desarrollo del Release 1 (Tienda Online) se introdujeron comentarios `TODO` y handlers stub que SonarCloud/SonarLint identifica como tareas de mantenimiento abiertas. Estos marcadores fueron diseñados deliberadamente para preservar la compilación global del monorepo mientras se posponía la lógica administrativa al Release 2 (ver sección 1.1 y `DEVELOPMENT_GUIDELINES.md` §3.5).
+
+A continuación se detalla la matriz canónica para sanear el 100% de estos issues al ejecutar las fases correspondientes de este plan:
+
+| Issue SonarCloud | Archivo y Línea | Comentario Original | Requisito | Fase de Resolución en Release 2 | Acción Requerida |
+|---|---|---|---|---|---|
+| [`AaFemq538vtWdHVNHwwq`](https://sonarcloud.io/project/issues?open=AaFemq538vtWdHVNHwwq&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/login.go:6` | `// TODO(RF-08): Implement bcrypt password validation and JWT signing. Issue #8.` | RF-08, RNF-04 | **Fase P2.1** | Reemplazar el handler stub que retorna HTTP 501 por la implementación completa de login con validación bcrypt en tiempo constante, emisión de JWT firmado en cookie `httpOnly` y rate limiting de 5 intentos por IP. Eliminar el comentario `TODO`. |
+| [`AaFemq398vtWdHVNHwwi`](https://sonarcloud.io/project/issues?open=AaFemq398vtWdHVNHwwi&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/logout/logout.go:2` | `// TODO(RF-09): Implementar invalidación de JWT (expiración corta o denylist en memoria). Issue #9.` | RF-09, RNF-04 | **Fase P2.2** | Reemplazar el handler stub por la invalidación real en Vercel KV insertando el identificador `jti` en la denylist con TTL equivalente a la expiración del token y eliminación de la cookie de sesión. Eliminar el comentario `TODO`. |
+| [`AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `pkg/constants/errorcodes.go:3` | `// TODO: Ampliar con códigos adicionales conforme se implementen nuevos handlers en la Fase 5.` | RNF-04 | **Fase P1.1 / P3.1** | Consolidar la estructura canónica `ErrCodes` incorporando los códigos de error específicos del panel administrativo (`TokenExpired`, `TokenRevoked`, `Forbidden`, `RevConflict`) y retirar el comentario preventivo de la Fase 5. |
+
+---
+
 ## 4. Arquitectura del Panel
 
 ```mermaid
@@ -163,6 +177,7 @@ lectorPobre/
 4. Cabeceras globales: `X-Robots-Tag: noindex, nofollow`, CSP estricta, `Referrer-Policy: no-referrer`.
 5. `robots.txt` del panel con `Disallow: /` y **sin** mencionar rutas.
 6. GitHub Actions: lint, typecheck, pruebas unitarias del panel; Preview de Vercel por PR.
+7. Saneamiento de constantes globales: depurar `pkg/constants/errorcodes.go` agregando los códigos de error requeridos por el panel administrativo (`TokenExpired`, `TokenRevoked`, `Forbidden`, `RevConflict`) y retirar el comentario preventivo `TODO` de la Fase 5 ([SonarCloud `AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P1.2 Verificación
 
@@ -188,10 +203,12 @@ lectorPobre/
 4. Lo entrega en **cookie** `httpOnly; Secure; SameSite=Strict; Path=/`.
 5. Error: `{ ok: false, error: "credenciales inválidas" }` genérico, **sin revelar si el usuario existe**.
 6. **Bloqueo por intentos:** tras 5 fallos por IP/ventana de 15 min responde 429 (contador en KV).
+7. **Resolución SonarCloud:** Reemplaza el stub de `api/auth/login.go` y elimina el comentario `TODO(RF-08)` ([SonarCloud `AaFemq538vtWdHVNHwwq`](https://sonarcloud.io/project/issues?open=AaFemq538vtWdHVNHwwq&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P2.2 Logout (RF-09) — `POST /api/auth/logout`
 
-Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la cookie. Toda petición posterior con ese token es rechazada (401).
+1. Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la cookie. Toda petición posterior con ese token es rechazada (401).
+2. **Resolución SonarCloud:** Reemplaza el stub de `api/auth/logout/logout.go` y elimina el comentario `TODO(RF-09)` ([SonarCloud `AaFemq398vtWdHVNHwwi`](https://sonarcloud.io/project/issues?open=AaFemq398vtWdHVNHwwi&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P2.3 Middleware (RF-10)
 
@@ -214,6 +231,7 @@ Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la coo
 - [ ] Logout invalida el token de inmediato (RF-09)
 - [ ] Acceso sin sesión no revela el panel (RF-10, NF-10)
 - [ ] El JWT expira a las 8 h
+- [ ] Eliminados los comentarios TODO de autenticación en `login.go` y `logout.go` (cerrando issues de SonarCloud `AaFemq538vtWdHVNHwwq` y `AaFemq398vtWdHVNHwwi`)
 - [ ] Commit: `feat(auth): implement admin login/logout with JWT, KV blacklist and protected routes [RF-08, RF-09, RF-10, RNF-04]`
 
 ---
@@ -231,6 +249,7 @@ Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la coo
 3. Middleware global: CORS restringido a `ALLOWED_ORIGIN`, rate limiting, límite de tamaño de body, registro sin datos sensibles.
 4. Tras cada mutación exitosa: llamar a `STORE_REBUILD_HOOK_URL` (con debounce para agrupar ediciones en lote).
 5. Manejo de conflictos: usar `_rev` para concurrencia optimista y devolver 409 si cambió.
+6. Consolidar `pkg/constants/errorcodes.go` y su contraparte en TypeScript asegurando que no existan `TODO`s abiertos en SonarCloud ([SonarCloud `AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P3.2 Endpoints
 
@@ -256,6 +275,7 @@ Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la coo
 - [ ] Todos los endpoints `/api/admin/*` devuelven 401 sin JWT válido
 - [ ] CORS solo permite el origen del panel
 - [ ] Mutaciones reflejadas en Sanity y disparan rebuild de la tienda (< 5 min)
+- [ ] Códigos de error centralizados y saneados en `pkg/constants/errorcodes.go` sin TODOs pendientes
 - [ ] Commit: `feat(admin-api): add secured admin API layer over Sanity mutations [RF-11..RF-14, RNF-04]`
 
 ---
