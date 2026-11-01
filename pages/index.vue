@@ -32,6 +32,7 @@ import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import { useCatalog } from '~/composables/useCatalog';
 import { useRecentlyViewed } from '~/composables/useRecentlyViewed';
 import { useSanityImage } from '~/composables/useSanityImage';
+import { useAnalytics } from '~/composables/useAnalytics';
 import { formatearPrecioMXN } from '~/composables/useWhatsApp';
 
 const {
@@ -58,6 +59,18 @@ const {
 const { urlFor } = useSanityImage();
 const { addItem } = useCart();
 const { hasHistory } = useRecentlyViewed();
+const { trackSearch } = useAnalytics();
+
+let timeoutBusqueda: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, (nuevaQuery) => {
+    if (timeoutBusqueda) clearTimeout(timeoutBusqueda);
+    const queryLimpia = (nuevaQuery ?? '').trim();
+    if (queryLimpia.length >= 2) {
+        timeoutBusqueda = setTimeout(() => {
+            trackSearch(queryLimpia, productosFiltrados.value.length);
+        }, 600);
+    }
+});
 
 const mostrarDropdownSugerencias = ref(false);
 const indiceSugerenciaActiva = ref(-1);
@@ -282,6 +295,7 @@ try {
                         v-if="imagenRecomendadoUrl"
                         :src="imagenRecomendadoUrl"
                         :alt="productoRecomendado.nombre"
+                        loading="lazy"
                         width="600"
                         height="600"
                         class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"

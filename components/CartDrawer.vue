@@ -163,6 +163,9 @@ onBeforeUnmount(() => {
                                 v-if="obtenerMiniatura(item.imagenPrincipal)"
                                 :src="obtenerMiniatura(item.imagenPrincipal) ?? ''"
                                 :alt="item.nombre"
+                                loading="lazy"
+                                width="64"
+                                height="64"
                                 class="w-full h-full object-cover"
                             />
                             <ImageIcon
@@ -265,6 +268,7 @@ onBeforeUnmount(() => {
                         :href="urlWhatsAppPedido"
                         label="Comprar por WhatsApp"
                         :full-width="true"
+                        origen="cart_drawer"
                     />
 
                     <button
