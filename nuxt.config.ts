@@ -65,7 +65,7 @@ export default defineNuxtConfig({
     sanity: {
         projectId: process.env.NUXT_PUBLIC_SANITY_PROJECT_ID || 'rbrk7xv9',
         dataset: process.env.NUXT_PUBLIC_SANITY_DATASET || 'staging',
-        useCdn: process.env.NODE_ENV === 'production', // Live API en desarrollo sin caché para refresco instantáneo
+        useCdn: false, // En compilación SSG siempre consultar la API en vivo sin caché para garantizar datos frescos
         apiVersion: '2024-01-01',
     },
 
