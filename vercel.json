@@ -2,17 +2,34 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
   "functions": {
+    "api/comment/comment.go": {
+      "maxDuration": 15
+    },
+    "api/rating/rating.go": {
+      "maxDuration": 15
+    },
+    "api/search/search.go": {
+      "maxDuration": 15
+    },
     "api/webhook/rebuild.go": {
       "maxDuration": 15
     }
   },
   "rewrites": [
+    { "source": "/api/comment", "destination": "/api/comment/comment" },
+    { "source": "/api/comentar", "destination": "/api/comment/comment" },
+    { "source": "/api/rating", "destination": "/api/rating/rating" },
+    { "source": "/api/calificar", "destination": "/api/rating/rating" },
+    { "source": "/api/search", "destination": "/api/search/search" },
+    { "source": "/api/buscar", "destination": "/api/search/search" },
+    { "source": "/api/webhook/rebuild", "destination": "/api/webhook/rebuild" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://plausible.io; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.sanity.io https://*.sanity.io; connect-src 'self' https://*.sanity.io https://*.sanity.api.io https://plausible.io; frame-ancestors 'self'; base-uri 'self'; form-action 'self';" },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },

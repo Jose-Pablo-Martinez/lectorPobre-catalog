@@ -18,6 +18,11 @@ export const PALETA_IDENTIDAD: Readonly<Record<string, string>> = {
     '--color-brand-texto': '#18181b',
 };
 
+export const PALETA_DARK_BASE: Readonly<Record<string, string>> = {
+    '--color-brand-fondo': '#0f1217',
+    '--color-brand-texto': '#f1f5f9',
+};
+
 export const PALETAS_PREDEFINIDAS: Record<string, Record<string, string>> = {
     identidad: { ...PALETA_IDENTIDAD },
     cenote: {
@@ -92,12 +97,14 @@ export function normalizarHexToken(
  * @returns Mapa de variables CSS `--color-brand-*`.
  */
 export function resolverTokensPaleta(
-    config?: Partial<ConfiguracionGlobal> | null
+    config?: Partial<ConfiguracionGlobal> | null,
+    isDark = false
 ): Record<string, string> {
     const nombrePaleta = config?.paletaActiva ?? 'identidad';
 
+    let tokens: Record<string, string>;
     if (nombrePaleta === 'custom') {
-        return {
+        tokens = {
             '--color-brand-primario': normalizarHexToken(
                 config?.paletaCustomPrimario,
                 PALETA_IDENTIDAD['--color-brand-primario']
@@ -119,9 +126,16 @@ export function resolverTokensPaleta(
                 PALETA_IDENTIDAD['--color-brand-texto']
             ),
         };
+    } else {
+        tokens = { ...(PALETAS_PREDEFINIDAS[nombrePaleta] ?? PALETA_IDENTIDAD) };
     }
 
-    return PALETAS_PREDEFINIDAS[nombrePaleta] ?? { ...PALETA_IDENTIDAD };
+    if (isDark) {
+        tokens['--color-brand-fondo'] = PALETA_DARK_BASE['--color-brand-fondo'];
+        tokens['--color-brand-texto'] = PALETA_DARK_BASE['--color-brand-texto'];
+    }
+
+    return tokens;
 }
 
 /**
@@ -148,7 +162,16 @@ export async function ejecutarPluginPaleta(deps: PalettePluginDeps = {}): Promis
         deps.fetchConfig
     );
 
-    const tokens = resolverTokensPaleta(configData);
+    let isDark = false;
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        try {
+            isDark = localStorage.getItem('lp:theme') === 'dark';
+        } catch {
+            isDark = false;
+        }
+    }
+
+    const tokens = resolverTokensPaleta(configData, isDark);
     const cssRule = generarCssVariablesRoot(tokens);
 
     if (deps.applyHead) {
@@ -158,6 +181,9 @@ export async function ejecutarPluginPaleta(deps: PalettePluginDeps = {}): Promis
     }
 
     if (typeof document !== 'undefined') {
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        }
         for (const [key, value] of Object.entries(tokens)) {
             document.documentElement.style.setProperty(key, value);
         }

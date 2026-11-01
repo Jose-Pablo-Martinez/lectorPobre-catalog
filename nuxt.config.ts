@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
     compatibilityDate: '2024-04-03',
+    devtools: { enabled: false },
     modules: ['@nuxtjs/tailwindcss', '@nuxtjs/sanity'],
 
     css: ['~/assets/css/global.css'],
@@ -71,8 +72,14 @@ export default defineNuxtConfig({
     nitro: {
         preset: 'vercel-static', // Prepara el proyecto como Static Site Generation (SSG) en Vercel
         prerender: {
-            crawlLinks: true,
-            routes: ['/'],
+            crawlLinks: process.env.NODE_ENV === 'production',
+            routes: ['/', '/sitemap.xml'],
+        },
+    },
+
+    runtimeConfig: {
+        public: {
+            plausibleDomain: process.env.NUXT_PUBLIC_PLAUSIBLE_DOMAIN || '',
         },
     },
 
@@ -83,6 +90,17 @@ export default defineNuxtConfig({
                 { name: 'viewport', content: 'width=device-width, initial-scale=1' },
                 { property: 'og:image', content: '/logo.png' },
                 { name: 'twitter:image', content: '/logo.png' },
+            ],
+            script: [
+                ...(process.env.NUXT_PUBLIC_PLAUSIBLE_DOMAIN
+                    ? [
+                          {
+                              defer: true,
+                              'data-domain': process.env.NUXT_PUBLIC_PLAUSIBLE_DOMAIN,
+                              src: 'https://plausible.io/js/script.tagged-events.js',
+                          },
+                      ]
+                    : []),
             ],
             link: [
                 { rel: 'icon', type: 'image/png', href: '/favicon.png' },

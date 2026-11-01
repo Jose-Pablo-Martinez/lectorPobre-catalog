@@ -2,7 +2,8 @@
   @file RecentlyViewed.vue
   @description Sección de productos "Vistos recientemente" alimentada por `useRecentlyViewed`
   (`localStorage` clave `lp:recentlyViewed`, máx. 6 elementos) con botón para limpiar el historial.
-  @satisfies RF-22, RNF-07
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-15, RF-22, RNF-05, RNF-07
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
@@ -32,13 +33,13 @@ const vistosRecientes = computed<Producto[]>(() =>
 <template>
     <section
         v-if="vistosRecientes.length > 0"
-        class="space-y-5 pt-8 border-t border-zinc-200"
+        class="space-y-5 pt-8 border-t border-zinc-200 dark:border-slate-800 transition-colors"
         aria-labelledby="recently-viewed-heading"
         data-testid="recently-viewed-section"
     >
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2.5">
-                <div class="p-2 rounded-lg bg-brand-secundario text-white border-2 border-brand-texto shadow-hard-sm">
+                <div class="p-2 rounded-lg bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)]">
                     <Clock class="w-5 h-5" aria-hidden="true" />
                 </div>
                 <div>
@@ -48,7 +49,7 @@ const vistosRecientes = computed<Producto[]>(() =>
                     >
                         Vistos recientemente
                     </h2>
-                    <p class="font-sans text-xs text-zinc-500">
+                    <p class="font-sans text-xs text-zinc-500 dark:text-slate-400">
                         Guardado únicamente en este navegador
                     </p>
                 </div>
@@ -56,7 +57,7 @@ const vistosRecientes = computed<Producto[]>(() =>
 
             <button
                 type="button"
-                class="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-brand-acento text-brand-texto font-display text-xs font-bold border-2 border-brand-texto shadow-hard-sm transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
+                class="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
                 data-testid="clear-history-button"
                 @click="clearHistory"
             >

@@ -1,0 +1,11 @@
+/**
+ * @file useCalificacion.ts
+ * @description Composable en español para calificar productos con estrellas (Fase 5.6).
+ * Envía hacia /api/calificar (mapeado hacia /api/rating en el backend serverless).
+ * @satisfies RF-06, RNF-04
+ */
+
+export {
+    useRating as useCalificacion,
+    type UseRatingOptions as UseCalificacionOptions,
+} from './useRating';

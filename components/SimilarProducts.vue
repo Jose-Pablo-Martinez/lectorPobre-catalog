@@ -3,7 +3,8 @@
   @description Sección de "Productos similares" en la página de detalle.
   Consume exclusivamente el contrato versionado `RecommendationOutput` (`/data/recommendations.json`),
   excluye siempre el producto actual y desprioriza los productos agotados cruzando con el stock.
-  @satisfies RF-03, RF-21, RNF-08
+  Compatible con Dark Mode (RF-15, RNF-05).
+  @satisfies RF-03, RF-15, RF-21, RNF-05, RNF-08
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
@@ -112,12 +113,12 @@ const productosSimilares = computed<Producto[]>(() => {
 <template>
     <section
         v-if="productosSimilares.length > 0"
-        class="space-y-5 pt-8 border-t border-zinc-200"
+        class="space-y-5 pt-8 border-t border-zinc-200 dark:border-slate-800 transition-colors"
         aria-labelledby="similar-products-heading"
         data-testid="similar-products-section"
     >
         <div class="flex items-center gap-2.5">
-            <div class="p-2 rounded-lg bg-brand-acento text-brand-texto border-2 border-brand-texto shadow-hard-sm">
+            <div class="p-2 rounded-lg bg-brand-acento text-zinc-950 border-2 border-zinc-950 shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)]">
                 <Layers class="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
@@ -127,7 +128,7 @@ const productosSimilares = computed<Producto[]>(() => {
                 >
                     Piezas similares recomendadas por el Periquito
                 </h2>
-                <p class="font-sans text-xs text-zinc-500">
+                <p class="font-sans text-xs text-zinc-500 dark:text-slate-400">
                     Recomendaciones por temática, técnica artesanal y categoría
                 </p>
             </div>
