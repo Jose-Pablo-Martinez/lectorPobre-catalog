@@ -77,33 +77,27 @@ if (props.initialProducto === undefined) {
         const { data } = useAsyncData(
             `producto-detalle-${slugParam.value}`,
             async () => {
-                const prod = await sanity.fetch<Producto | null>(
-                    `*[_type == "producto" && activo == true && slug.current == $slug][0]{
-                        ${PRODUCTO_GROQ_FIELDS},
-                        imagenes
-                    }`,
-                    { slug: slugParam.value }
-                );
-
-                const [coms, cfg, todos] = await Promise.all([
-                    prod
-                        ? sanity.fetch<Comentario[]>(
-                              `*[_type == "comentario" && producto._ref == $id && estado == "aprobado"] | order(fechaCreacion desc){
-                                  _id,
-                                  _type,
-                                  _createdAt,
-                                  _updatedAt,
-                                  _rev,
-                                  texto,
-                                  calificacion,
-                                  usuarioId,
-                                  producto,
-                                  fechaCreacion,
-                                  estado
-                              }`,
-                              { id: prod._id }
-                          )
-                        : Promise.resolve([]),
+                const [prod, cfg, todos] = await Promise.all([
+                    sanity.fetch<(Producto & { comentarios?: Comentario[] }) | null>(
+                        `*[_type == "producto" && activo == true && slug.current == $slug][0]{
+                            ${PRODUCTO_GROQ_FIELDS},
+                            imagenes,
+                            "comentarios": *[_type == "comentario" && producto._ref == ^._id && estado == "aprobado"] | order(fechaCreacion desc){
+                                _id,
+                                _type,
+                                _createdAt,
+                                _updatedAt,
+                                _rev,
+                                texto,
+                                calificacion,
+                                usuarioId,
+                                producto,
+                                fechaCreacion,
+                                estado
+                            }
+                        }`,
+                        { slug: slugParam.value }
+                    ),
                     sanity.fetch<Partial<ConfiguracionGlobal> | null>(
                         `*[_type == "configuracionGlobal"][0]{
                             nombreSitio,
@@ -117,7 +111,7 @@ if (props.initialProducto === undefined) {
 
                 return {
                     producto: prod ?? null,
-                    comentarios: coms ?? [],
+                    comentarios: prod?.comentarios ?? [],
                     config: cfg ?? null,
                     catalogo: todos ?? [],
                 };
