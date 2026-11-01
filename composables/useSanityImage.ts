@@ -50,7 +50,11 @@ export function buildSanityImageUrl(
             dataset: effectiveDataset,
         });
 
-        let imageBuilder = builder.image(source).auto('format').fit('max');
+        let imageBuilder = builder
+            .image(source)
+            .auto('format')
+            .fit('max')
+            .quality(options.quality ?? 80);
 
         if (options.width) {
             imageBuilder = imageBuilder.width(options.width);
@@ -58,8 +62,6 @@ export function buildSanityImageUrl(
         if (options.height) {
             imageBuilder = imageBuilder.height(options.height);
         }
-        const quality = options.quality ?? 80;
-        imageBuilder = imageBuilder.quality(quality);
 
         return imageBuilder.url() ?? null;
     } catch {
