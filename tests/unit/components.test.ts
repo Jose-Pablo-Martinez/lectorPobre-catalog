@@ -289,6 +289,14 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
         await flushPromises();
         expect(wrapper.find('[data-testid="rating-success-message"]').text()).toContain('4 estrellas');
+        // Al modificar solo estrellas teniendo un comentario previo, se envía la actualización al endpoint del comentario
+        expect(mockFetcher).toHaveBeenCalledWith(
+            expect.objectContaining({
+                productId: 'prod-com-1',
+                rating: 4,
+                text: 'Me gustó mucho el detalle del broche.',
+            })
+        );
 
         // Modificación parcial: solo texto de comentario
         await wrapper

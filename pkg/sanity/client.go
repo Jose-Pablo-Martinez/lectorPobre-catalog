@@ -107,17 +107,19 @@ func NewClientWithOptions(projectID, dataset, token string, httpClient *http.Cli
 }
 
 func (c *Client) getMutationURL() string {
+	base := fmt.Sprintf("https://%s.api.sanity.io", c.projectID)
 	if c.baseURL != "" {
-		return c.baseURL
+		base = strings.TrimRight(c.baseURL, "/")
 	}
-	return fmt.Sprintf("https://%s.api.sanity.io/v2024-01-01/data/mutate/%s", c.projectID, c.dataset)
+	return fmt.Sprintf("%s/v2024-01-01/data/mutate/%s", base, c.dataset)
 }
 
 func (c *Client) getQueryURL() string {
+	base := fmt.Sprintf("https://%s.api.sanity.io", c.projectID)
 	if c.baseURL != "" {
-		return c.baseURL
+		base = strings.TrimRight(c.baseURL, "/")
 	}
-	return fmt.Sprintf("https://%s.api.sanity.io/v2024-01-01/data/query/%s", c.projectID, c.dataset)
+	return fmt.Sprintf("%s/v2024-01-01/data/query/%s", base, c.dataset)
 }
 
 func sanitizeIDSegment(raw string) string {
@@ -136,10 +138,111 @@ func buildDeterministicID(prefix, productID, userID string) string {
 	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), sanitizeIDSegment(userID))
 }
 
-// UpsertComment crea o reemplaza el comentario de un usuario para un producto en estado "pendiente".
-// Cuando se proporciona UserID, utiliza createOrReplace con ID determinista para mantener un único comentario por usuario.
+type existingCommentInfo struct {
+	ID     string `json:"_id"`
+	Texto  string `json:"texto"`
+	Estado string `json:"estado"`
+}
+
+func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
+	groq := `*[_id == $id][0]{ _id, texto, estado }`
+	payload := map[string]interface{}{
+		"query": groq,
+		"params": map[string]interface{}{
+			"id": id,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("error al serializar consulta GROQ de comentario: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.getQueryURL(), bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
+	}
+
+	req.Header.Set("Content-Type", contentTypeJSON)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error de red al consultar comentario existente: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("Sanity Query API retornó status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Result *existingCommentInfo `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("error al decodificar comentario existente: %w", err)
+	}
+
+	return result.Result, nil
+}
+
+// UpsertComment crea o actualiza el comentario de un usuario para un producto.
+// Satisface: RF-07 (Comentarios con pre-moderación).
+// Regla de moderación:
+// - Si el comentario ya existía y el texto no fue modificado (solo cambiaron las estrellas),
+//   se conserva el estado de moderación previo (ej. "aprobado") y se actualiza únicamente "calificacion".
+// - Si el comentario es nuevo o el texto fue modificado, pasa al estado "pendiente" para moderación manual.
 func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
 	now := time.Now().UTC().Format(time.RFC3339)
+	userID := strings.TrimSpace(p.UserID)
+
+	if userID != "" {
+		docID := buildDeterministicID("comentario", p.ProductID, userID)
+		existing, err := c.getExistingComment(ctx, docID)
+		if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
+			// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
+			if p.Rating >= 1 && p.Rating <= 5 {
+				payload := map[string]interface{}{
+					"mutations": []map[string]interface{}{
+						{
+							"patch": map[string]interface{}{
+								"id": docID,
+								"set": map[string]interface{}{
+									"calificacion": p.Rating,
+								},
+							},
+						},
+					},
+				}
+				return c.executeMutation(ctx, payload)
+			}
+			return nil
+		}
+
+		doc := map[string]interface{}{
+			"_type":         "comentario",
+			"_id":           docID,
+			"usuarioId":     userID,
+			"texto":         p.Text,
+			"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
+			"estado":        "pendiente",
+			"fechaCreacion": now,
+		}
+		if p.Rating >= 1 && p.Rating <= 5 {
+			doc["calificacion"] = p.Rating
+		}
+
+		payload := map[string]interface{}{
+			"mutations": []map[string]interface{}{
+				{"createOrReplace": doc},
+			},
+		}
+
+		return c.executeMutation(ctx, payload)
+	}
+
 	doc := map[string]interface{}{
 		"_type":         "comentario",
 		"texto":         p.Text,
@@ -151,17 +254,9 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 		doc["calificacion"] = p.Rating
 	}
 
-	mutationKey := "create"
-	userID := strings.TrimSpace(p.UserID)
-	if userID != "" {
-		doc["_id"] = buildDeterministicID("comentario", p.ProductID, userID)
-		doc["usuarioId"] = userID
-		mutationKey = "createOrReplace"
-	}
-
 	payload := map[string]interface{}{
 		"mutations": []map[string]interface{}{
-			{mutationKey: doc},
+			{"create": doc},
 		},
 	}
 

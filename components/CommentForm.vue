@@ -7,7 +7,7 @@
   @satisfies RF-06, RF-07, RF-15, RNF-04, RNF-05
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     AlertCircle,
     ArrowUpDown,
@@ -124,9 +124,20 @@ onMounted(() => {
     cargarEstadoLocal();
 });
 
+// Comentarios reactivos locales sincronizados con props
+const comentariosLocales = ref<Comentario[]>([]);
+
+watch(
+    () => props.comentarios,
+    (nuevos) => {
+        comentariosLocales.value = (nuevos ?? []).map((c) => ({ ...c }));
+    },
+    { immediate: true, deep: true }
+);
+
 // Comentarios aprobados globales
 const comentariosAprobados = computed<Comentario[]>(() => {
-    return (props.comentarios ?? []).filter(
+    return comentariosLocales.value.filter(
         (c) => !c.estado || c.estado === 'aprobado'
     );
 });
@@ -305,6 +316,14 @@ const procesarEnvioRating = async (
     const valorPrevio = savedRating.value;
     savedRating.value = estrellaSeleccionada.value;
     reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
+    const comentarioPropio = comentariosLocales.value.find(
+        (c) =>
+            (c.usuarioId && c.usuarioId === userId) ||
+            c._id === `comentario-${props.productoId}-${userId}`
+    );
+    if (comentarioPropio) {
+        comentarioPropio.calificacion = estrellaSeleccionada.value;
+    }
     const mensajeRating = eraModificacion
         ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
         : `Tu calificación de ${estrellaSeleccionada.value} estrellas se registró correctamente.`;
@@ -319,11 +338,14 @@ const procesarEnvioRating = async (
 
 const procesarEnvioComentario = async (
     userId: string,
-    reviewData: StoredUserReview
+    reviewData: StoredUserReview,
+    estrellasCambiaron = false
 ): Promise<boolean> => {
     const debeEnviarComentario =
         !comentarioVacio.value &&
-        (cambioComentario.value || !savedComment.value);
+        (cambioComentario.value ||
+            !savedComment.value ||
+            (estrellasCambiaron && Boolean(savedComment.value)));
     if (!debeEnviarComentario) {
         return true;
     }
@@ -342,13 +364,35 @@ const procesarEnvioComentario = async (
     }
 
     const eraModificacion = Boolean(savedComment.value);
+    const soloCambiaronEstrellas =
+        eraModificacion && !cambioComentario.value && estrellasCambiaron;
+
     savedComment.value = comentarioLimpio.value;
     reviewData.comment = comentarioLimpio.value;
-    reviewData.commentStatus = 'pendiente';
-    const mensajeComentario = eraModificacion
-        ? 'Comentario actualizado y enviado a revisión.'
-        : 'Tu comentario fue enviado correctamente y quedará visible cuando sea aprobado por moderación.';
-    mostrarFeedbackComentario(mensajeComentario);
+
+    const comentarioPropio = comentariosLocales.value.find(
+        (c) =>
+            (c.usuarioId && c.usuarioId === userId) ||
+            c._id === `comentario-${props.productoId}-${userId}`
+    );
+    if (comentarioPropio) {
+        comentarioPropio.calificacion = estrellaSeleccionada.value;
+    }
+
+    if (soloCambiaronEstrellas) {
+        // Al modificar únicamente las estrellas, el comentario conserva su estado
+        // de moderación previo en backend y en interfaz sin pasar a "pendiente" (RF-07).
+        // El feedback visual de la calificación ya se emitió en procesarEnvioRating.
+    } else {
+        if (comentarioPropio) {
+            comentarioPropio.estado = 'pendiente';
+        }
+        reviewData.commentStatus = 'pendiente';
+        const mensajeComentario = eraModificacion
+            ? 'Comentario actualizado y enviado a revisión.'
+            : 'Tu comentario fue enviado correctamente y quedará visible cuando sea aprobado por moderación.';
+        mostrarFeedbackComentario(mensajeComentario);
+    }
     return true;
 };
 
@@ -371,10 +415,12 @@ const manejarSubmit = async (): Promise<void> => {
             updatedAt: new Date().toISOString(),
         };
 
+        const estrellasCambiaron = cambiaronEstrellas.value;
+
         const ratingOk = await procesarEnvioRating(userId, stored);
         if (!ratingOk) return;
 
-        const commentOk = await procesarEnvioComentario(userId, stored);
+        const commentOk = await procesarEnvioComentario(userId, stored, estrellasCambiaron);
         if (!commentOk) return;
 
         stored.updatedAt = new Date().toISOString();
