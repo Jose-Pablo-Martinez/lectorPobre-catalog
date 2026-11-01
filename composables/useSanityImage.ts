@@ -2,8 +2,9 @@
  * @file useSanityImage.ts
  * @description Composable utilitario para resolver URLs de imágenes almacenadas en Sanity CDN
  * mediante `@sanity/image-url`. Soporta redimensionado y recorte inteligente (hotspot/crop)
- * y retorna `null` de forma segura si la imagen no está disponible.
- * @satisfies RF-01, RF-02, RF-16, RF-20
+ * aplicando optimizaciones automáticas de compresión (auto=format&fit=max&q=80) y retorna `null`
+ * de forma segura si la imagen no está disponible.
+ * @satisfies RF-01, RF-02, RF-16, RF-20, RNF-02
  */
 
 import { createImageUrlBuilder } from '@sanity/image-url';
@@ -20,6 +21,7 @@ const DEFAULT_DATASET = 'staging';
 
 /**
  * Construye una URL de Sanity CDN a partir de un objeto `SanityImage`.
+ * Aplica auto=format, fit=max y calidad óptima (q=80 por defecto).
  *
  * @param source Objeto de imagen de Sanity.
  * @param projectId ID del proyecto de Sanity.
@@ -48,7 +50,7 @@ export function buildSanityImageUrl(
             dataset: effectiveDataset,
         });
 
-        let imageBuilder = builder.image(source).auto('format');
+        let imageBuilder = builder.image(source).auto('format').fit('max');
 
         if (options.width) {
             imageBuilder = imageBuilder.width(options.width);
@@ -56,9 +58,8 @@ export function buildSanityImageUrl(
         if (options.height) {
             imageBuilder = imageBuilder.height(options.height);
         }
-        if (options.quality) {
-            imageBuilder = imageBuilder.quality(options.quality);
-        }
+        const quality = options.quality ?? 80;
+        imageBuilder = imageBuilder.quality(quality);
 
         return imageBuilder.url() ?? null;
     } catch {

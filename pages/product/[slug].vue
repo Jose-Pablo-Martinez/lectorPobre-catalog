@@ -26,6 +26,7 @@ import SimilarProducts from '~/components/SimilarProducts.vue';
 import StarRating from '~/components/StarRating.vue';
 import StockIndicator from '~/components/StockIndicator.vue';
 import WhatsAppButton from '~/components/WhatsAppButton.vue';
+import { useAnalytics } from '~/composables/useAnalytics';
 import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import {
     CATALOG_PRODUCTS_QUERY,
@@ -283,11 +284,16 @@ const manejarRatingActualizado = (evento: RatingUpdatedPayload | number): void =
         rating4Count: counts[4],
         rating5Count: counts[5],
     };
+
+    trackRatingSubmitted(producto.value._id, nuevoValor);
 };
+
+const { trackProductView, trackRatingSubmitted } = useAnalytics();
 
 onMounted(() => {
     if (producto.value) {
         registrarVistoReciente(producto.value);
+        trackProductView(producto.value._id, producto.value.nombre);
     }
 });
 
@@ -296,6 +302,7 @@ watch(
     (id) => {
         if (id && producto.value) {
             registrarVistoReciente(producto.value);
+            trackProductView(producto.value._id, producto.value.nombre);
             indiceImagenActiva.value = 0;
             errorImagenActiva.value = false;
         }
@@ -396,6 +403,9 @@ try {
                             v-if="obtenerMiniaturaGaleria(img)"
                             :src="obtenerMiniaturaGaleria(img) ?? ''"
                             :alt="`${producto.nombre} miniatura ${idx + 1}`"
+                            loading="lazy"
+                            width="140"
+                            height="140"
                             class="w-full h-full object-cover"
                         />
                     </button>
@@ -534,6 +544,8 @@ try {
                             :disabled="agotado"
                             label="Comprar por WhatsApp"
                             :full-width="true"
+                            :producto-id="producto?._id"
+                            origen="product_detail"
                         />
                     </div>
                 </div>

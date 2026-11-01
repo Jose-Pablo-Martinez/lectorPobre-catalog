@@ -7,18 +7,30 @@
   @satisfies RF-03, RF-14, RF-15, RF-17, RNF-05
 -->
 <script setup lang="ts">
+import { useAnalytics } from '~/composables/useAnalytics';
+
 export interface WhatsAppButtonProps {
     href: string;
     disabled?: boolean;
     label?: string;
     fullWidth?: boolean;
+    productoId?: string;
+    origen?: 'product_detail' | 'catalog_card' | 'cart_drawer' | 'general';
 }
 
-withDefaults(defineProps<WhatsAppButtonProps>(), {
+const props = withDefaults(defineProps<WhatsAppButtonProps>(), {
     disabled: false,
     label: 'Comprar por WhatsApp',
     fullWidth: true,
+    productoId: undefined,
+    origen: 'general',
 });
+
+const { trackWhatsAppClick } = useAnalytics();
+
+const manejarClick = (): void => {
+    trackWhatsAppClick(props.productoId, props.origen);
+};
 </script>
 
 <template>
@@ -33,6 +45,7 @@ withDefaults(defineProps<WhatsAppButtonProps>(), {
         ]"
         :aria-label="label"
         data-testid="whatsapp-button"
+        @click="manejarClick"
     >
         <!-- Ícono vectorial oficial de WhatsApp -->
         <svg
