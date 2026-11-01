@@ -149,23 +149,17 @@ type existingCommentInfo struct {
 	Estado string `json:"estado"`
 }
 
-func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
-	groq := `*[_id == $id][0]{ _id, texto, estado }`
-	payload := map[string]interface{}{
-		"query": groq,
-		"params": map[string]interface{}{
-			"id": id,
-		},
-	}
-
+// postJSON ejecuta una solicitud HTTP POST con cuerpo JSON y encabezados de autenticación hacia Sanity.
+// Si out no es nil, decodifica el cuerpo de la respuesta en la estructura proporcionada.
+func (c *Client) postJSON(ctx context.Context, endpointURL string, payload interface{}, out interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("error al serializar consulta GROQ de comentario: %w", err)
+		return fmt.Errorf("error al serializar payload para Sanity: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.getQueryURL(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
+		return fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
 	req.Header.Set(headerContentType, contentTypeJSON)
@@ -175,22 +169,39 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error de red al consultar comentario existente: %w", err)
+		return fmt.Errorf("error de red al contactar Sanity: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Sanity Query API retornó status %d", resp.StatusCode)
+		return fmt.Errorf("Sanity API retornó status %d", resp.StatusCode)
 	}
 
-	var result struct {
+	if out != nil {
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			return fmt.Errorf("error al decodificar respuesta de Sanity: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
+	payload := map[string]interface{}{
+		"query": `*[_id == $id][0]{ _id, texto, estado }`,
+		"params": map[string]interface{}{
+			"id": id,
+		},
+	}
+
+	var response struct {
 		Result *existingCommentInfo `json:"result"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error al decodificar comentario existente: %w", err)
+	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+		return nil, fmt.Errorf("error al consultar comentario existente: %w", err)
 	}
 
-	return result.Result, nil
+	return response.Result, nil
 }
 
 // UpsertComment crea o actualiza el comentario de un usuario para un producto.
@@ -283,7 +294,7 @@ func buildRatingCounterPatch(productID string, value int, previousValue int) map
 			"id":           productID,
 			"setIfMissing": setIfMissing,
 			"inc": map[string]interface{}{
-				"ratingSum":                                value - previousValue,
+				"ratingSum": value - previousValue,
 				fmt.Sprintf("rating%dCount", previousValue): -1,
 				fmt.Sprintf("rating%dCount", value):         1,
 			},
@@ -294,8 +305,8 @@ func buildRatingCounterPatch(productID string, value int, previousValue int) map
 		"id":           productID,
 		"setIfMissing": setIfMissing,
 		"inc": map[string]interface{}{
-			"ratingSum":                        value,
-			"ratingCount":                      1,
+			"ratingSum":                         value,
+			"ratingCount":                       1,
 			fmt.Sprintf("rating%dCount", value): 1,
 		},
 	}
@@ -357,77 +368,28 @@ func DispatchRating(ctx context.Context, w Writer, p handlers.RatingPayload) err
 // SearchProducts implementa Searcher.SearchProducts.
 // Ejecuta una consulta GROQ utilizando parámetros tipados (params) para mitigar inyecciones (§9.11, RF-18).
 func (c *Client) SearchProducts(ctx context.Context, query string) ([]map[string]interface{}, error) {
-	groq := `*[_type == "producto" && activo == true && (nombre match $term || descripcion match $term)] { _id, nombre, "slug": slug.current, precio, stock }`
 	payload := map[string]interface{}{
-		"query": groq,
+		"query": `*[_type == "producto" && activo == true && (nombre match $term || descripcion match $term)] { _id, nombre, "slug": slug.current, precio, stock }`,
 		"params": map[string]interface{}{
 			"term": query + "*",
 		},
 	}
 
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("error al serializar consulta GROQ: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.getQueryURL(), bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
-	}
-
-	req.Header.Set(headerContentType, contentTypeJSON)
-	if c.token != "" {
-		req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error de red al consultar Sanity: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Sanity Query API retornó status %d", resp.StatusCode)
-	}
-
-	var result struct {
+	var response struct {
 		Result []map[string]interface{} `json:"result"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error al decodificar respuesta de búsqueda Sanity: %w", err)
+	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+		return nil, fmt.Errorf("error al consultar Sanity: %w", err)
 	}
 
-	if result.Result == nil {
+	if response.Result == nil {
 		return []map[string]interface{}{}, nil
 	}
-	return result.Result, nil
+	return response.Result, nil
 }
 
 func (c *Client) executeMutation(ctx context.Context, payload map[string]interface{}) error {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("error al serializar mutación Sanity: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.getMutationURL(), bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
-	}
-
-	req.Header.Set(headerContentType, contentTypeJSON)
-	req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error de red al contactar Sanity: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("Sanity API retornó status %d", resp.StatusCode)
-	}
-
-	return nil
+	return c.postJSON(ctx, c.getMutationURL(), payload, nil)
 }
 
 // CrearComentario es una función de conveniencia que instancia el cliente y crea el comentario.

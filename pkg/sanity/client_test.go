@@ -2,8 +2,8 @@ package sanity_test
 
 import (
 	"context"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -246,7 +246,6 @@ func TestBuscarProductos_FuncionHelper(t *testing.T) {
 	}
 }
 
-
 // TestSanityClient_UpsertComment_ConUserIDYRating verifica createOrReplace y calificación asociada.
 func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
 	var receivedBody map[string]interface{}
@@ -380,7 +379,6 @@ func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
 		t.Fatalf("DispatchComment básico falló: %v", err)
 	}
 }
-
 
 func createSanityMockServer(existingTexto string, captured *[]interface{}) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
