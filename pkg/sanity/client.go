@@ -18,7 +18,12 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/handlers"
 )
 
-const contentTypeJSON = "application/json"
+const (
+	contentTypeJSON     = "application/json"
+	headerContentType   = "Content-Type"
+	headerAuthorization = "Authorization"
+	authBearerPrefix    = "Bearer "
+)
 
 // Writer define la interfaz para todas las operaciones de escritura en Sanity utilizadas por los handlers de LectorPobre.
 // El uso de una interfaz permite a los tests unitarios (UT-GO-11 a UT-GO-18) inyectar un mock
@@ -163,9 +168,9 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
-	req.Header.Set("Content-Type", contentTypeJSON)
+	req.Header.Set(headerContentType, contentTypeJSON)
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -197,9 +202,10 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	userID := strings.TrimSpace(p.UserID)
+	var docID string
 
 	if userID != "" {
-		docID := buildDeterministicID("comentario", p.ProductID, userID)
+		docID = buildDeterministicID("comentario", p.ProductID, userID)
 		existing, err := c.getExistingComment(ctx, docID)
 		if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
 			// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
@@ -220,27 +226,6 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 			}
 			return nil
 		}
-
-		doc := map[string]interface{}{
-			"_type":         "comentario",
-			"_id":           docID,
-			"usuarioId":     userID,
-			"texto":         p.Text,
-			"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
-			"estado":        "pendiente",
-			"fechaCreacion": now,
-		}
-		if p.Rating >= 1 && p.Rating <= 5 {
-			doc["calificacion"] = p.Rating
-		}
-
-		payload := map[string]interface{}{
-			"mutations": []map[string]interface{}{
-				{"createOrReplace": doc},
-			},
-		}
-
-		return c.executeMutation(ctx, payload)
 	}
 
 	doc := map[string]interface{}{
@@ -254,9 +239,16 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 		doc["calificacion"] = p.Rating
 	}
 
+	mutationKey := "create"
+	if userID != "" {
+		doc["_id"] = docID
+		doc["usuarioId"] = userID
+		mutationKey = "createOrReplace"
+	}
+
 	payload := map[string]interface{}{
 		"mutations": []map[string]interface{}{
-			{"create": doc},
+			{mutationKey: doc},
 		},
 	}
 
@@ -383,9 +375,9 @@ func (c *Client) SearchProducts(ctx context.Context, query string) ([]map[string
 		return nil, fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
-	req.Header.Set("Content-Type", contentTypeJSON)
+	req.Header.Set(headerContentType, contentTypeJSON)
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -422,8 +414,8 @@ func (c *Client) executeMutation(ctx context.Context, payload map[string]interfa
 		return fmt.Errorf("error al construir solicitud HTTP para Sanity: %w", err)
 	}
 
-	req.Header.Set("Content-Type", contentTypeJSON)
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set(headerContentType, contentTypeJSON)
+	req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
