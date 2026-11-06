@@ -16,9 +16,12 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/sanity"
 )
 
+const testReviewSecret = "test-review-secret-32-bytes-key!" // gitleaks:allow
+
 // TestSanityClient_CreateComment_Exitoso verifica la estructura de la mutación y los encabezados enviados a Sanity.
 // Satisface: RF-07 (Comentarios pendientes), RNF-04 (Token privado).
 func TestSanityClient_CreateComment_Exitoso(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	testToken := "sk-secret-sanity-write-token-999" // gitleaks:allow
 	var receivedAuthHeader string
 	var receivedBody map[string]interface{}
@@ -88,6 +91,7 @@ func TestSanityClient_CreateComment_Exitoso(t *testing.T) {
 // TestSanityClient_CreateRating_Exitoso verifica la mutación para calificaciones nuevas (valor previo del servidor = 0).
 // Satisface: RF-06 (Calificaciones).
 func TestSanityClient_CreateRating_Exitoso(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	testToken := "sk-test-token" // gitleaks:allow
 	var receivedBody map[string]interface{}
 
@@ -183,6 +187,7 @@ func TestSanityClient_SearchProducts_SanityError(t *testing.T) {
 // TestSanityClient_CreateComment_SanityError_NoExponeToken verifica que ante un fallo de Sanity nunca se filtre el token.
 // Satisface: RNF-04, §8.
 func TestSanityClient_CreateComment_SanityError_NoExponeToken(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	secretToken := "SUPER-SECRET-TOKEN-DO-NOT-LEAK-XYZ" // gitleaks:allow
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +210,7 @@ func TestSanityClient_CreateComment_SanityError_NoExponeToken(t *testing.T) {
 
 // TestSanityClient_RedError_RetornaError verifica manejo de errores de red o timeouts.
 func TestSanityClient_RedError_RetornaError(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	serverURL := server.URL
 	server.Close()
@@ -274,8 +280,9 @@ func TestBuscarProductos_FuncionHelper(t *testing.T) {
 	}
 }
 
-// TestSanityClient_UpsertComment_ConUserIDYRating verifica createOrReplace y calificación asociada.
+// TestSanityClient_UpsertComment_ConUserIDYRating verifica createOrReplace, calificación asociada y opacidad del userId (V-01).
 func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
@@ -294,12 +301,13 @@ func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
 	}))
 	defer server.Close()
 
+	rawUserID := "usr_secret_browser_id_123"
 	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
 	err := client.UpsertComment(context.Background(), handlers.CommentPayload{
 		ProductID: "prod-1",
 		Text:      "Muy buen libro",
 		Rating:    4,
-		UserID:    "user:abc@123",
+		UserID:    rawUserID,
 	})
 	if err != nil {
 		t.Fatalf("UpsertComment esperaba nil, obtuvo: %v", err)
@@ -308,20 +316,30 @@ func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
 	mutations := receivedBody["mutations"].([]interface{})
 	upsertMap := mutations[0].(map[string]interface{})["createOrReplace"].(map[string]interface{})
 
-	if upsertMap["_id"] != "comentario-prod-1-user-abc-123" {
-		t.Errorf("Esperado _id determinista 'comentario-prod-1-user-abc-123', obtenido %v", upsertMap["_id"])
+	expectedID, err := sanity.BuildReviewDocumentID("comentario", "prod-1", rawUserID)
+	if err != nil {
+		t.Fatalf("BuildReviewDocumentID falló: %v", err)
+	}
+	docID, _ := upsertMap["_id"].(string)
+	if docID != expectedID {
+		t.Errorf("Esperado _id opaco %q, obtenido %q", expectedID, docID)
+	}
+	if strings.Contains(docID, rawUserID) {
+		t.Errorf("ALERTA V-01: _id %q contiene el userId en claro %q", docID, rawUserID)
 	}
 	if int(upsertMap["calificacion"].(float64)) != 4 {
 		t.Errorf("Esperado calificacion 4, obtenido %v", upsertMap["calificacion"])
 	}
-	if upsertMap["usuarioId"] != "user:abc@123" {
-		t.Errorf("Esperado usuarioId 'user:abc@123', obtenido %v", upsertMap["usuarioId"])
+	storedUserID, _ := upsertMap["usuarioId"].(string)
+	if storedUserID == "" || strings.Contains(storedUserID, rawUserID) {
+		t.Errorf("ALERTA V-01: usuarioId almacenado %q no debe contener el userId en claro %q", storedUserID, rawUserID)
 	}
 }
 
 // TestSanityClient_UpsertRating_ActualizacionContadores verifica createOrReplace y patch diferencial
 // usando el valor previo almacenado en el servidor e ignorando el PreviousValue enviado por el cliente (V-02).
 func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
@@ -332,7 +350,7 @@ func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
 				_, _ = w.Write([]byte(`{"result":"prod-123"}`))
 			} else {
 				// El servidor tiene registrado valor = 3 para este usuario
-				_, _ = w.Write([]byte(`{"result":{"_id":"calificacion-prod-1-usr-99","valor":3}}`))
+				_, _ = w.Write([]byte(`{"result":{"_id":"calificacion-prod-1-opaque","valor":3}}`))
 			}
 			return
 		}
@@ -358,9 +376,13 @@ func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
 		t.Fatalf("Esperadas 2 mutaciones (createOrReplace + patch), obtenidas %d", len(mutations))
 	}
 
+	expectedID, _ := sanity.BuildReviewDocumentID("calificacion", "prod-1", "usr-99")
 	upsertMap := mutations[0].(map[string]interface{})["createOrReplace"].(map[string]interface{})
-	if upsertMap["_id"] != "calificacion-prod-1-usr-99" {
-		t.Errorf("Esperado _id 'calificacion-prod-1-usr-99', obtenido %v", upsertMap["_id"])
+	if upsertMap["_id"] != expectedID {
+		t.Errorf("Esperado _id opaco %q, obtenido %v", expectedID, upsertMap["_id"])
+	}
+	if strings.Contains(upsertMap["_id"].(string), "usr-99") {
+		t.Errorf("ALERTA V-01: _id de calificación contiene userId en claro: %v", upsertMap["_id"])
 	}
 
 	patchMap := mutations[1].(map[string]interface{})["patch"].(map[string]interface{})
@@ -379,6 +401,7 @@ func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
 // TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch verifica que si el valor almacenado en el servidor
 // coincide con el nuevo valor, no se parchen contadores aunque el cliente envíe un PreviousValue distinto (V-02).
 func TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
@@ -416,6 +439,7 @@ func TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch(t *testing.T) {
 
 // TestDispatchComment_EnrutaCorrectamente verifica DispatchComment con ReviewWriter y rechazo sin UserID.
 func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
@@ -481,6 +505,7 @@ func createSanityMockServer(existingTexto string, captured *[]interface{}) *http
 
 func executeUpsertCommentTest(t *testing.T, existingTexto, newTexto string, rating int) map[string]interface{} {
 	t.Helper()
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	var capturedMutations []interface{}
 	server := createSanityMockServer(existingTexto, &capturedMutations)
 	defer server.Close()
@@ -513,8 +538,9 @@ func verifyPatchMutation(t *testing.T, mutation map[string]interface{}, expected
 	if !ok {
 		t.Fatalf("Esperada mutacion patch, obtenida: %v", mutation)
 	}
-	if patchMap["id"] != "comentario-p1-u1" {
-		t.Errorf("ID de patch esperado 'comentario-p1-u1', obtenido %v", patchMap["id"])
+	expectedID, _ := sanity.BuildReviewDocumentID("comentario", "p1", "u1")
+	if patchMap["id"] != expectedID {
+		t.Errorf("ID de patch esperado %q, obtenido %v", expectedID, patchMap["id"])
 	}
 	setMap, ok := patchMap["set"].(map[string]interface{})
 	if !ok {
@@ -563,6 +589,7 @@ func TestSanityClient_UpsertComment_ReglasModeracion(t *testing.T) {
 // TestSanityClient_ProductoNoEncontrado_RechazaMutacion verifica que UpsertComment y UpsertRating
 // retornen ErrProductNotFound y no ejecuten mutaciones cuando el ID no corresponde a un producto activo (V-03).
 func TestSanityClient_ProductoNoEncontrado_RechazaMutacion(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	mutateCalled := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/data/query") {
@@ -603,6 +630,7 @@ func TestSanityClient_ProductoNoEncontrado_RechazaMutacion(t *testing.T) {
 
 // TestSanityClient_UpsertRating_ErrorAlConsultarExistente verifica que si falla la consulta de calificación previa se retorne error (V-02).
 func TestSanityClient_UpsertRating_ErrorAlConsultarExistente(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
 		if strings.Contains(string(bodyBytes), "activo == true") {
@@ -623,5 +651,21 @@ func TestSanityClient_UpsertRating_ErrorAlConsultarExistente(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("Se esperaba error cuando falla getExistingRating, obtuvo nil")
+	}
+}
+
+// TestSanityClient_SinReviewIDSecret_FallaCerrado verifica que sin REVIEW_ID_SECRET se rechace derivar IDs (V-01).
+func TestSanityClient_SinReviewIDSecret_FallaCerrado(t *testing.T) {
+	os.Unsetenv("REVIEW_ID_SECRET")
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", nil, "http://127.0.0.1:0")
+
+	if _, err := sanity.BuildReviewDocumentID("comentario", "prod-1", "usr-1"); err == nil {
+		t.Errorf("BuildReviewDocumentID debió fallar sin REVIEW_ID_SECRET")
+	}
+	if err := client.UpsertComment(context.Background(), handlers.CommentPayload{ProductID: "prod-1", Text: "Hola", UserID: "usr-1"}); err == nil {
+		t.Errorf("UpsertComment debió fallar cerrado sin REVIEW_ID_SECRET")
+	}
+	if err := client.UpsertRating(context.Background(), handlers.RatingPayload{ProductID: "prod-1", Value: 5, UserID: "usr-1"}); err == nil {
+		t.Errorf("UpsertRating debió fallar cerrado sin REVIEW_ID_SECRET")
 	}
 }

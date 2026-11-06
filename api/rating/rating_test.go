@@ -45,8 +45,9 @@ func (m *mockRatingWriter) UpsertRating(ctx context.Context, p handlers.RatingPa
 	return nil
 }
 
-// TestCalificarHandler_ConPreviousValueYUserId_Retorna201 verifica actualización con valor previo y usuario.
+// TestCalificarHandler_ConPreviousValueYUserId_Retorna201 verifica actualización con valor previo, usuario y reviewId opaco (V-01).
 func TestCalificarHandler_ConPreviousValueYUserId_Retorna201(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", "test-secret-for-rating-handler-v01")
 	middleware.DefaultRateLimiter.Reset()
 	var captured handlers.RatingPayload
 	mock := &mockRatingWriter{
@@ -69,6 +70,9 @@ func TestCalificarHandler_ConPreviousValueYUserId_Retorna201(t *testing.T) {
 	}
 	if captured.Value != 5 || captured.PreviousValue != 3 || captured.UserID != "usr-99" {
 		t.Errorf("Payload capturado incorrecto: %+v", captured)
+	}
+	if !strings.Contains(w.Body.String(), `"reviewId":"calificacion-p1-`) || strings.Contains(w.Body.String(), "usr-99") {
+		t.Errorf("Respuesta debe incluir reviewId opaco sin exponer usr-99: %s", w.Body.String())
 	}
 }
 

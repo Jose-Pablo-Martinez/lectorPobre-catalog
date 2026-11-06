@@ -7,6 +7,9 @@ package sanity
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -139,8 +142,28 @@ func sanitizeIDSegment(raw string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-func buildDeterministicID(prefix, productID, userID string) string {
-	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), sanitizeIDSegment(userID))
+func opaqueUserKey(userID string) (string, error) {
+	secret := strings.Trim(strings.TrimSpace(os.Getenv("REVIEW_ID_SECRET")), `"'`)
+	if secret == "" {
+		return "", errors.New("REVIEW_ID_SECRET es requerido en las variables de entorno")
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(strings.TrimSpace(userID)))
+	return hex.EncodeToString(mac.Sum(nil))[:32], nil
+}
+
+func buildDeterministicID(prefix, productID, opaqueKey string) string {
+	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), opaqueKey)
+}
+
+// BuildReviewDocumentID deriva un identificador determinista opaco mediante HMAC-SHA256
+// para evitar exponer el userId del navegador en Sanity y en el HTML público (V-01).
+func BuildReviewDocumentID(prefix, productID, userID string) (string, error) {
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return "", err
+	}
+	return buildDeterministicID(prefix, productID, opaqueKey), nil
 }
 
 type existingCommentInfo struct {
@@ -245,11 +268,15 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 	if userID == "" {
 		return handlers.ErrUserIDRequired
 	}
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return err
+	}
 	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
 		return err
 	}
 
-	docID := buildDeterministicID("comentario", p.ProductID, userID)
+	docID := buildDeterministicID("comentario", p.ProductID, opaqueKey)
 	existing, err := c.getExistingComment(ctx, docID)
 	if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
 		// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
@@ -273,7 +300,7 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 		"_id":           docID,
 		"_type":         "comentario",
 		"texto":         p.Text,
-		"usuarioId":     userID,
+		"usuarioId":     opaqueKey,
 		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
 		"estado":        "pendiente",
 		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
@@ -342,11 +369,15 @@ func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) err
 	if userID == "" {
 		return handlers.ErrUserIDRequired
 	}
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return err
+	}
 	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
 		return err
 	}
 
-	docID := buildDeterministicID("calificacion", p.ProductID, userID)
+	docID := buildDeterministicID("calificacion", p.ProductID, opaqueKey)
 	prev := 0
 	if existing, err := c.getExistingRating(ctx, docID); err != nil {
 		return err
@@ -358,7 +389,7 @@ func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) err
 		"_id":           docID,
 		"_type":         "calificacion",
 		"valor":         p.Value,
-		"usuarioId":     userID,
+		"usuarioId":     opaqueKey,
 		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
 		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
 	}

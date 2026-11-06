@@ -76,6 +76,7 @@ type MutationConfig[T any] struct {
 	Validate    func(payload T) error
 	ErrorCode   string
 	Execute     func(ctx context.Context, payload T) error
+	ResultData  func(payload T) any
 }
 
 // ExecuteMutation ejecuta el ciclo estándar de una función serverless de mutación POST en Sanity:
@@ -128,5 +129,9 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 		return
 	}
 
-	SendSuccess(w, http.StatusCreated, nil)
+	var data any
+	if cfg.ResultData != nil {
+		data = cfg.ResultData(payload)
+	}
+	SendSuccess(w, http.StatusCreated, data)
 }

@@ -54,8 +54,9 @@ func (m *mockSanityWriter) UpsertRating(ctx context.Context, p handlers.RatingPa
 	return nil
 }
 
-// TestComentarHandler_ConRatingYUserId_Retorna201 verifica asociar calificacion y usuario en comentario.
+// TestComentarHandler_ConRatingYUserId_Retorna201 verifica asociar calificacion y usuario en comentario y devolver reviewId opaco (V-01).
 func TestComentarHandler_ConRatingYUserId_Retorna201(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", "test-secret-for-comment-handler-v01")
 	middleware.DefaultRateLimiter.Reset()
 	var capturedPayload handlers.CommentPayload
 	mock := &mockSanityWriter{
@@ -78,6 +79,9 @@ func TestComentarHandler_ConRatingYUserId_Retorna201(t *testing.T) {
 	}
 	if capturedPayload.Rating != 4 || capturedPayload.UserID != "usr-42" {
 		t.Errorf("Payload capturado incorrecto: %+v", capturedPayload)
+	}
+	if !strings.Contains(w.Body.String(), `"reviewId":"comentario-prod-xyz-`) || strings.Contains(w.Body.String(), "usr-42") {
+		t.Errorf("Respuesta debe incluir reviewId opaco sin exponer usr-42: %s", w.Body.String())
 	}
 }
 
