@@ -18,6 +18,9 @@ const groqBannedCharacters = "*[]{}\"\\|$"
 // ErrProductNotFound indica que el ProductID no corresponde a un documento de tipo producto activo en Sanity.
 var ErrProductNotFound = errors.New("producto no encontrado")
 
+// ErrUserIDRequired indica que falta el identificador de usuario para realizar una reseña o calificación (V-02).
+var ErrUserIDRequired = errors.New("usuarioId requerido")
+
 // idPattern restringe identificadores de producto y usuario a caracteres alfanuméricos, guion y guion bajo (1–100 chars).
 // Rechaza borradores (drafts.*), espacios y metacaracteres.
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
@@ -29,21 +32,27 @@ func validateID(field, v string) error {
 	return nil
 }
 
+func validateReviewIdentity(productID, userID string) error {
+	pid := strings.TrimSpace(productID)
+	if pid == "" {
+		return errors.New("productoId requerido")
+	}
+	if err := validateID("productoId", pid); err != nil {
+		return err
+	}
+	uid := strings.TrimSpace(userID)
+	if uid == "" {
+		return ErrUserIDRequired
+	}
+	return validateID("usuarioId", uid)
+}
+
 // ValidateComment valida los campos de un CommentPayload.
 // Retorna un error descriptivo si la validación falla, o nil si el payload es válido.
 // Probado por: UT-GO-01 a UT-GO-04 (VyV_LectorPobre.md §3.1).
 func ValidateComment(p CommentPayload) error {
-	productID := strings.TrimSpace(p.ProductID)
-	if productID == "" {
-		return errors.New("productoId requerido")
-	}
-	if err := validateID("productoId", productID); err != nil {
+	if err := validateReviewIdentity(p.ProductID, p.UserID); err != nil {
 		return err
-	}
-	if userID := strings.TrimSpace(p.UserID); userID != "" {
-		if err := validateID("usuarioId", userID); err != nil {
-			return err
-		}
 	}
 	trimmed := strings.TrimSpace(p.Text)
 	if trimmed == "" {
@@ -68,21 +77,12 @@ func ValidarComentario(p CommentPayload) error {
 
 // ValidateRating valida los campos de un RatingPayload.
 // Retorna un error descriptivo si el valor de la calificación está fuera del rango [1, 5]
-// o si falta el ProductID.
+// o si falta el ProductID o UserID.
 // Probado por: UT-GO-05 a UT-GO-07 (VyV_LectorPobre.md §3.1).
 // Fronteras de análisis de valor límite (BVA): válido=[1,5], inválido=[0,6] — ver VyV UT-GO-06, UT-GO-07.
 func ValidateRating(p RatingPayload) error {
-	productID := strings.TrimSpace(p.ProductID)
-	if productID == "" {
-		return errors.New("productoId requerido")
-	}
-	if err := validateID("productoId", productID); err != nil {
+	if err := validateReviewIdentity(p.ProductID, p.UserID); err != nil {
 		return err
-	}
-	if userID := strings.TrimSpace(p.UserID); userID != "" {
-		if err := validateID("usuarioId", userID); err != nil {
-			return err
-		}
 	}
 	if p.Value < 1 || p.Value > 5 {
 		return errors.New("calificación fuera de rango [1, 5]")

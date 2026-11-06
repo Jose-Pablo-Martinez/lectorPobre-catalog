@@ -41,6 +41,9 @@ func (m *mockSanityWriter) UpsertComment(ctx context.Context, p handlers.Comment
 	if m.upsertCommentFunc != nil {
 		return m.upsertCommentFunc(ctx, p)
 	}
+	if m.createCommentFunc != nil {
+		return m.createCommentFunc(ctx, p.ProductID, p.Text)
+	}
 	return nil
 }
 
@@ -83,7 +86,7 @@ func TestComentarHandler_RatingInvalido_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
-	payload := `{"productId":"prod-xyz","text":"Gran pieza","rating":6}`
+	payload := `{"productId":"prod-xyz","text":"Gran pieza","rating":6,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -109,7 +112,7 @@ func TestComentarHandler_PayloadJSON_Retorna201(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"prod-xyz-123","text":"Excelente libro, me encantó la historia."}`
+	payload := `{"productId":"prod-xyz-123","text":"Excelente libro, me encantó la historia.","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -133,14 +136,14 @@ func TestComentarHandler_PayloadJSON_Retorna201(t *testing.T) {
 	}
 }
 
-// TestComentarHandler_CamposEspanol_Retorna201 verifica soporte para payloads con campos en español (productoId, texto).
+// TestComentarHandler_CamposEspanol_Retorna201 verifica soporte para payloads con campos en español (productoId, texto, usuarioId).
 // Satisface: RF-07, DEVELOPMENT_GUIDELINES.md §3.2.
 func TestComentarHandler_CamposEspanol_Retorna201(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	mock := &mockSanityWriter{}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productoId":"prod-456","texto":"Muy buena calidad."}`
+	payload := `{"productoId":"prod-456","texto":"Muy buena calidad.","usuarioId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comentar", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -219,7 +222,7 @@ func TestRespuestaError_NuncaExponeTrazas(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"prod-1","text":"Hola"}`
+	payload := `{"productId":"prod-1","text":"Hola","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -239,15 +242,16 @@ func TestRespuestaError_NuncaExponeTrazas(t *testing.T) {
 	}
 }
 
-// TestComentarHandler_ValidacionFallida_Retorna400 valida que textos vacíos o excediendo 1000 caracteres retornen HTTP 400.
+// TestComentarHandler_ValidacionFallida_Retorna400 valida que textos vacíos, sin userId o excediendo 1000 caracteres retornen HTTP 400.
 func TestComentarHandler_ValidacionFallida_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
 	casos := []string{
-		`{"productId":"","text":"Texto válido"}`,
-		`{"productId":"p1","text":""}`,
-		`{"productId":"p1","text":"` + strings.Repeat("x", 1001) + `"}`,
+		`{"productId":"","text":"Texto válido","userId":"usr-1"}`,
+		`{"productId":"p1","text":"","userId":"usr-1"}`,
+		`{"productId":"p1","text":"Texto válido sin userId"}`,
+		`{"productId":"p1","text":"` + strings.Repeat("x", 1001) + `","userId":"usr-1"}`,
 	}
 
 	for _, payload := range casos {
@@ -284,7 +288,7 @@ func TestComentarHandler_RateLimitExcedido_Retorna429(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
-	payload := `{"productId":"p1","text":"Un comentario"}`
+	payload := `{"productId":"p1","text":"Un comentario","userId":"usr-1"}`
 
 	// 10 peticiones válidas permitidas
 	for i := 1; i <= 10; i++ {
@@ -321,7 +325,7 @@ func TestComentarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"p1","text":"Comentario"}`
+	payload := `{"productId":"p1","text":"Comentario","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -348,7 +352,7 @@ func TestComentarHandler_ProductoNoEncontradoOInvalido_Retorna400(t *testing.T) 
 	handler.SetSanityWriter(mock)
 
 	for _, pid := range []string{"global-config", "cat-1", "drafts.prod-1"} {
-		payload := `{"productId":"` + pid + `","text":"Comentario válido"}`
+		payload := `{"productId":"` + pid + `","text":"Comentario válido","userId":"usr-1"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()

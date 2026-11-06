@@ -39,6 +39,9 @@ func (m *mockRatingWriter) UpsertRating(ctx context.Context, p handlers.RatingPa
 	if m.upsertRatingFunc != nil {
 		return m.upsertRatingFunc(ctx, p)
 	}
+	if m.createRatingFunc != nil {
+		return m.createRatingFunc(ctx, p.ProductID, p.Value)
+	}
 	return nil
 }
 
@@ -74,7 +77,7 @@ func TestCalificarHandler_PreviousValueInvalido_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockRatingWriter{})
 
-	payload := `{"productId":"p1","value":5,"previousValue":8}`
+	payload := `{"productId":"p1","value":5,"previousValue":8,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -102,7 +105,7 @@ func TestCalificarHandler_Valor5_Retorna201(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"prod-xyz","value":5}`
+	payload := `{"productId":"prod-xyz","value":5,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -124,13 +127,13 @@ func TestCalificarHandler_Valor5_Retorna201(t *testing.T) {
 	}
 }
 
-// UT-GO-16: TestCalificarHandler_ValorFueraRango_Retorna400 verifica que un valor fuera de rango (ej. 7) retorne HTTP 400.
+// UT-GO-16: TestCalificarHandler_ValorFueraRango_Retorna400 verifica que un valor fuera de rango (ej. 7) o sin userId retorne HTTP 400.
 // Satisface: RF-06, VyV §3.2.
 func TestCalificarHandler_ValorFueraRango_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockRatingWriter{})
 
-	payload := `{"productId":"prod-xyz","value":7}`
+	payload := `{"productId":"prod-xyz","value":7,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -141,25 +144,29 @@ func TestCalificarHandler_ValorFueraRango_Retorna400(t *testing.T) {
 		t.Fatalf("Esperado 400 Bad Request para valor = 7, obtenido %d", w.Code)
 	}
 
-	// Probar también valor 0 (frontera inferior)
-	payloadZero := `{"productId":"prod-xyz","value":0}`
-	reqZero := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payloadZero))
-	reqZero.Header.Set("Content-Type", "application/json")
-	wZero := httptest.NewRecorder()
+	// Probar también valor 0 (frontera inferior) y ausencia de userId
+	for _, badPayload := range []string{
+		`{"productId":"prod-xyz","value":0,"userId":"usr-1"}`,
+		`{"productId":"prod-xyz","value":5}`,
+	} {
+		reqZero := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(badPayload))
+		reqZero.Header.Set("Content-Type", "application/json")
+		wZero := httptest.NewRecorder()
 
-	handler.Handler(wZero, reqZero)
-	if wZero.Code != http.StatusBadRequest {
-		t.Errorf("Esperado 400 Bad Request para valor = 0, obtenido %d", wZero.Code)
+		handler.Handler(wZero, reqZero)
+		if wZero.Code != http.StatusBadRequest {
+			t.Errorf("Esperado 400 Bad Request para payload %s, obtenido %d", badPayload, wZero.Code)
+		}
 	}
 }
 
-// TestCalificarHandler_CamposEspanol_Retorna201 verifica soporte para payload en español (productoId, valor).
+// TestCalificarHandler_CamposEspanol_Retorna201 verifica soporte para payload en español (productoId, valor, usuarioId).
 func TestCalificarHandler_CamposEspanol_Retorna201(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	mock := &mockRatingWriter{}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productoId":"prod-abc","valor":4}`
+	payload := `{"productoId":"prod-abc","valor":4,"usuarioId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/calificar", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -231,7 +238,7 @@ func TestCalificarHandler_CORSRechazado_Retorna403(t *testing.T) {
 func TestCalificarHandler_RateLimitExcedido_Retorna429(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockRatingWriter{})
-	payload := `{"productId":"p1","value":5}`
+	payload := `{"productId":"p1","value":5,"userId":"usr-1"}`
 
 	for i := 1; i <= 10; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
@@ -265,7 +272,7 @@ func TestCalificarHandler_SanityError_Retorna500(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"p1","value":5}`
+	payload := `{"productId":"p1","value":5,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -287,7 +294,7 @@ func TestCalificarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"p1","value":5}`
+	payload := `{"productId":"p1","value":5,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -310,7 +317,7 @@ func TestCalificarHandler_ProductoNoEncontradoOInvalido_Retorna400(t *testing.T)
 	handler.SetSanityWriter(mock)
 
 	for _, pid := range []string{"global-config", "cat-1", "drafts.prod-1"} {
-		payload := `{"productId":"` + pid + `","value":5}`
+		payload := `{"productId":"` + pid + `","value":5,"userId":"usr-1"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()

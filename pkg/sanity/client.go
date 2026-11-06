@@ -149,6 +149,11 @@ type existingCommentInfo struct {
 	Estado string `json:"estado"`
 }
 
+type existingRatingInfo struct {
+	ID    string `json:"_id"`
+	Valor int    `json:"valor"`
+}
+
 // postJSON ejecuta una solicitud HTTP POST con cuerpo JSON y encabezados de autenticación hacia Sanity.
 // Si out no es nil, decodifica el cuerpo de la respuesta en la estructura proporcionada.
 func (c *Client) postJSON(ctx context.Context, endpointURL string, payload interface{}, out interface{}) error {
@@ -186,15 +191,20 @@ func (c *Client) postJSON(ctx context.Context, endpointURL string, payload inter
 	return nil
 }
 
-func (c *Client) assertActiveProduct(ctx context.Context, id string) error {
+func (c *Client) queryByID(ctx context.Context, query, id string, out interface{}) error {
 	payload := map[string]interface{}{
-		"query":  `*[_type == "producto" && _id == $id && activo == true][0]._id`,
-		"params": map[string]interface{}{"id": strings.TrimSpace(id)},
+		"query":  query,
+		"params": map[string]interface{}{"id": id},
 	}
+	return c.postJSON(ctx, c.getQueryURL(), payload, out)
+}
+
+func (c *Client) assertActiveProduct(ctx context.Context, id string) error {
 	var resp struct {
 		Result *string `json:"result"`
 	}
-	if err := c.postJSON(ctx, c.getQueryURL(), payload, &resp); err != nil {
+	const q = `*[_type == "producto" && _id == $id && activo == true][0]._id`
+	if err := c.queryByID(ctx, q, strings.TrimSpace(id), &resp); err != nil {
 		return fmt.Errorf("error al verificar producto activo: %w", err)
 	}
 	if resp.Result == nil || *resp.Result == "" {
@@ -204,20 +214,23 @@ func (c *Client) assertActiveProduct(ctx context.Context, id string) error {
 }
 
 func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
-	payload := map[string]interface{}{
-		"query": `*[_id == $id][0]{ _id, texto, estado }`,
-		"params": map[string]interface{}{
-			"id": id,
-		},
-	}
-
 	var response struct {
 		Result *existingCommentInfo `json:"result"`
 	}
-	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+	if err := c.queryByID(ctx, `*[_id == $id][0]{ _id, texto, estado }`, id, &response); err != nil {
 		return nil, fmt.Errorf("error al consultar comentario existente: %w", err)
 	}
+	return response.Result, nil
+}
 
+func (c *Client) getExistingRating(ctx context.Context, id string) (*existingRatingInfo, error) {
+	var response struct {
+		Result *existingRatingInfo `json:"result"`
+	}
+	const q = `*[_id == $id && _type == "calificacion"][0]{ _id, valor }`
+	if err := c.queryByID(ctx, q, id, &response); err != nil {
+		return nil, fmt.Errorf("error al consultar calificación existente: %w", err)
+	}
 	return response.Result, nil
 }
 
@@ -228,62 +241,52 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 //   se conserva el estado de moderación previo (ej. "aprobado") y se actualiza únicamente "calificacion".
 // - Si el comentario es nuevo o el texto fue modificado, pasa al estado "pendiente" para moderación manual.
 func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
+	userID := strings.TrimSpace(p.UserID)
+	if userID == "" {
+		return handlers.ErrUserIDRequired
+	}
 	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
 		return err
 	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	userID := strings.TrimSpace(p.UserID)
-	var docID string
 
-	if userID != "" {
-		docID = buildDeterministicID("comentario", p.ProductID, userID)
-		existing, err := c.getExistingComment(ctx, docID)
-		if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
-			// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
-			if p.Rating >= 1 && p.Rating <= 5 {
-				payload := map[string]interface{}{
-					"mutations": []map[string]interface{}{
-						{
-							"patch": map[string]interface{}{
-								"id": docID,
-								"set": map[string]interface{}{
-									"calificacion": p.Rating,
-								},
-							},
+	docID := buildDeterministicID("comentario", p.ProductID, userID)
+	existing, err := c.getExistingComment(ctx, docID)
+	if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
+		// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
+		if p.Rating >= 1 && p.Rating <= 5 {
+			payload := map[string]interface{}{
+				"mutations": []map[string]interface{}{
+					{
+						"patch": map[string]interface{}{
+							"id":  docID,
+							"set": map[string]interface{}{"calificacion": p.Rating},
 						},
 					},
-				}
-				return c.executeMutation(ctx, payload)
+				},
 			}
-			return nil
+			return c.executeMutation(ctx, payload)
 		}
+		return nil
 	}
 
 	doc := map[string]interface{}{
+		"_id":           docID,
 		"_type":         "comentario",
 		"texto":         p.Text,
+		"usuarioId":     userID,
 		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
 		"estado":        "pendiente",
-		"fechaCreacion": now,
+		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
 	}
 	if p.Rating >= 1 && p.Rating <= 5 {
 		doc["calificacion"] = p.Rating
 	}
 
-	mutationKey := "create"
-	if userID != "" {
-		doc["_id"] = docID
-		doc["usuarioId"] = userID
-		mutationKey = "createOrReplace"
-	}
-
-	payload := map[string]interface{}{
+	return c.executeMutation(ctx, map[string]interface{}{
 		"mutations": []map[string]interface{}{
-			{mutationKey: doc},
+			{"createOrReplace": doc},
 		},
-	}
-
-	return c.executeMutation(ctx, payload)
+	})
 }
 
 // CreateComment implementa Writer.CreateComment.
@@ -333,30 +336,37 @@ func buildRatingCounterPatch(productID string, value int, previousValue int) map
 }
 
 // UpsertRating crea o reemplaza la calificación de un usuario y actualiza atómicamente los contadores del producto.
+// El valor previo se consulta en el servidor como única fuente de verdad (V-02).
 func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
+	userID := strings.TrimSpace(p.UserID)
+	if userID == "" {
+		return handlers.ErrUserIDRequired
+	}
 	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
 		return err
 	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	doc := map[string]interface{}{
-		"_type":         "calificacion",
-		"valor":         p.Value,
-		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
-		"fechaCreacion": now,
+
+	docID := buildDeterministicID("calificacion", p.ProductID, userID)
+	prev := 0
+	if existing, err := c.getExistingRating(ctx, docID); err != nil {
+		return err
+	} else if existing != nil {
+		prev = existing.Valor
 	}
 
-	mutationKey := "create"
-	userID := strings.TrimSpace(p.UserID)
-	if userID != "" {
-		doc["_id"] = buildDeterministicID("calificacion", p.ProductID, userID)
-		doc["usuarioId"] = userID
-		mutationKey = "createOrReplace"
+	doc := map[string]interface{}{
+		"_id":           docID,
+		"_type":         "calificacion",
+		"valor":         p.Value,
+		"usuarioId":     userID,
+		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
+		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
 	}
 
 	mutations := []map[string]interface{}{
-		{mutationKey: doc},
+		{"createOrReplace": doc},
 	}
-	if patch := buildRatingCounterPatch(p.ProductID, p.Value, p.PreviousValue); patch != nil {
+	if patch := buildRatingCounterPatch(p.ProductID, p.Value, prev); patch != nil {
 		mutations = append(mutations, map[string]interface{}{"patch": patch})
 	}
 

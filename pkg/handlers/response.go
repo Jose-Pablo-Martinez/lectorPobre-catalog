@@ -119,7 +119,7 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 	}
 
 	if err := cfg.Execute(r.Context(), payload); err != nil {
-		if errors.Is(err, ErrProductNotFound) {
+		if errors.Is(err, ErrProductNotFound) || errors.Is(err, ErrUserIDRequired) {
 			SendError(w, http.StatusBadRequest, err.Error(), constants.ErrCodes.InvalidPayload)
 			return
 		}

@@ -228,19 +228,21 @@ func TestExecuteMutation_ExecutionError(t *testing.T) {
 }
 
 func TestExecuteMutation_ProductNotFoundReturns400(t *testing.T) {
-	middleware.DefaultRateLimiter.Reset()
-	req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	for _, sentinelErr := range []error{handlers.ErrProductNotFound, handlers.ErrUserIDRequired} {
+		middleware.DefaultRateLimiter.Reset()
+		req := httptest.NewRequest(http.MethodPost, "/api/test", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
 
-	cfg := defaultMutationTestConfig()
-	cfg.Execute = func(ctx context.Context, p sampleMutationPayload) error {
-		return handlers.ErrProductNotFound
-	}
+		cfg := defaultMutationTestConfig()
+		cfg.Execute = func(ctx context.Context, p sampleMutationPayload) error {
+			return sentinelErr
+		}
 
-	handlers.ExecuteMutation(w, req, cfg)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("esperado 400 para ErrProductNotFound, obtenido %d", w.Code)
+		handlers.ExecuteMutation(w, req, cfg)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperado 400 para %v, obtenido %d", sentinelErr, w.Code)
+		}
 	}
 }
 
