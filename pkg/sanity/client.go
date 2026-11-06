@@ -186,6 +186,23 @@ func (c *Client) postJSON(ctx context.Context, endpointURL string, payload inter
 	return nil
 }
 
+func (c *Client) assertActiveProduct(ctx context.Context, id string) error {
+	payload := map[string]interface{}{
+		"query":  `*[_type == "producto" && _id == $id && activo == true][0]._id`,
+		"params": map[string]interface{}{"id": strings.TrimSpace(id)},
+	}
+	var resp struct {
+		Result *string `json:"result"`
+	}
+	if err := c.postJSON(ctx, c.getQueryURL(), payload, &resp); err != nil {
+		return fmt.Errorf("error al verificar producto activo: %w", err)
+	}
+	if resp.Result == nil || *resp.Result == "" {
+		return handlers.ErrProductNotFound
+	}
+	return nil
+}
+
 func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
 	payload := map[string]interface{}{
 		"query": `*[_id == $id][0]{ _id, texto, estado }`,
@@ -211,6 +228,9 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 //   se conserva el estado de moderación previo (ej. "aprobado") y se actualiza únicamente "calificacion".
 // - Si el comentario es nuevo o el texto fue modificado, pasa al estado "pendiente" para moderación manual.
 func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
+	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
+		return err
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	userID := strings.TrimSpace(p.UserID)
 	var docID string
@@ -314,6 +334,9 @@ func buildRatingCounterPatch(productID string, value int, previousValue int) map
 
 // UpsertRating crea o reemplaza la calificación de un usuario y actualiza atómicamente los contadores del producto.
 func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
+	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
+		return err
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	doc := map[string]interface{}{
 		"_type":         "calificacion",

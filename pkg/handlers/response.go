@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -118,6 +119,10 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 	}
 
 	if err := cfg.Execute(r.Context(), payload); err != nil {
+		if errors.Is(err, ErrProductNotFound) {
+			SendError(w, http.StatusBadRequest, err.Error(), constants.ErrCodes.InvalidPayload)
+			return
+		}
 		log.Printf("[ERROR] %s: error en ejecución de mutación: %v", cfg.HandlerName, err)
 		SendInternalError(w)
 		return

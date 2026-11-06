@@ -233,3 +233,44 @@ func TestValidarBusqueda_QueryExcedeLongitud_RetornaError(t *testing.T) {
 		t.Errorf("ValidateSearch esperaba error para query que excede 200 caracteres")
 	}
 }
+
+// TestValidarID_FormatosValidosEInvalidos verifica el formato de productId y userId (V-03).
+func TestValidarID_FormatosValidosEInvalidos(t *testing.T) {
+	validIDs := []string{
+		"seed-prod-1",
+		"2f0c1b7e-aaaa-4bbb-8ccc-123456789012",
+		"usr_lx3k_ab12cd3",
+		strings.Repeat("a", 100),
+	}
+	for _, id := range validIDs {
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: id, Text: "Texto válido", UserID: id}); err != nil {
+			t.Errorf("ValidateComment rechazó ID válido %q: %v", id, err)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: id, Value: 5, UserID: id}); err != nil {
+			t.Errorf("ValidateRating rechazó ID válido %q: %v", id, err)
+		}
+	}
+
+	invalidIDs := []string{
+		"drafts.prod-1",
+		"prod.1",
+		"global config",
+		"prod/1",
+		"prod$1",
+		strings.Repeat("a", 101),
+	}
+	for _, badID := range invalidIDs {
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: badID, Text: "Texto válido"}); err == nil {
+			t.Errorf("ValidateComment debió rechazar productId inválido %q", badID)
+		}
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: "prod-1", Text: "Texto válido", UserID: badID}); err == nil {
+			t.Errorf("ValidateComment debió rechazar userId inválido %q", badID)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: badID, Value: 5}); err == nil {
+			t.Errorf("ValidateRating debió rechazar productId inválido %q", badID)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: "prod-1", Value: 5, UserID: badID}); err == nil {
+			t.Errorf("ValidateRating debió rechazar userId inválido %q", badID)
+		}
+	}
+}

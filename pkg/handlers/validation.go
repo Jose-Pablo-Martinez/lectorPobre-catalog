@@ -5,6 +5,8 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -13,12 +15,35 @@ import (
 // cuyo uso en queries libres de usuario puede alterar la lógica de la consulta (§9.11).
 const groqBannedCharacters = "*[]{}\"\\|$"
 
+// ErrProductNotFound indica que el ProductID no corresponde a un documento de tipo producto activo en Sanity.
+var ErrProductNotFound = errors.New("producto no encontrado")
+
+// idPattern restringe identificadores de producto y usuario a caracteres alfanuméricos, guion y guion bajo (1–100 chars).
+// Rechaza borradores (drafts.*), espacios y metacaracteres.
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
+
+func validateID(field, v string) error {
+	if !idPattern.MatchString(v) {
+		return fmt.Errorf("%s inválido", field)
+	}
+	return nil
+}
+
 // ValidateComment valida los campos de un CommentPayload.
 // Retorna un error descriptivo si la validación falla, o nil si el payload es válido.
 // Probado por: UT-GO-01 a UT-GO-04 (VyV_LectorPobre.md §3.1).
 func ValidateComment(p CommentPayload) error {
-	if strings.TrimSpace(p.ProductID) == "" {
+	productID := strings.TrimSpace(p.ProductID)
+	if productID == "" {
 		return errors.New("productoId requerido")
+	}
+	if err := validateID("productoId", productID); err != nil {
+		return err
+	}
+	if userID := strings.TrimSpace(p.UserID); userID != "" {
+		if err := validateID("usuarioId", userID); err != nil {
+			return err
+		}
 	}
 	trimmed := strings.TrimSpace(p.Text)
 	if trimmed == "" {
@@ -47,8 +72,17 @@ func ValidarComentario(p CommentPayload) error {
 // Probado por: UT-GO-05 a UT-GO-07 (VyV_LectorPobre.md §3.1).
 // Fronteras de análisis de valor límite (BVA): válido=[1,5], inválido=[0,6] — ver VyV UT-GO-06, UT-GO-07.
 func ValidateRating(p RatingPayload) error {
-	if strings.TrimSpace(p.ProductID) == "" {
+	productID := strings.TrimSpace(p.ProductID)
+	if productID == "" {
 		return errors.New("productoId requerido")
+	}
+	if err := validateID("productoId", productID); err != nil {
+		return err
+	}
+	if userID := strings.TrimSpace(p.UserID); userID != "" {
+		if err := validateID("usuarioId", userID); err != nil {
+			return err
+		}
 	}
 	if p.Value < 1 || p.Value > 5 {
 		return errors.New("calificación fuera de rango [1, 5]")

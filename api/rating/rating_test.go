@@ -299,3 +299,27 @@ func TestCalificarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 	}
 }
 
+// TestCalificarHandler_ProductoNoEncontradoOInvalido_Retorna400 verifica que documentos no-producto o IDs malformados retornen 400 (V-03).
+func TestCalificarHandler_ProductoNoEncontradoOInvalido_Retorna400(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	mock := &mockRatingWriter{
+		createRatingFunc: func(ctx context.Context, productID string, value int) error {
+			return handlers.ErrProductNotFound
+		},
+	}
+	handler.SetSanityWriter(mock)
+
+	for _, pid := range []string{"global-config", "cat-1", "drafts.prod-1"} {
+		payload := `{"productId":"` + pid + `","value":5}`
+		req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.Handler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Esperado 400 para productId %q, obtenido %d", pid, w.Code)
+		}
+	}
+}
+

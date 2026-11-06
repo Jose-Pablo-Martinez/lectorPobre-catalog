@@ -26,6 +26,12 @@ func TestSanityClient_CreateComment_Exitoso(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedAuthHeader = r.Header.Get("Authorization")
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"prod-abc"}`))
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 
 		w.WriteHeader(http.StatusOK)
@@ -79,6 +85,12 @@ func TestSanityClient_CreateRating_Exitoso(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"prod-123"}`))
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -251,6 +263,16 @@ func TestSanityClient_UpsertComment_ConUserIDYRating(t *testing.T) {
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if strings.Contains(string(bodyBytes), "activo == true") {
+				_, _ = w.Write([]byte(`{"result":"prod-123"}`))
+			} else {
+				_, _ = w.Write([]byte(`{"result":null}`))
+			}
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -286,6 +308,12 @@ func TestSanityClient_UpsertRating_ActualizacionContadores(t *testing.T) {
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"prod-123"}`))
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -330,6 +358,12 @@ func TestSanityClient_UpsertRating_MismoValorPrevioNoEnviaPatch(t *testing.T) {
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":"prod-123"}`))
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -357,6 +391,16 @@ func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
 	var receivedBody map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyBytes, _ := io.ReadAll(r.Body)
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if strings.Contains(string(bodyBytes), "activo == true") {
+				_, _ = w.Write([]byte(`{"result":"prod-123"}`))
+			} else {
+				_, _ = w.Write([]byte(`{"result":null}`))
+			}
+			return
+		}
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -382,14 +426,18 @@ func TestDispatchComment_EnrutaCorrectamente(t *testing.T) {
 
 func createSanityMockServer(existingTexto string, captured *[]interface{}) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
 		if strings.Contains(r.URL.Path, "/data/query") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
+			if strings.Contains(string(bodyBytes), "activo == true") {
+				_, _ = w.Write([]byte(`{"result":"p1"}`))
+				return
+			}
 			fmt.Fprintf(w, `{"result":{"_id":"comentario-p1-u1","texto":%q,"estado":"aprobado"}}`, existingTexto)
 			return
 		}
 
-		bodyBytes, _ := io.ReadAll(r.Body)
 		var body map[string]interface{}
 		_ = json.Unmarshal(bodyBytes, &body)
 		if m, ok := body["mutations"].([]interface{}); ok {
@@ -478,4 +526,43 @@ func TestSanityClient_UpsertComment_ReglasModeracion(t *testing.T) {
 		mutation := executeUpsertCommentTest(t, "Texto anterior", "Texto con cambios sustanciales", 2)
 		verifyCreateOrReplaceMutation(t, mutation, "Texto con cambios sustanciales", "pendiente", 2)
 	})
+}
+
+// TestSanityClient_ProductoNoEncontrado_RechazaMutacion verifica que UpsertComment y UpsertRating
+// retornen ErrProductNotFound y no ejecuten mutaciones cuando el ID no corresponde a un producto activo (V-03).
+func TestSanityClient_ProductoNoEncontrado_RechazaMutacion(t *testing.T) {
+	mutateCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/data/query") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"result":null}`))
+			return
+		}
+		mutateCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := sanity.NewClientWithOptions("test-proj", "staging", "token", server.Client(), server.URL)
+
+	errComment := client.UpsertComment(context.Background(), handlers.CommentPayload{
+		ProductID: "global-config",
+		Text:      "Intento sobre documento que no es producto",
+	})
+	if errComment != handlers.ErrProductNotFound {
+		t.Errorf("UpsertComment esperaba ErrProductNotFound, obtuvo: %v", errComment)
+	}
+
+	errRating := client.UpsertRating(context.Background(), handlers.RatingPayload{
+		ProductID: "cat-1",
+		Value:     5,
+	})
+	if errRating != handlers.ErrProductNotFound {
+		t.Errorf("UpsertRating esperaba ErrProductNotFound, obtuvo: %v", errRating)
+	}
+
+	if mutateCalled {
+		t.Errorf("No debió invocarse el endpoint de mutación cuando el producto no existe o no está activo")
+	}
 }
