@@ -273,7 +273,7 @@ func TestComentarHandler_ValidacionFallida_Retorna400(t *testing.T) {
 
 // TestComentarHandler_CORSRechazado_Retorna403 verifica que orígenes no autorizados sean bloqueados.
 func TestComentarHandler_CORSRechazado_Retorna403(t *testing.T) {
-	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.com")
+	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.vercel.app")
 	defer os.Unsetenv("ALLOWED_ORIGIN")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(`{}`))
@@ -366,6 +366,23 @@ func TestComentarHandler_ProductoNoEncontradoOInvalido_Retorna400(t *testing.T) 
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Esperado 400 para productId %q, obtenido %d", pid, w.Code)
 		}
+	}
+}
+
+// TestComentarHandler_BodyExcede8KB_Retorna413 verifica que un cuerpo mayor a 8 KB sea rechazado con HTTP 413 (V-09).
+func TestComentarHandler_BodyExcede8KB_Retorna413(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	handler.SetSanityWriter(&mockSanityWriter{})
+
+	oversized := `{"productId":"prod-1","text":"` + strings.Repeat("a", 9000) + `","userId":"usr-1"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(oversized))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("Esperado 413 Request Entity Too Large para body > 8 KB, obtenido %d", w.Code)
 	}
 }
 

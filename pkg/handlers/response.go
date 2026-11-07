@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	errInternalMsg  = "error interno"
-	applicationJSON = "application/json"
+	errInternalMsg       = "error interno"
+	applicationJSON      = "application/json"
+	maxMutationBodyBytes = 8 << 10 // 8 KB: suficiente para comentarios/calificaciones legítimos (V-09)
 )
 
 // SendJSON escribe una respuesta ApiResponse en formato JSON con el código HTTP correspondiente.
@@ -104,8 +105,14 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxMutationBodyBytes)
 	payload, err := cfg.Decode(r)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			SendError(w, http.StatusRequestEntityTooLarge, "carga útil demasiado grande", constants.ErrCodes.InvalidPayload)
+			return
+		}
 		SendError(w, http.StatusBadRequest, "payload inválido", constants.ErrCodes.InvalidPayload)
 		return
 	}

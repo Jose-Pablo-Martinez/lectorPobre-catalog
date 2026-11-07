@@ -224,7 +224,7 @@ func TestCalificarHandler_PayloadMalformado_Retorna400(t *testing.T) {
 
 // TestCalificarHandler_CORSRechazado_Retorna403 verifica que orígenes no autorizados retornen 403.
 func TestCalificarHandler_CORSRechazado_Retorna403(t *testing.T) {
-	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.com")
+	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.vercel.app")
 	defer os.Unsetenv("ALLOWED_ORIGIN")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/rating", strings.NewReader(`{}`))

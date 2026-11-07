@@ -12,21 +12,24 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/constants"
 )
 
-// clientRecord guarda el historial de peticiones dentro de la ventana activa para una IP.
+const defaultMaxClients = 10000
+
+// clientRecord guarda el historial de peticiones dentro de la ventana activa para una clave (acción + IP).
 type clientRecord struct {
 	timestamps []time.Time
 }
 
-// RateLimiter almacena en memoria el estado del limitador de tasa basado en IP.
-// IMPORTANTE: En contenedores warm de Vercel, este mapa puede persistir entre invocaciones.
-// En cold starts (contenedor nuevo), los contadores se reinician, lo cual es aceptable para este caso de uso.
-// Si se requiriera persistencia estricta, se evaluaría un almacén externo como Upstash Redis (§9.6).
+// RateLimiter almacena en memoria el estado del limitador de tasa basado en clave (acción|IP).
+// Incluye limpieza periódica de entradas expiradas y un tope máximo de llaves para evitar
+// crecimiento ilimitado de memoria ante ráfagas de IPs distintas (V-09).
 // Satisface: RNF-04 — protección contra abuso económico (§9.5).
 type RateLimiter struct {
 	mu          sync.Mutex
 	clients     map[string]*clientRecord
 	maxRequests int
 	window      time.Duration
+	maxClients  int
+	lastCleanup time.Time
 }
 
 // NewRateLimiter crea una nueva instancia de RateLimiter con valores por defecto (10 peticiones/minuto).
@@ -36,36 +39,44 @@ func NewRateLimiter() *RateLimiter {
 
 // NewRateLimiterWithOptions crea una nueva instancia con límite y ventana personalizados.
 func NewRateLimiterWithOptions(maxRequests int, window time.Duration) *RateLimiter {
+	return NewRateLimiterWithMaxClients(maxRequests, window, defaultMaxClients)
+}
+
+// NewRateLimiterWithMaxClients crea una nueva instancia con límite, ventana y tope máximo de clientes en memoria.
+func NewRateLimiterWithMaxClients(maxRequests int, window time.Duration, maxClients int) *RateLimiter {
+	if maxClients <= 0 {
+		maxClients = defaultMaxClients
+	}
 	return &RateLimiter{
 		clients:     make(map[string]*clientRecord),
 		maxRequests: maxRequests,
 		window:      window,
+		maxClients:  maxClients,
 	}
 }
 
 // DefaultRateLimiter es la instancia compartida por defecto en el backend.
 var DefaultRateLimiter = NewRateLimiter()
 
+func extractFirstHeaderIP(r *http.Request, headerName string) string {
+	raw := r.Header.Get(headerName)
+	if raw == "" {
+		return ""
+	}
+	parts := strings.Split(raw, ",")
+	return strings.TrimSpace(parts[0])
+}
+
 // GetClientIP extrae la dirección IP cliente desde las cabeceras HTTP o RemoteAddr.
-// Prioriza cabeceras de proxy reverso (Vercel, Cloudflare) y limpia puertos si existen.
+// Prioriza X-Vercel-Forwarded-For (inyectada por el edge de Vercel), luego X-Forwarded-For,
+// X-Real-IP y finalmente RemoteAddr sin puerto (V-09).
 func GetClientIP(r *http.Request) string {
-	// 1. Cabecera X-Forwarded-For (cliente original primero en lista separada por comas)
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		parts := strings.Split(xff, ",")
-		ip := strings.TrimSpace(parts[0])
-		if ip != "" {
+	for _, header := range []string{"X-Vercel-Forwarded-For", "X-Forwarded-For", "X-Real-IP"} {
+		if ip := extractFirstHeaderIP(r, header); ip != "" {
 			return ip
 		}
 	}
 
-	// 2. Cabecera X-Real-IP
-	xri := strings.TrimSpace(r.Header.Get("X-Real-IP"))
-	if xri != "" {
-		return xri
-	}
-
-	// 3. RemoteAddr del request (host:port)
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		return host
@@ -77,17 +88,49 @@ func GetClientIP(r *http.Request) string {
 	return "unknown"
 }
 
-// Allow comprueba si la IP especificada tiene cuota disponible bajo la ventana móvil.
-func (rl *RateLimiter) Allow(ip string) bool {
+func (rl *RateLimiter) evictExpiredLocked(cutoff time.Time) {
+	for key, rec := range rl.clients {
+		valid := rec.timestamps[:0]
+		for _, t := range rec.timestamps {
+			if t.After(cutoff) {
+				valid = append(valid, t)
+			}
+		}
+		if len(valid) == 0 {
+			delete(rl.clients, key)
+		} else {
+			rec.timestamps = valid
+		}
+	}
+}
+
+// Allow comprueba si la clave especificada tiene cuota disponible bajo la ventana móvil.
+func (rl *RateLimiter) Allow(key string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
 	now := time.Now()
 	cutoff := now.Add(-rl.window)
 
-	record, exists := rl.clients[ip]
+	if rl.lastCleanup.IsZero() || now.Sub(rl.lastCleanup) >= rl.window {
+		rl.evictExpiredLocked(cutoff)
+		rl.lastCleanup = now
+	}
+
+	record, exists := rl.clients[key]
 	if !exists {
-		rl.clients[ip] = &clientRecord{timestamps: []time.Time{now}}
+		maxCap := rl.maxClients
+		if maxCap <= 0 {
+			maxCap = defaultMaxClients
+		}
+		if len(rl.clients) >= maxCap {
+			rl.evictExpiredLocked(cutoff)
+			rl.lastCleanup = now
+			if len(rl.clients) >= maxCap {
+				return false
+			}
+		}
+		rl.clients[key] = &clientRecord{timestamps: []time.Time{now}}
 		return true
 	}
 
@@ -108,10 +151,19 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	return true
 }
 
-// AllowRequest comprueba si la petición HTTP entrante está dentro del límite de tasa.
+// AllowRequest comprueba si la petición HTTP entrante está dentro del límite de tasa por IP.
 func (rl *RateLimiter) AllowRequest(r *http.Request) bool {
+	return rl.AllowActionRequest(r, "")
+}
+
+// AllowActionRequest comprueba si la petición HTTP entrante está dentro del límite para una acción e IP específicas (V-09).
+func (rl *RateLimiter) AllowActionRequest(r *http.Request, action string) bool {
 	ip := GetClientIP(r)
-	return rl.Allow(ip)
+	trimmedAction := strings.TrimSpace(action)
+	if trimmedAction == "" {
+		return rl.Allow(ip)
+	}
+	return rl.Allow(trimmedAction + "|" + ip)
 }
 
 // Limit comprueba si la IP de la solicitud entrante ha excedido el límite de tasa permitido.
@@ -132,10 +184,11 @@ func (rl *RateLimiter) Reset() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	rl.clients = make(map[string]*clientRecord)
+	rl.lastCleanup = time.Time{}
 }
 
-// VerificarRateLimit valida si una petición no excede el límite utilizando la instancia por defecto.
-// Utilizado en handlers serverless como /api/comentar y /api/calificar.
+// VerificarRateLimit valida si una petición no excede el límite para la acción indicada utilizando la instancia por defecto (V-09).
+// Utilizado en handlers serverless como /api/comment, /api/rating y /api/search.
 func VerificarRateLimit(r *http.Request, action string) bool {
-	return DefaultRateLimiter.AllowRequest(r)
+	return DefaultRateLimiter.AllowActionRequest(r, action)
 }
