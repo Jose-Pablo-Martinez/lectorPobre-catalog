@@ -180,7 +180,7 @@ export function useCart() {
 
         const catalogMap = new Map<string, Producto>();
         for (const prod of catalogo) {
-            if (prod && prod._id && prod.activo !== false && prod.stock > 0) {
+            if (prod?._id && prod.activo !== false && prod.stock > 0) {
                 catalogMap.set(prod._id, prod);
             }
         }

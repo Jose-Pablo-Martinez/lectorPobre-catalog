@@ -3,6 +3,9 @@ name: Lighthouse CI
 on:
   deployment_status:
 
+permissions:
+  contents: read
+
 jobs:
   lighthouse:
     if: github.event.deployment_status.state == 'success'
@@ -13,7 +16,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npx @lhci/cli autorun
+      - name: Run Lighthouse CI
+        run: |
+          npm install -g --ignore-scripts @lhci/cli@0.14.0
+          lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
           LHCI_BUILD_CONTEXT__CURRENT_BRANCH: ${{ github.ref_name }}
