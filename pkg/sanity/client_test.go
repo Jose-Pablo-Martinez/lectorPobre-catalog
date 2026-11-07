@@ -134,12 +134,14 @@ func TestSanityClient_CreateRating_Exitoso(t *testing.T) {
 	}
 }
 
-// TestSanityClient_SearchProducts_Exitoso verifica la consulta parametrizada a Sanity.
+// TestSanityClient_SearchProducts_Exitoso verifica la consulta parametrizada a Sanity y que no envíe Authorization (V-10).
 // Satisface: RF-18, RNF-04, §9.11.
 func TestSanityClient_SearchProducts_Exitoso(t *testing.T) {
 	var receivedBody map[string]interface{}
+	var receivedAuthHeader string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuthHeader = r.Header.Get("Authorization")
 		bodyBytes, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(bodyBytes, &receivedBody)
 
@@ -153,6 +155,10 @@ func TestSanityClient_SearchProducts_Exitoso(t *testing.T) {
 	results, err := client.SearchProducts(context.Background(), "libro")
 	if err != nil {
 		t.Fatalf("SearchProducts esperaba nil, se obtuvo error: %v", err)
+	}
+
+	if receivedAuthHeader != "" {
+		t.Errorf("SearchProducts no debe enviar cabecera Authorization (V-10), obtenido %q", receivedAuthHeader)
 	}
 
 	if len(results) != 1 {
@@ -241,16 +247,12 @@ func TestSanityClient_NewClient_FaltanVariables(t *testing.T) {
 	os.Unsetenv("SANITY_WRITE_TOKEN")
 }
 
-// TestSanityClient_NewClient_ConVariables verifica que NewClient inicialice con éxito si las variables existen.
+// TestSanityClient_NewClient_ConVariables verifica que NewClient y NewPublicClient inicialicen con éxito (V-10).
 func TestSanityClient_NewClient_ConVariables(t *testing.T) {
-	os.Setenv("SANITY_WRITE_TOKEN", "token-test-123")
-	os.Setenv("NUXT_PUBLIC_SANITY_PROJECT_ID", "proj-xyz")
-	os.Setenv("NUXT_PUBLIC_SANITY_DATASET", "staging")
-	defer func() {
-		os.Unsetenv("SANITY_WRITE_TOKEN")
-		os.Unsetenv("NUXT_PUBLIC_SANITY_PROJECT_ID")
-		os.Unsetenv("NUXT_PUBLIC_SANITY_DATASET")
-	}()
+	t.Setenv("SANITY_REVIEWS_TOKEN", "reviews-token-scoped-123")
+	t.Setenv("SANITY_WRITE_TOKEN", "token-test-123")
+	t.Setenv("NUXT_PUBLIC_SANITY_PROJECT_ID", "proj-xyz")
+	t.Setenv("NUXT_PUBLIC_SANITY_DATASET", "staging")
 
 	client, err := sanity.NewClient()
 	if err != nil {
@@ -258,6 +260,21 @@ func TestSanityClient_NewClient_ConVariables(t *testing.T) {
 	}
 	if client == nil {
 		t.Fatal("NewClient retornó nil")
+	}
+
+	// NewPublicClient debe funcionar incluso sin ningún token de escritura
+	t.Setenv("SANITY_REVIEWS_TOKEN", "")
+	t.Setenv("SANITY_WRITE_TOKEN", "")
+	pubClient, errPub := sanity.NewPublicClient()
+	if errPub != nil || pubClient == nil {
+		t.Fatalf("NewPublicClient no debe requerir token de escritura, error: %v", errPub)
+	}
+
+	// NewPublicClient falla si falta projectID
+	t.Setenv("NUXT_PUBLIC_SANITY_PROJECT_ID", "")
+	t.Setenv("SANITY_PROJECT_ID", "")
+	if _, errNoProj := sanity.NewPublicClient(); errNoProj == nil {
+		t.Errorf("NewPublicClient debió retornar error cuando falta projectID")
 	}
 }
 
@@ -273,10 +290,11 @@ func TestCrearComentario_FuncionHelper(t *testing.T) {
 
 // TestBuscarProductos_FuncionHelper verifica la función helper de conveniencia BuscarProductos.
 func TestBuscarProductos_FuncionHelper(t *testing.T) {
-	os.Unsetenv("SANITY_WRITE_TOKEN")
+	t.Setenv("NUXT_PUBLIC_SANITY_PROJECT_ID", "")
+	t.Setenv("SANITY_PROJECT_ID", "")
 	_, err := sanity.BuscarProductos(context.Background(), "libro")
 	if err == nil {
-		t.Errorf("BuscarProductos debió fallar por falta de credenciales")
+		t.Errorf("BuscarProductos debió fallar por falta de projectID")
 	}
 }
 

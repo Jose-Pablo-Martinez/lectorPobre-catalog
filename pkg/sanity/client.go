@@ -65,20 +65,13 @@ type Client struct {
 	baseURL    string // Opcional, usado en pruebas con httptest.Server
 }
 
-// NewClient crea una nueva instancia de Client leyendo credenciales desde las variables de entorno.
-// Retorna un error descriptivo si falta el token o el ID de proyecto requerido.
-func NewClient() (*Client, error) {
-	token := strings.Trim(strings.TrimSpace(os.Getenv("SANITY_WRITE_TOKEN")), `"'`)
-	if token == "" {
-		return nil, errors.New("SANITY_WRITE_TOKEN es requerido en las variables de entorno")
-	}
-
+func resolveProjectAndDataset() (string, string, error) {
 	projectID := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_PROJECT_ID")), `"'`)
 	if projectID == "" {
 		projectID = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_PROJECT_ID")), `"'`)
 	}
 	if projectID == "" {
-		return nil, errors.New("NUXT_PUBLIC_SANITY_PROJECT_ID o SANITY_PROJECT_ID es requerido")
+		return "", "", errors.New("NUXT_PUBLIC_SANITY_PROJECT_ID o SANITY_PROJECT_ID es requerido")
 	}
 
 	dataset := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_DATASET")), `"'`)
@@ -89,10 +82,44 @@ func NewClient() (*Client, error) {
 		dataset = "production"
 	}
 
+	return projectID, dataset, nil
+}
+
+// NewClient crea una nueva instancia autenticada de Client leyendo credenciales desde las variables de entorno.
+// Prioriza SANITY_REVIEWS_TOKEN (token acotado para reseñas/calificaciones — V-10) con fallback a SANITY_WRITE_TOKEN.
+func NewClient() (*Client, error) {
+	token := strings.Trim(strings.TrimSpace(os.Getenv("SANITY_REVIEWS_TOKEN")), `"'`)
+	if token == "" {
+		token = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_WRITE_TOKEN")), `"'`)
+	}
+	if token == "" {
+		return nil, errors.New("SANITY_REVIEWS_TOKEN o SANITY_WRITE_TOKEN es requerido en las variables de entorno")
+	}
+
+	projectID, dataset, err := resolveProjectAndDataset()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		projectID:  projectID,
 		dataset:    dataset,
 		token:      token,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}, nil
+}
+
+// NewPublicClient crea una instancia de Client sin token de autorización para consultas de solo lectura
+// sobre el dataset público (como /api/search — V-10).
+func NewPublicClient() (*Client, error) {
+	projectID, dataset, err := resolveProjectAndDataset()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		projectID:  projectID,
+		dataset:    dataset,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}, nil
 }
@@ -180,6 +207,10 @@ type existingRatingInfo struct {
 // postJSON ejecuta una solicitud HTTP POST con cuerpo JSON y encabezados de autenticación hacia Sanity.
 // Si out no es nil, decodifica el cuerpo de la respuesta en la estructura proporcionada.
 func (c *Client) postJSON(ctx context.Context, endpointURL string, payload interface{}, out interface{}) error {
+	return c.postJSONWithAuth(ctx, endpointURL, payload, out, true)
+}
+
+func (c *Client) postJSONWithAuth(ctx context.Context, endpointURL string, payload interface{}, out interface{}, includeAuth bool) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error al serializar payload para Sanity: %w", err)
@@ -191,7 +222,7 @@ func (c *Client) postJSON(ctx context.Context, endpointURL string, payload inter
 	}
 
 	req.Header.Set(headerContentType, contentTypeJSON)
-	if c.token != "" {
+	if includeAuth && c.token != "" {
 		req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
 	}
 
@@ -442,7 +473,8 @@ func (c *Client) SearchProducts(ctx context.Context, query string) ([]map[string
 	var response struct {
 		Result []map[string]interface{} `json:"result"`
 	}
-	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+	// La búsqueda de catálogo consulta únicamente documentos públicos publicados y no debe enviar token (V-10).
+	if err := c.postJSONWithAuth(ctx, c.getQueryURL(), payload, &response, false); err != nil {
 		return nil, fmt.Errorf("error al consultar Sanity: %w", err)
 	}
 
@@ -465,9 +497,9 @@ func CrearComentario(ctx context.Context, payload handlers.CommentPayload) error
 	return DispatchComment(ctx, client, payload)
 }
 
-// BuscarProductos es una función helper de conveniencia para consultar productos.
+// BuscarProductos es una función helper de conveniencia para consultar productos sin requerir token de escritura (V-10).
 func BuscarProductos(ctx context.Context, query string) ([]map[string]interface{}, error) {
-	client, err := NewClient()
+	client, err := NewPublicClient()
 	if err != nil {
 		return nil, err
 	}
