@@ -646,7 +646,7 @@ func TestSanityClient_ProductoNoEncontrado_RechazaMutacion(t *testing.T) {
 	}
 }
 
-// TestSanityClient_UpsertRating_ErrorAlConsultarExistente verifica que si falla la consulta de calificación previa se retorne error (V-02).
+// TestSanityClient_UpsertRating_ErrorAlConsultarExistente verifica que si falla la consulta de calificación o comentario previo se retorne error (V-02, M-6).
 func TestSanityClient_UpsertRating_ErrorAlConsultarExistente(t *testing.T) {
 	t.Setenv("REVIEW_ID_SECRET", testReviewSecret)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -669,6 +669,15 @@ func TestSanityClient_UpsertRating_ErrorAlConsultarExistente(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("Se esperaba error cuando falla getExistingRating, obtuvo nil")
+	}
+
+	errComment := client.UpsertComment(context.Background(), handlers.CommentPayload{
+		ProductID: "prod-1",
+		Text:      "Comentario válido",
+		UserID:    "usr-1",
+	})
+	if errComment == nil {
+		t.Fatalf("Se esperaba error cuando falla getExistingComment (M-6), obtuvo nil")
 	}
 }
 

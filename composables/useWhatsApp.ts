@@ -118,8 +118,8 @@ export function construirUrlWhatsApp(
     NOMBRE_TOKEN_REGEX.lastIndex = 0;
 
     let mensaje = baseTemplate
-        .replaceAll(NOMBRE_TOKEN_REGEX, nombreProducto)
-        .replaceAll(PRECIO_TOKEN_REGEX, precioFormateado);
+        .replaceAll(NOMBRE_TOKEN_REGEX, () => nombreProducto)
+        .replaceAll(PRECIO_TOKEN_REGEX, () => precioFormateado);
 
     if (!contieneTokenNombre && nombreProducto) {
         mensaje = `${mensaje}: ${nombreProducto}`;

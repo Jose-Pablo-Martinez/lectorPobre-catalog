@@ -309,7 +309,10 @@ func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) e
 
 	docID := buildDeterministicID("comentario", p.ProductID, opaqueKey)
 	existing, err := c.getExistingComment(ctx, docID)
-	if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
+	if err != nil {
+		return err
+	}
+	if existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
 		// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
 		if p.Rating >= 1 && p.Rating <= 5 {
 			payload := map[string]interface{}{

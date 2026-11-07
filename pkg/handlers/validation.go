@@ -107,7 +107,7 @@ func ValidateSearch(q string) error {
 		return errors.New("query no puede estar vacía")
 	}
 	if strings.ContainsAny(trimmed, groqBannedCharacters) {
-		return errors.New("la consulta contiene metacaracteres no permitidos para prevenir inyección GROQ")
+		return errors.New("consulta inválida")
 	}
 	if utf8.RuneCountInString(trimmed) > 200 {
 		return errors.New("la consulta excede la longitud máxima permitida")

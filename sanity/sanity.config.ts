@@ -22,18 +22,21 @@ import { schemaTypes } from './schemaTypes';
 import { esESLocale } from '@sanity/locale-es-es';
 
 // Tipos de documentos que deben tener exactamente una única instancia en el dataset.
-const SINGLETON_TYPES = ['configuracionGlobal'];
+const SINGLETON_TYPES = new Set(['configuracionGlobal']);
 // Tipos de documentos que deben ser de solo lectura en Studio (evitar creación/edición manual).
-const READ_ONLY_TYPES = ['calificacion'];
+const READ_ONLY_TYPES = new Set(['calificacion']);
+const SINGLETON_ACTIONS = new Set(['publish', 'discardChanges', 'restore']);
+const READ_ONLY_ACTIONS = new Set(['delete', 'discardChanges', 'restore']);
 // ID de documento fijo utilizado para el singleton — siempre edita el mismo documento.
 const SINGLETON_DOC_ID = 'global-config';
+const STUDIO_DATASET = process.env.SANITY_STUDIO_DATASET ?? 'production';
 
 export default defineConfig({
     name: 'default',
     title: 'LectorPobre Studio',
 
     projectId: process.env.SANITY_STUDIO_PROJECT_ID ?? 'rbrk7xv9',
-    dataset: process.env.SANITY_STUDIO_DATASET ?? 'production',
+    dataset: STUDIO_DATASET,
 
     plugins: [
         structureTool({
@@ -58,7 +61,7 @@ export default defineConfig({
                             ),
                     ]),
         }),
-        visionTool(),
+        ...(STUDIO_DATASET !== 'production' ? [visionTool()] : []),
         esESLocale(),
     ],
 
@@ -68,24 +71,20 @@ export default defineConfig({
         templates: (templates) =>
             templates.filter(
                 ({ schemaType }) =>
-                    !SINGLETON_TYPES.includes(schemaType) && !READ_ONLY_TYPES.includes(schemaType)
+                    !SINGLETON_TYPES.has(schemaType) && !READ_ONLY_TYPES.has(schemaType)
             ),
     },
 
     document: {
         actions: (prev, context) => {
             // Elimina las acciones de "Eliminar" y "Duplicar" para los tipos singleton.
-            if (SINGLETON_TYPES.includes(context.schemaType)) {
-                return prev.filter(({ action }) =>
-                    ['publish', 'discardChanges', 'restore'].includes(action ?? '')
-                );
+            if (SINGLETON_TYPES.has(context.schemaType)) {
+                return prev.filter(({ action }) => SINGLETON_ACTIONS.has(action ?? ''));
             }
             // Elimina "Publicar" (guardar) y "Duplicar" para tipos de solo lectura,
             // dejando disponible únicamente "eliminar" para moderación y limpieza de spam.
-            if (READ_ONLY_TYPES.includes(context.schemaType)) {
-                return prev.filter(({ action }) =>
-                    ['delete', 'discardChanges', 'restore'].includes(action ?? '')
-                );
+            if (READ_ONLY_TYPES.has(context.schemaType)) {
+                return prev.filter(({ action }) => READ_ONLY_ACTIONS.has(action ?? ''));
             }
             return prev;
         },

@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -254,8 +255,11 @@ func TestValidarBusqueda_QueryConInyeccionGROQ_RetornaError(t *testing.T) {
 	}
 
 	for _, q := range injectionQueries {
-		if err := handlers.ValidateSearch(q); err == nil {
+		err := handlers.ValidateSearch(q)
+		if err == nil {
 			t.Errorf("ValidateSearch esperaba error por inyección GROQ para query %q, se obtuvo nil", q)
+		} else if strings.Contains(strings.ToUpper(err.Error()), "GROQ") {
+			t.Errorf("ValidateSearch no debe filtrar detalles internos de GROQ en el mensaje de error (M-3): %v", err)
 		}
 	}
 }
@@ -305,6 +309,51 @@ func TestValidarID_FormatosValidosEInvalidos(t *testing.T) {
 		}
 		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: "prod-1", Value: 5, UserID: badID}); err == nil {
 			t.Errorf("ValidateRating debió rechazar userId inválido %q", badID)
+		}
+	}
+}
+
+// TestUnmarshalJSON_CamposBilinguesYConflictos verifica la deserialización bilingüe y el rechazo de ambigüedad (M-5).
+func TestUnmarshalJSON_CamposBilinguesYConflictos(t *testing.T) {
+	var cp handlers.CommentPayload
+	if err := json.Unmarshal([]byte(`{"productoId":"p1","texto":"hola","calificacion":4,"usuarioId":"u1"}`), &cp); err != nil {
+		t.Fatalf("error inesperado en CommentPayload español: %v", err)
+	}
+	if cp.ProductID != "p1" || cp.Text != "hola" || cp.Rating != 4 || cp.UserID != "u1" {
+		t.Errorf("campos en español no mapeados correctamente: %+v", cp)
+	}
+
+	var rp handlers.RatingPayload
+	if err := json.Unmarshal([]byte(`{"productoId":"p1","valor":5,"valorPrevio":3,"usuarioId":"u1"}`), &rp); err != nil {
+		t.Fatalf("error inesperado en RatingPayload español: %v", err)
+	}
+	if rp.ProductID != "p1" || rp.Value != 5 || rp.PreviousValue != 3 || rp.UserID != "u1" {
+		t.Errorf("campos en español no mapeados correctamente: %+v", rp)
+	}
+
+	conflictPayloadsComment := []string{
+		`{"productId":"p1","productoId":"p2","text":"hola","userId":"u1"}`,
+		`{"productId":"p1","text":"hola","texto":"adios","userId":"u1"}`,
+		`{"productId":"p1","text":"hola","rating":5,"calificacion":3,"userId":"u1"}`,
+		`{"productId":"p1","text":"hola","userId":"u1","usuarioId":"u2"}`,
+	}
+	for _, raw := range conflictPayloadsComment {
+		var bad handlers.CommentPayload
+		if err := json.Unmarshal([]byte(raw), &bad); err == nil {
+			t.Errorf("CommentPayload debió rechazar conflicto bilingüe: %s", raw)
+		}
+	}
+
+	conflictPayloadsRating := []string{
+		`{"productId":"p1","productoId":"p2","value":5,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"valor":3,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"previousValue":4,"valorPrevio":2,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"userId":"u1","usuarioId":"u2"}`,
+	}
+	for _, raw := range conflictPayloadsRating {
+		var bad handlers.RatingPayload
+		if err := json.Unmarshal([]byte(raw), &bad); err == nil {
+			t.Errorf("RatingPayload debió rechazar conflicto bilingüe: %s", raw)
 		}
 	}
 }

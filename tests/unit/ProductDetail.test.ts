@@ -157,4 +157,16 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
             /\[V-07 SEGURIDAD\]/
         );
     });
+
+    it('M-1: construirUrlWhatsApp no interpreta tokens especiales de reemplazo ($&, $`) en nombreProducto', () => {
+        const url = construirUrlWhatsApp(
+            '5219991234567',
+            'Pin $& Especial',
+            'Me interesa {{nombre}} por {{precio}}',
+            120
+        );
+        const decoded = decodeURIComponent(url.split('?text=')[1] ?? '');
+        expect(decoded).toBe('Me interesa Pin $& Especial por $120.00 MXN');
+        expect(decoded).not.toContain('{{nombre}}');
+    });
 });
