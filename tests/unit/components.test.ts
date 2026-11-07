@@ -82,6 +82,16 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(disabled.find('[data-testid="whatsapp-button-disabled"]').exists()).toBe(true);
         expect(disabled.text()).toBe('Agotado');
 
+        // V-06: Un href con esquema javascript: o dominio ajeno a wa.me se bloquea y no renderiza <a>
+        const unsafeHref = mount(WhatsAppButton, {
+            props: {
+                href: 'javascript:alert(document.domain)',
+                disabled: false,
+            },
+        });
+        expect(unsafeHref.find('[data-testid="whatsapp-button"]').exists()).toBe(false);
+        expect(unsafeHref.find('[data-testid="whatsapp-button-disabled"]').exists()).toBe(true);
+
         const { construirUrlWhatsApp, construirUrlWhatsAppCarrito } = useWhatsApp();
         const urlSinVariable = construirUrlWhatsApp(
             '5219991234567',

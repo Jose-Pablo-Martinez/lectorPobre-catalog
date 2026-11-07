@@ -7,7 +7,9 @@
   @satisfies RF-03, RF-14, RF-15, RF-17, RNF-05
 -->
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useAnalytics } from '~/composables/useAnalytics';
+import { sanitizarHrefWhatsApp } from '~/composables/useSafeUrl';
 
 export interface WhatsAppButtonProps {
     href: string;
@@ -26,6 +28,7 @@ const props = withDefaults(defineProps<WhatsAppButtonProps>(), {
     origen: 'general',
 });
 
+const hrefSeguro = computed(() => sanitizarHrefWhatsApp(props.href));
 const { trackWhatsAppClick } = useAnalytics();
 
 const manejarClick = (): void => {
@@ -35,8 +38,8 @@ const manejarClick = (): void => {
 
 <template>
     <a
-        v-if="!disabled"
-        :href="href"
+        v-if="!disabled && hrefSeguro"
+        :href="hrefSeguro"
         target="_blank"
         rel="noopener noreferrer"
         :class="[
