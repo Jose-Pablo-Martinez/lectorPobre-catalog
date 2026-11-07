@@ -33,7 +33,6 @@ function applyThemeClass(dark: boolean): void {
  * Por defecto está desactivado (modo claro).
  */
 export function initTheme(): void {
-    if (initialized.value) return;
     const saved = readLocalStorageSafe(THEME_STORAGE_KEY);
     const shouldBeDark = saved === 'dark';
     isDark.value = shouldBeDark;

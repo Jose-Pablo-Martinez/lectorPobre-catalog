@@ -6,7 +6,8 @@
  */
 
 import { mount } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useCart } from '~/composables/useCart';
 import {
     construirUrlWhatsApp,
     construirUrlWhatsAppCarrito,
@@ -38,6 +39,11 @@ const DETALLE_PRODUCTO: Producto = {
 };
 
 describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () => {
+    beforeEach(() => {
+        const { clearCart } = useCart();
+        clearCart();
+    });
+
     it('UT-VUE-06: renderiza correctamente los datos del producto en pages/product/[slug].vue', () => {
         const wrapper = mount(ProductDetailPage, {
             props: {
@@ -168,5 +174,27 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
         const decoded = decodeURIComponent(url.split('?text=')[1] ?? '');
         expect(decoded).toBe('Me interesa Pin $& Especial por $120.00 MXN');
         expect(decoded).not.toContain('{{nombre}}');
+    });
+
+    it('muestra retroalimentación "Stock máximo en carrito" en el botón de detalle cuando se alcanza el stock disponible', async () => {
+        const wrapper = mount(ProductDetailPage, {
+            props: {
+                initialProducto: {
+                    ...DETALLE_PRODUCTO,
+                    _id: 'prod-det-limit',
+                    stock: 1,
+                },
+                initialConfig: null,
+                initialComentarios: [],
+                initialCatalogo: [],
+            },
+        });
+
+        const addBtn = wrapper.find('[data-testid="detail-add-to-order"]');
+        await addBtn.trigger('click');
+        expect(addBtn.text()).toContain('Agregado a mi carrito');
+
+        await addBtn.trigger('click');
+        expect(addBtn.text()).toContain('Stock máximo en carrito');
     });
 });

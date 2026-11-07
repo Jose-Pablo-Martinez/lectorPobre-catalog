@@ -33,6 +33,13 @@ describe('Layout default.vue: Header y Conmutador Dark Mode (RF-15, RNF-05)', ()
         expect(toggleBtn.attributes('aria-label')).toBe('Cambiar a modo oscuro');
         expect(toggleBtn.attributes('title')).toBe('Cambiar a modo oscuro');
         expect(document.documentElement.classList.contains('dark')).toBe(false);
+
+        // Ambos iconos (Sun y Moon) están presentes en el DOM con clases CSS dark: para evitar hydration mismatch
+        const svgs = toggleBtn.findAll('svg');
+        expect(svgs).toHaveLength(2);
+        expect(svgs[0]?.classes()).toContain('dark:block');
+        expect(svgs[0]?.classes()).toContain('text-amber-400');
+        expect(svgs[1]?.classes()).toContain('dark:hidden');
     });
 
     it('conmuta a modo oscuro al presionar el botón en el header', async () => {

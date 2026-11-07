@@ -41,7 +41,8 @@ let hydrated = false;
 export function obtenerClasesBotonPedido(
     agotado: boolean,
     recienAgregado: boolean,
-    sombra: 'hard' | 'hard-sm' = 'hard-sm'
+    sombra: 'hard' | 'hard-sm' = 'hard-sm',
+    limiteStock = false
 ): string {
     const shadowClass =
         sombra === 'hard'
@@ -49,6 +50,9 @@ export function obtenerClasesBotonPedido(
             : 'shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)]';
     if (agotado) {
         return 'bg-zinc-200 dark:bg-slate-800 text-zinc-500 dark:text-slate-500 border-2 border-zinc-400 dark:border-slate-700 cursor-not-allowed';
+    }
+    if (limiteStock) {
+        return `bg-amber-400 text-zinc-950 border-2 border-zinc-950 ${shadowClass}`;
     }
     if (recienAgregado) {
         return `bg-emerald-400 text-zinc-950 border-2 border-zinc-950 ${shadowClass}`;
@@ -140,6 +144,9 @@ export function useCart() {
         if (existingIndex >= 0) {
             const current = cartItems.value[existingIndex];
             if (current) {
+                if (current.cantidad >= maxStock) {
+                    return false;
+                }
                 const nextQty = Math.min(maxStock, current.cantidad + safeQty);
                 cartItems.value[existingIndex] = {
                     ...current,
@@ -262,6 +269,12 @@ export function useCart() {
         cartDrawerOpen.value = !cartDrawerOpen.value;
     };
 
+    const getItemQuantity = (productId: string): number => {
+        if (!productId) return 0;
+        const found = cartItems.value.find((item) => item.id === productId);
+        return found?.cantidad ?? 0;
+    };
+
     const totalItems = computed(() =>
         cartItems.value.reduce((acc, item) => acc + item.cantidad, 0)
     );
@@ -280,6 +293,7 @@ export function useCart() {
         totalAmount,
         hydrateCart,
         reconcileWithCatalog,
+        getItemQuantity,
         addItem,
         removeItem,
         updateQuantity,

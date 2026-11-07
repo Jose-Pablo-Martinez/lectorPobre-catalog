@@ -86,6 +86,7 @@ const mostrarDropdownSugerencias = ref(false);
 const indiceSugerenciaActiva = ref(-1);
 const errorImagenDestacado = ref(false);
 const recienAgregadoDestacado = ref(false);
+const limiteStockDestacado = ref(false);
 
 const motivoRecomendacion = computed<string>(() =>
     obtenerExplicacionRecomendacion(
@@ -146,7 +147,8 @@ const clasesBotonRecomendado = computed<string>(() =>
     obtenerClasesBotonPedido(
         agotadoRecomendado.value,
         recienAgregadoDestacado.value,
-        'hard-sm'
+        'hard-sm',
+        limiteStockDestacado.value
     )
 );
 
@@ -154,10 +156,17 @@ const manejarAgregarRecomendado = (): void => {
     if (!productoRecomendado.value || agotadoRecomendado.value) return;
     const exito = addItem(productoRecomendado.value, 1);
     if (exito) {
+        limiteStockDestacado.value = false;
         recienAgregadoDestacado.value = true;
         setTimeout(() => {
             recienAgregadoDestacado.value = false;
         }, 1200);
+    } else {
+        recienAgregadoDestacado.value = false;
+        limiteStockDestacado.value = true;
+        setTimeout(() => {
+            limiteStockDestacado.value = false;
+        }, 2000);
     }
 };
 
@@ -270,7 +279,7 @@ try {
     <div class="space-y-6 sm:space-y-8" data-testid="catalog-page">
         <!-- Hero Banner limpio estilo colección de Vograce -->
         <section
-            class="rounded-2xl bg-gradient-to-r from-blue-50/50 via-white to-pink-50/50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-900 border border-zinc-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm relative overflow-hidden transition-colors"
+            class="rounded-2xl bg-gradient-to-r from-blue-50/50 via-white to-pink-50/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border border-zinc-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm relative overflow-hidden transition-colors"
             aria-labelledby="catalog-hero-heading"
         >
             <div class="max-w-3xl">
@@ -444,6 +453,10 @@ try {
                     >
                         <template v-if="agotadoRecomendado">
                             <span>Agotado</span>
+                        </template>
+                        <template v-else-if="limiteStockDestacado">
+                            <CircleAlert class="w-4 h-4 shrink-0" aria-hidden="true" />
+                            <span>Stock máximo en carrito</span>
                         </template>
                         <template v-else-if="recienAgregadoDestacado">
                             <Check class="w-4 h-4 shrink-0" aria-hidden="true" />

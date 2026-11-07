@@ -10,7 +10,7 @@
   @satisfies RF-01, RF-05, RF-15, RF-16, RF-17, RNF-05
 -->
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Moon, ShoppingBag, Sparkles, Sun } from 'lucide-vue-next';
 import CartDrawer from '~/components/CartDrawer.vue';
 import { useCart } from '~/composables/useCart';
@@ -21,22 +21,31 @@ import { resolverClaseVariante, VARIANTES_PERMITIDAS } from '~/plugins/variant';
 import type { ConfiguracionGlobal } from '~/types/sanity';
 
 const { totalItems, toggleCart } = useCart();
-const { isDark, toggleTheme } = useTheme();
+const { isDark, toggleTheme, initTheme } = useTheme();
 
 const configGlobal = ref<Partial<ConfiguracionGlobal> | null>(null);
+
+const aplicarTokensTema = (dark: boolean): void => {
+    if (typeof document !== 'undefined') {
+        const tokens = resolverTokensPaleta(configGlobal.value, dark);
+        for (const [key, propVal] of Object.entries(tokens)) {
+            document.documentElement.style.setProperty(key, propVal);
+        }
+    }
+};
 
 // Sincronización reactiva de tokens CSS de paleta ante cambios de tema claro/oscuro
 watch(
     () => isDark.value,
     (dark) => {
-        if (typeof document !== 'undefined') {
-            const tokens = resolverTokensPaleta(configGlobal.value, dark);
-            for (const [key, propVal] of Object.entries(tokens)) {
-                document.documentElement.style.setProperty(key, propVal);
-            }
-        }
+        aplicarTokensTema(dark);
     }
 );
+
+onMounted(() => {
+    initTheme();
+    aplicarTokensTema(isDark.value);
+});
 
 try {
     const sanity = useSanity();
@@ -175,8 +184,8 @@ const urlYouTube = computed(() =>
                         data-testid="theme-toggle-button"
                         @click="toggleTheme"
                     >
-                        <Sun v-if="isDark" class="w-5 h-5 text-amber-400 transition-transform duration-200 rotate-0 hover:rotate-45" aria-hidden="true" />
-                        <Moon v-else class="w-5 h-5 text-zinc-800 transition-transform duration-200 -rotate-12 hover:rotate-0" aria-hidden="true" />
+                        <Sun class="hidden dark:block w-5 h-5 text-amber-400 transition-transform duration-200 rotate-0 hover:rotate-45" aria-hidden="true" />
+                        <Moon class="block dark:hidden w-5 h-5 text-zinc-800 transition-transform duration-200 -rotate-12 hover:rotate-0" aria-hidden="true" />
                     </button>
 
                     <button
