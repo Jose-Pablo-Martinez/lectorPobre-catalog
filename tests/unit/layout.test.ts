@@ -7,6 +7,7 @@
 import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import DefaultLayout from '~/layouts/default.vue';
+import { sanitizarHrefWhatsApp, sanitizarUrlRed } from '~/composables/useSafeUrl';
 import { setTheme, useTheme } from '~/composables/useTheme';
 
 const STUBS_DEFAULT = {
@@ -67,5 +68,71 @@ describe('Layout default.vue: Header y Conmutador Dark Mode (RF-15, RNF-05)', ()
 
         const socialLinks = wrapper.find('[data-testid="social-links"]');
         expect(socialLinks.exists()).toBe(true);
+    });
+
+    it('V-06: sanitizarUrlRed valida esquema https y host oficial por red social y bloquea javascript:/phishing', () => {
+        const fbFallback = 'https://www.facebook.com/profile.php?id=61594042757515';
+        const igFallback = 'https://www.instagram.com/lector_pobre';
+        const ytFallback = 'https://www.youtube.com/@lectorpobre';
+        const ttFallback = 'https://www.tiktok.com/@lectorpobre';
+
+        // URLs legítimas aceptadas
+        expect(sanitizarUrlRed('https://www.instagram.com/lector_pobre_arte', 'instagram', igFallback)).toBe(
+            'https://www.instagram.com/lector_pobre_arte'
+        );
+        expect(sanitizarUrlRed('https://fb.com/lectorpobre', 'facebook', fbFallback)).toBe(
+            'https://fb.com/lectorpobre'
+        );
+        expect(sanitizarUrlRed('https://m.facebook.com/lectorpobre', 'facebook', fbFallback)).toBe(
+            'https://m.facebook.com/lectorpobre'
+        );
+        expect(sanitizarUrlRed('https://youtu.be/dQw4w9WgXcQ', 'youtube', ytFallback)).toBe(
+            'https://youtu.be/dQw4w9WgXcQ'
+        );
+        expect(sanitizarUrlRed('https://www.tiktok.com/@lector_pobre', 'tiktok', ttFallback)).toBe(
+            'https://www.tiktok.com/@lector_pobre'
+        );
+
+        // Esquemas peligrosos o no-HTTPS rechazados -> devuelve fallback
+        expect(sanitizarUrlRed('javascript:alert(1)', 'instagram', igFallback)).toBe(igFallback);
+        expect(sanitizarUrlRed('data:text/html,<script>alert(1)</script>', 'facebook', fbFallback)).toBe(
+            fbFallback
+        );
+        expect(sanitizarUrlRed('http://www.instagram.com/lector_pobre', 'instagram', igFallback)).toBe(
+            igFallback
+        );
+
+        // Dominios de phishing o cruzados rechazados -> devuelve fallback
+        expect(sanitizarUrlRed('https://instagram.com.evil.example/phish', 'instagram', igFallback)).toBe(
+            igFallback
+        );
+        expect(sanitizarUrlRed('https://notinstagram.com/lector_pobre', 'instagram', igFallback)).toBe(
+            igFallback
+        );
+        expect(sanitizarUrlRed('https://www.youtube.com/@lectorpobre', 'instagram', igFallback)).toBe(
+            igFallback
+        );
+
+        // Valores vacíos, nulos o malformados -> devuelve fallback
+        expect(sanitizarUrlRed('', 'youtube', ytFallback)).toBe(ytFallback);
+        expect(sanitizarUrlRed('   ', 'youtube', ytFallback)).toBe(ytFallback);
+        expect(sanitizarUrlRed(null, 'youtube', ytFallback)).toBe(ytFallback);
+        expect(sanitizarUrlRed(undefined, 'youtube', ytFallback)).toBe(ytFallback);
+        expect(sanitizarUrlRed(':::url-invalida:::', 'youtube', ytFallback)).toBe(ytFallback);
+    });
+
+    it('V-06: sanitizarHrefWhatsApp acepta solo https://wa.me/ con formato seguro', () => {
+        expect(sanitizarHrefWhatsApp('https://wa.me/5219991234567?text=Hola%20mundo')).toBe(
+            'https://wa.me/5219991234567?text=Hola%20mundo'
+        );
+        expect(sanitizarHrefWhatsApp('https://wa.me/?text=Hola')).toBe('https://wa.me/?text=Hola');
+
+        expect(sanitizarHrefWhatsApp('javascript:alert(1)')).toBeUndefined();
+        expect(sanitizarHrefWhatsApp('https://evil.com/5219991234567?text=Hola')).toBeUndefined();
+        expect(sanitizarHrefWhatsApp('http://wa.me/5219991234567?text=Hola')).toBeUndefined();
+        expect(sanitizarHrefWhatsApp('https://wa.me/123?text=Hola')).toBeUndefined();
+        expect(sanitizarHrefWhatsApp('https://wa.me/5219991234567?text=con espacio')).toBeUndefined();
+        expect(sanitizarHrefWhatsApp(null)).toBeUndefined();
+        expect(sanitizarHrefWhatsApp(undefined)).toBeUndefined();
     });
 });

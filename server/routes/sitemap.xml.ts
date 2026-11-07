@@ -11,6 +11,18 @@ export interface ProductSitemapItem {
 }
 
 /**
+ * Escapa caracteres reservados de XML (&, <, >, ", ') para prevenir inyección o malformación XML (M-2).
+ */
+export function escapeXml(valor: string): string {
+    return valor
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&apos;');
+}
+
+/**
  * Construye el documento XML para el sitemap cumpliendo el protocolo sitemaps.org.
  *
  * @param productos Lista de productos activos con su slug y fecha de modificación.
@@ -24,16 +36,23 @@ export function buildSitemapXml(
     currentDate?: string
 ): string {
     const nowIso = currentDate ?? new Date().toISOString().split('T')[0];
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    const safeRootLoc = escapeXml(`${cleanBaseUrl}/`);
+    const safeNowIso = escapeXml(nowIso);
 
     const xmlUrls = [
-        `    <url>\n        <loc>${baseUrl}/</loc>\n        <lastmod>${nowIso}</lastmod>\n        <changefreq>daily</changefreq>\n        <priority>1.0</priority>\n    </url>`,
+        `    <url>\n        <loc>${safeRootLoc}</loc>\n        <lastmod>${safeNowIso}</lastmod>\n        <changefreq>daily</changefreq>\n        <priority>1.0</priority>\n    </url>`,
     ];
 
     for (const prod of productos) {
-        if (prod.slug) {
-            const lastmod = prod._updatedAt ? prod._updatedAt.split('T')[0] : nowIso;
+        const cleanSlug = prod.slug?.trim();
+        if (cleanSlug) {
+            const safeSlug = encodeURIComponent(cleanSlug);
+            const rawLastmod = prod._updatedAt ? prod._updatedAt.split('T')[0] : nowIso;
+            const safeLoc = escapeXml(`${cleanBaseUrl}/product/${safeSlug}`);
+            const safeLastmod = escapeXml(rawLastmod);
             xmlUrls.push(
-                `    <url>\n        <loc>${baseUrl}/product/${prod.slug}</loc>\n        <lastmod>${lastmod}</lastmod>\n        <changefreq>weekly</changefreq>\n        <priority>0.8</priority>\n    </url>`
+                `    <url>\n        <loc>${safeLoc}</loc>\n        <lastmod>${safeLastmod}</lastmod>\n        <changefreq>weekly</changefreq>\n        <priority>0.8</priority>\n    </url>`
             );
         }
     }

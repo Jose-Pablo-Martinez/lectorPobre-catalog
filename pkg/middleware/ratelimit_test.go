@@ -148,15 +148,72 @@ func TestRateLimit_Concurrente_SeguridadDeHilos(t *testing.T) {
 	wg.Wait()
 }
 
-// TestVerificarRateLimit_FuncionGlobal verifica el wrapper funcional VerificarRateLimit.
+// TestVerificarRateLimit_FuncionGlobal verifica el wrapper funcional VerificarRateLimit y el aislamiento por acción (V-09).
 func TestVerificarRateLimit_FuncionGlobal(t *testing.T) {
 	DefaultRateLimiter.Reset()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/comentar", nil)
 	req.RemoteAddr = "192.168.1.77:80"
 
-	if !VerificarRateLimit(req, "comentar") {
-		t.Error("VerificarRateLimit esperado true para primera solicitud")
+	for i := 1; i <= 10; i++ {
+		if !VerificarRateLimit(req, "comentar") {
+			t.Fatalf("VerificarRateLimit esperado true en intento %d/10 para acción 'comentar'", i)
+		}
+	}
+	if VerificarRateLimit(req, "comentar") {
+		t.Error("VerificarRateLimit debió rechazar el intento 11 para acción 'comentar'")
+	}
+
+	// La misma IP debe conservar cuota independiente para otra acción ('buscar' o 'calificar')
+	if !VerificarRateLimit(req, "buscar") {
+		t.Error("VerificarRateLimit debió permitir acción 'buscar' aunque 'comentar' esté agotada para la misma IP")
+	}
+}
+
+// TestRateLimit_XVercelForwardedFor_Prioridad verifica que X-Vercel-Forwarded-For tenga prioridad sobre X-Forwarded-For (V-09).
+func TestRateLimit_XVercelForwardedFor_Prioridad(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	req.Header.Set("X-Vercel-Forwarded-For", "198.51.100.99")
+	req.Header.Set("X-Forwarded-For", "10.0.0.1")
+
+	if ip := GetClientIP(req); ip != "198.51.100.99" {
+		t.Errorf("GetClientIP esperado '198.51.100.99' desde X-Vercel-Forwarded-For, obtenido %q", ip)
+	}
+
+	// Fallback a RemoteAddr sin puerto o vacío
+	reqNoPort := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	reqNoPort.RemoteAddr = "192.0.2.55"
+	if ip := GetClientIP(reqNoPort); ip != "192.0.2.55" {
+		t.Errorf("GetClientIP esperado '192.0.2.55', obtenido %q", ip)
+	}
+
+	reqEmpty := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+	reqEmpty.RemoteAddr = ""
+	if ip := GetClientIP(reqEmpty); ip != "unknown" {
+		t.Errorf("GetClientIP esperado 'unknown', obtenido %q", ip)
+	}
+}
+
+// TestRateLimit_MaxClientsYEviccion verifica el tope de memoria de clientes y la limpieza de entradas expiradas (V-09).
+func TestRateLimit_MaxClientsYEviccion(t *testing.T) {
+	limiter := NewRateLimiterWithMaxClients(2, 40*time.Millisecond, 2)
+
+	if !limiter.Allow("ip-1") {
+		t.Fatal("ip-1 debió ser permitida")
+	}
+	if !limiter.Allow("ip-2") {
+		t.Fatal("ip-2 debió ser permitida")
+	}
+
+	// Con 2 clientes activos y maxClients=2, un 3er cliente distinto se rechaza para proteger memoria
+	if limiter.Allow("ip-3") {
+		t.Fatal("ip-3 debió ser rechazada al alcanzarse maxClients=2 con entradas activas")
+	}
+
+	// Tras expirar la ventana, la limpieza automática desaloja ip-1 e ip-2 y permite ip-3
+	time.Sleep(55 * time.Millisecond)
+	if !limiter.Allow("ip-3") {
+		t.Fatal("ip-3 debió ser permitida tras expirar y limpiarse las entradas previas")
 	}
 }
 

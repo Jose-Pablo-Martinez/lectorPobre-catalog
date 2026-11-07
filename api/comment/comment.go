@@ -53,5 +53,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			}
 			return sanity.DispatchComment(ctx, writer, p)
 		},
+		ResultData: func(p handlers.CommentPayload) any {
+			if id, err := sanity.BuildReviewDocumentID("comentario", p.ProductID, p.UserID); err == nil {
+				return map[string]string{"reviewId": id}
+			}
+			return nil
+		},
 	})
 }

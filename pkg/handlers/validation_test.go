@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ func TestValidarComentario_TextoValido_RetornaNil(t *testing.T) {
 		ProductID: "prod-12345",
 		Text:      "Excelente producto, llegó en perfectas condiciones y rápido.",
 		Rating:    5,
+		UserID:    "usr-12345",
 	}
 
 	if err := handlers.ValidateComment(payload); err != nil {
@@ -34,6 +36,7 @@ func TestValidarComentario_TextoVacio_RetornaError(t *testing.T) {
 		payload := handlers.CommentPayload{
 			ProductID: "prod-12345",
 			Text:      text,
+			UserID:    "usr-12345",
 		}
 
 		err := handlers.ValidateComment(payload)
@@ -50,6 +53,7 @@ func TestValidarComentario_RatingFueraDeRango_RetornaError(t *testing.T) {
 			ProductID: "prod-12345",
 			Text:      "Comentario válido",
 			Rating:    r,
+			UserID:    "usr-12345",
 		}
 		if err := handlers.ValidateComment(payload); err == nil {
 			t.Errorf("ValidateComment esperaba error para rating %d, se obtuvo nil", r)
@@ -64,6 +68,7 @@ func TestValidarComentario_TextoExcede1000Chars_RetornaError(t *testing.T) {
 	payload := handlers.CommentPayload{
 		ProductID: "prod-12345",
 		Text:      longText,
+		UserID:    "usr-12345",
 	}
 
 	err := handlers.ValidateComment(payload)
@@ -76,6 +81,7 @@ func TestValidarComentario_TextoExcede1000Chars_RetornaError(t *testing.T) {
 	payloadValid := handlers.CommentPayload{
 		ProductID: "prod-12345",
 		Text:      exact1000,
+		UserID:    "usr-12345",
 	}
 	if errValid := handlers.ValidateComment(payloadValid); errValid != nil {
 		t.Errorf("ValidateComment esperaba nil para exactamente 1000 caracteres, se obtuvo: %v", errValid)
@@ -91,6 +97,7 @@ func TestValidarComentario_ProductoIDVacio_RetornaError(t *testing.T) {
 		payload := handlers.CommentPayload{
 			ProductID: pid,
 			Text:      "Comentario válido de prueba",
+			UserID:    "usr-12345",
 		}
 
 		err := handlers.ValidateComment(payload)
@@ -107,6 +114,7 @@ func TestValidarCalificacion_Valor3_RetornaNil(t *testing.T) {
 		ProductID:     "prod-12345",
 		Value:         3,
 		PreviousValue: 2,
+		UserID:        "usr-12345",
 	}
 
 	if err := handlers.ValidateRating(payload); err != nil {
@@ -119,7 +127,7 @@ func TestValidarCalificacion_Valor3_RetornaNil(t *testing.T) {
 
 	// Verificar también fronteras válidas: 1 y 5
 	for _, v := range []int{1, 5} {
-		p := handlers.RatingPayload{ProductID: "prod-12345", Value: v}
+		p := handlers.RatingPayload{ProductID: "prod-12345", Value: v, UserID: "usr-12345"}
 		if err := handlers.ValidateRating(p); err != nil {
 			t.Errorf("ValidateRating esperaba nil para valor frontera %d, se obtuvo: %v", v, err)
 		}
@@ -132,6 +140,7 @@ func TestValidarCalificacion_Valor0_RetornaError(t *testing.T) {
 	payload := handlers.RatingPayload{
 		ProductID: "prod-12345",
 		Value:     0,
+		UserID:    "usr-12345",
 	}
 
 	if err := handlers.ValidateRating(payload); err == nil {
@@ -145,6 +154,7 @@ func TestValidarCalificacion_Valor6_RetornaError(t *testing.T) {
 	payload := handlers.RatingPayload{
 		ProductID: "prod-12345",
 		Value:     6,
+		UserID:    "usr-12345",
 	}
 
 	if err := handlers.ValidateRating(payload); err == nil {
@@ -159,6 +169,7 @@ func TestValidarCalificacion_PreviousValueInvalido_RetornaError(t *testing.T) {
 			ProductID:     "prod-12345",
 			Value:         4,
 			PreviousValue: prev,
+			UserID:        "usr-12345",
 		}
 		if err := handlers.ValidateRating(payload); err == nil {
 			t.Errorf("ValidateRating esperaba error para previousValue %d, se obtuvo nil", prev)
@@ -171,10 +182,34 @@ func TestValidarCalificacion_ProductoIDVacio_RetornaError(t *testing.T) {
 	payload := handlers.RatingPayload{
 		ProductID: "",
 		Value:     4,
+		UserID:    "usr-12345",
 	}
 
 	if err := handlers.ValidateRating(payload); err == nil {
 		t.Errorf("ValidateRating esperaba error para productId vacío, se obtuvo nil")
+	}
+}
+
+// TestValidarComentarioYCalificacion_UserIDRequerido_RetornaError verifica que userId vacío sea rechazado (V-02).
+func TestValidarComentarioYCalificacion_UserIDRequerido_RetornaError(t *testing.T) {
+	for _, uid := range []string{"", "   "} {
+		errComment := handlers.ValidateComment(handlers.CommentPayload{
+			ProductID: "prod-12345",
+			Text:      "Comentario válido",
+			UserID:    uid,
+		})
+		if errComment != handlers.ErrUserIDRequired {
+			t.Errorf("ValidateComment esperaba ErrUserIDRequired para userId %q, obtuvo: %v", uid, errComment)
+		}
+
+		errRating := handlers.ValidateRating(handlers.RatingPayload{
+			ProductID: "prod-12345",
+			Value:     5,
+			UserID:    uid,
+		})
+		if errRating != handlers.ErrUserIDRequired {
+			t.Errorf("ValidateRating esperaba ErrUserIDRequired para userId %q, obtuvo: %v", uid, errRating)
+		}
 	}
 }
 
@@ -220,8 +255,11 @@ func TestValidarBusqueda_QueryConInyeccionGROQ_RetornaError(t *testing.T) {
 	}
 
 	for _, q := range injectionQueries {
-		if err := handlers.ValidateSearch(q); err == nil {
+		err := handlers.ValidateSearch(q)
+		if err == nil {
 			t.Errorf("ValidateSearch esperaba error por inyección GROQ para query %q, se obtuvo nil", q)
+		} else if strings.Contains(strings.ToUpper(err.Error()), "GROQ") {
+			t.Errorf("ValidateSearch no debe filtrar detalles internos de GROQ en el mensaje de error (M-3): %v", err)
 		}
 	}
 }
@@ -231,5 +269,91 @@ func TestValidarBusqueda_QueryExcedeLongitud_RetornaError(t *testing.T) {
 	longQuery := strings.Repeat("a", 201)
 	if err := handlers.ValidateSearch(longQuery); err == nil {
 		t.Errorf("ValidateSearch esperaba error para query que excede 200 caracteres")
+	}
+}
+
+// TestValidarID_FormatosValidosEInvalidos verifica el formato de productId y userId (V-03).
+func TestValidarID_FormatosValidosEInvalidos(t *testing.T) {
+	validIDs := []string{
+		"seed-prod-1",
+		"2f0c1b7e-aaaa-4bbb-8ccc-123456789012",
+		"usr_lx3k_ab12cd3",
+		strings.Repeat("a", 100),
+	}
+	for _, id := range validIDs {
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: id, Text: "Texto válido", UserID: id}); err != nil {
+			t.Errorf("ValidateComment rechazó ID válido %q: %v", id, err)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: id, Value: 5, UserID: id}); err != nil {
+			t.Errorf("ValidateRating rechazó ID válido %q: %v", id, err)
+		}
+	}
+
+	invalidIDs := []string{
+		"drafts.prod-1",
+		"prod.1",
+		"global config",
+		"prod/1",
+		"prod$1",
+		strings.Repeat("a", 101),
+	}
+	for _, badID := range invalidIDs {
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: badID, Text: "Texto válido"}); err == nil {
+			t.Errorf("ValidateComment debió rechazar productId inválido %q", badID)
+		}
+		if err := handlers.ValidateComment(handlers.CommentPayload{ProductID: "prod-1", Text: "Texto válido", UserID: badID}); err == nil {
+			t.Errorf("ValidateComment debió rechazar userId inválido %q", badID)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: badID, Value: 5}); err == nil {
+			t.Errorf("ValidateRating debió rechazar productId inválido %q", badID)
+		}
+		if err := handlers.ValidateRating(handlers.RatingPayload{ProductID: "prod-1", Value: 5, UserID: badID}); err == nil {
+			t.Errorf("ValidateRating debió rechazar userId inválido %q", badID)
+		}
+	}
+}
+
+// TestUnmarshalJSON_CamposBilinguesYConflictos verifica la deserialización bilingüe y el rechazo de ambigüedad (M-5).
+func TestUnmarshalJSON_CamposBilinguesYConflictos(t *testing.T) {
+	var cp handlers.CommentPayload
+	if err := json.Unmarshal([]byte(`{"productoId":"p1","texto":"hola","calificacion":4,"usuarioId":"u1"}`), &cp); err != nil {
+		t.Fatalf("error inesperado en CommentPayload español: %v", err)
+	}
+	if cp.ProductID != "p1" || cp.Text != "hola" || cp.Rating != 4 || cp.UserID != "u1" {
+		t.Errorf("campos en español no mapeados correctamente: %+v", cp)
+	}
+
+	var rp handlers.RatingPayload
+	if err := json.Unmarshal([]byte(`{"productoId":"p1","valor":5,"valorPrevio":3,"usuarioId":"u1"}`), &rp); err != nil {
+		t.Fatalf("error inesperado en RatingPayload español: %v", err)
+	}
+	if rp.ProductID != "p1" || rp.Value != 5 || rp.PreviousValue != 3 || rp.UserID != "u1" {
+		t.Errorf("campos en español no mapeados correctamente: %+v", rp)
+	}
+
+	conflictPayloadsComment := []string{
+		`{"productId":"p1","productoId":"p2","text":"hola","userId":"u1"}`,
+		`{"productId":"p1","text":"hola","texto":"adios","userId":"u1"}`,
+		`{"productId":"p1","text":"hola","rating":5,"calificacion":3,"userId":"u1"}`,
+		`{"productId":"p1","text":"hola","userId":"u1","usuarioId":"u2"}`,
+	}
+	for _, raw := range conflictPayloadsComment {
+		var bad handlers.CommentPayload
+		if err := json.Unmarshal([]byte(raw), &bad); err == nil {
+			t.Errorf("CommentPayload debió rechazar conflicto bilingüe: %s", raw)
+		}
+	}
+
+	conflictPayloadsRating := []string{
+		`{"productId":"p1","productoId":"p2","value":5,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"valor":3,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"previousValue":4,"valorPrevio":2,"userId":"u1"}`,
+		`{"productId":"p1","value":5,"userId":"u1","usuarioId":"u2"}`,
+	}
+	for _, raw := range conflictPayloadsRating {
+		var bad handlers.RatingPayload
+		if err := json.Unmarshal([]byte(raw), &bad); err == nil {
+			t.Errorf("RatingPayload debió rechazar conflicto bilingüe: %s", raw)
+		}
 	}
 }

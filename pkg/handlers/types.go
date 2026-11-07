@@ -4,7 +4,20 @@
 // Satisface: RF-06 (Calificaciones), RF-07 (Comentarios), RF-18 (Búsqueda), RNF-04 (Contratos tipados).
 package handlers
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
+
+func resolveBilingualField[T comparable](primary, alias, zero T, fieldName string) (T, error) {
+	if primary != zero && alias != zero && primary != alias {
+		return zero, fmt.Errorf("conflicto de campos bilingües en %s", fieldName)
+	}
+	if primary != zero {
+		return primary, nil
+	}
+	return alias, nil
+}
 
 // CommentPayload representa el cuerpo JSON esperado para POST /api/comment (y /api/comentar).
 // Satisface: RF-07 (Comentarios).
@@ -23,7 +36,8 @@ type CommentPayload struct {
 type ComentarioPayload = CommentPayload
 
 // UnmarshalJSON permite deserializar tanto nombres de campo en inglés (productId, text, rating, userId)
-// como en español (productoId, texto, calificacion, usuarioId) para máxima compatibilidad con frontend y pruebas.
+// como en español (productoId, texto, calificacion, usuarioId), rechazando ambigüedad si ambos
+// idiomas se envían simultáneamente con valores distintos (M-5).
 func (c *CommentPayload) UnmarshalJSON(data []byte) error {
 	type Alias CommentPayload
 	aux := struct {
@@ -40,17 +54,18 @@ func (c *CommentPayload) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	if c.ProductID == "" && aux.ProductoID != "" {
-		c.ProductID = aux.ProductoID
+	var err error
+	if c.ProductID, err = resolveBilingualField(c.ProductID, aux.ProductoID, "", "productId"); err != nil {
+		return err
 	}
-	if c.Text == "" && aux.Texto != "" {
-		c.Text = aux.Texto
+	if c.Text, err = resolveBilingualField(c.Text, aux.Texto, "", "text"); err != nil {
+		return err
 	}
-	if c.Rating == 0 && aux.Calificacion != 0 {
-		c.Rating = aux.Calificacion
+	if c.Rating, err = resolveBilingualField(c.Rating, aux.Calificacion, 0, "rating"); err != nil {
+		return err
 	}
-	if c.UserID == "" && aux.UsuarioID != "" {
-		c.UserID = aux.UsuarioID
+	if c.UserID, err = resolveBilingualField(c.UserID, aux.UsuarioID, "", "userId"); err != nil {
+		return err
 	}
 	return nil
 }
@@ -72,7 +87,8 @@ type RatingPayload struct {
 type CalificacionPayload = RatingPayload
 
 // UnmarshalJSON permite deserializar nombres de campo en inglés (productId, value, previousValue, userId)
-// y en español (productoId, valor, valorPrevio, usuarioId).
+// y en español (productoId, valor, valorPrevio, usuarioId), rechazando ambigüedad si ambos
+// idiomas se envían simultáneamente con valores distintos (M-5).
 func (r *RatingPayload) UnmarshalJSON(data []byte) error {
 	type Alias RatingPayload
 	aux := struct {
@@ -89,17 +105,18 @@ func (r *RatingPayload) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	if r.ProductID == "" && aux.ProductoID != "" {
-		r.ProductID = aux.ProductoID
+	var err error
+	if r.ProductID, err = resolveBilingualField(r.ProductID, aux.ProductoID, "", "productId"); err != nil {
+		return err
 	}
-	if r.Value == 0 && aux.Valor != 0 {
-		r.Value = aux.Valor
+	if r.Value, err = resolveBilingualField(r.Value, aux.Valor, 0, "value"); err != nil {
+		return err
 	}
-	if r.PreviousValue == 0 && aux.ValorPrevio != 0 {
-		r.PreviousValue = aux.ValorPrevio
+	if r.PreviousValue, err = resolveBilingualField(r.PreviousValue, aux.ValorPrevio, 0, "previousValue"); err != nil {
+		return err
 	}
-	if r.UserID == "" && aux.UsuarioID != "" {
-		r.UserID = aux.UsuarioID
+	if r.UserID, err = resolveBilingualField(r.UserID, aux.UsuarioID, "", "userId"); err != nil {
+		return err
 	}
 	return nil
 }

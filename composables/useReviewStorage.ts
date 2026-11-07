@@ -19,18 +19,27 @@ export interface StoredUserReview {
     rating?: StarRatingValue | null;
     comment?: string;
     commentStatus?: 'pendiente' | 'aprobado' | 'rechazado';
+    reviewId?: string;
     updatedAt?: string;
 }
 
 /**
- * Obtiene el ID anónimo del usuario persistido en localStorage o genera uno nuevo determinista/único.
+ * Obtiene el ID anónimo del usuario persistido en localStorage o genera uno nuevo criptográficamente aleatorio (V-01).
  */
 export function getOrCreateUserId(): string {
     const existing = readLocalStorageSafe(USER_ID_STORAGE_KEY);
     if (existing && existing.trim().length > 0) {
         return existing.trim();
     }
-    const generated = `usr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    const uuid = globalThis.crypto?.randomUUID?.();
+    if (uuid) {
+        writeLocalStorageSafe(USER_ID_STORAGE_KEY, uuid);
+        return uuid;
+    }
+    const bytes = new Uint8Array(16);
+    globalThis.crypto?.getRandomValues?.(bytes);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    const generated = `usr_${Date.now().toString(36)}_${hex.slice(0, 16)}`;
     writeLocalStorageSafe(USER_ID_STORAGE_KEY, generated);
     return generated;
 }

@@ -31,6 +31,7 @@ import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import {
     CATALOG_PRODUCTS_QUERY,
     PRODUCTO_GROQ_FIELDS,
+    PUBLIC_COMMENTS_GROQ_FIELDS,
 } from '~/composables/useCatalog';
 import { useRecentlyViewed } from '~/composables/useRecentlyViewed';
 import { useSanityImage } from '~/composables/useSanityImage';
@@ -83,17 +84,7 @@ if (props.initialProducto === undefined) {
                             ${PRODUCTO_GROQ_FIELDS},
                             imagenes,
                             "comentarios": *[_type == "comentario" && producto._ref == ^._id && estado == "aprobado"] | order(fechaCreacion desc){
-                                _id,
-                                _type,
-                                _createdAt,
-                                _updatedAt,
-                                _rev,
-                                texto,
-                                calificacion,
-                                usuarioId,
-                                producto,
-                                fechaCreacion,
-                                estado
+                                ${PUBLIC_COMMENTS_GROQ_FIELDS}
                             }
                         }`,
                         { slug: slugParam.value }
@@ -136,8 +127,18 @@ if (props.initialProducto === undefined) {
 }
 
 const { urlFor } = useSanityImage();
-const { addItem, openCart } = useCart();
+const { addItem, openCart, reconcileWithCatalog } = useCart();
 const { addProduct: registrarVistoReciente } = useRecentlyViewed();
+
+watch(
+    catalogoProductos,
+    (lista) => {
+        if (Array.isArray(lista) && lista.length > 0) {
+            reconcileWithCatalog(lista);
+        }
+    },
+    { immediate: true }
+);
 
 const umbralStockBajo = computed<number>(
     () => configGlobal.value?.umbralStockBajo ?? 5

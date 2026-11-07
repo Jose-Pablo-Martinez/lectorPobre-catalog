@@ -23,6 +23,8 @@ export interface AnalyticsEventProps {
     [key: string]: string | number | boolean | undefined;
 }
 
+const MAX_SEARCH_QUERY_LENGTH = 50;
+
 /**
  * Registra un evento personalizado en Plausible si está disponible en el entorno del navegador.
  *
@@ -84,7 +86,7 @@ export function useAnalytics() {
      * @satisfies RF-18, RNF-06
      */
     const trackSearch = (query: string, resultCount: number): boolean => {
-        const queryLimpia = query.trim();
+        const queryLimpia = query.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
         if (!queryLimpia) return false;
         return trackEvent('search_query', {
             query: queryLimpia,

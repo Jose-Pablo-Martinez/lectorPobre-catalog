@@ -78,6 +78,15 @@ describe('useAnalytics', () => {
 
         const fallo = trackSearch('   ', 0);
         expect(fallo).toBe(false);
+
+        const consultaLarga = 'a'.repeat(80);
+        expect(trackSearch(consultaLarga, 1)).toBe(true);
+        expect(mockPlausible).toHaveBeenLastCalledWith('search_query', {
+            props: {
+                query: 'a'.repeat(50),
+                resultCount: 1,
+            },
+        });
     });
 
     it('trackRatingSubmitted registra calificación enviada de 1 a 5 (RF-06, RNF-06)', () => {

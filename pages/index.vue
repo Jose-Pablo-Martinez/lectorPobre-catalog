@@ -57,9 +57,19 @@ const {
 } = useCatalog();
 
 const { urlFor } = useSanityImage();
-const { addItem } = useCart();
+const { addItem, reconcileWithCatalog } = useCart();
 const { hasHistory } = useRecentlyViewed();
 const { trackSearch } = useAnalytics();
+
+watch(
+    productos,
+    (lista) => {
+        if (Array.isArray(lista) && lista.length > 0) {
+            reconcileWithCatalog(lista);
+        }
+    },
+    { immediate: true }
+);
 
 let timeoutBusqueda: ReturnType<typeof setTimeout> | null = null;
 watch(searchQuery, (nuevaQuery) => {

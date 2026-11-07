@@ -103,30 +103,35 @@ export const globalConfig = defineType({
             type: 'string',
             description: 'Ej: #3b82f6. Solo se usa cuando la paleta activa es "Personalizada".',
             hidden: ({ document }) => document?.paletaActiva !== 'custom',
+            validation: Rule => Rule.regex(/^#?[0-9a-fA-F]{3,8}$/, { name: 'color hexadecimal' }),
         }),
         defineField({
             name: 'paletaCustomSecundario',
             title: 'Color secundario (hex)',
             type: 'string',
             hidden: ({ document }) => document?.paletaActiva !== 'custom',
+            validation: Rule => Rule.regex(/^#?[0-9a-fA-F]{3,8}$/, { name: 'color hexadecimal' }),
         }),
         defineField({
             name: 'paletaCustomAcento',
             title: 'Color de acento (hex)',
             type: 'string',
             hidden: ({ document }) => document?.paletaActiva !== 'custom',
+            validation: Rule => Rule.regex(/^#?[0-9a-fA-F]{3,8}$/, { name: 'color hexadecimal' }),
         }),
         defineField({
             name: 'paletaCustomFondo',
             title: 'Color de fondo (hex)',
             type: 'string',
             hidden: ({ document }) => document?.paletaActiva !== 'custom',
+            validation: Rule => Rule.regex(/^#?[0-9a-fA-F]{3,8}$/, { name: 'color hexadecimal' }),
         }),
         defineField({
             name: 'paletaCustomTexto',
             title: 'Color de texto (hex)',
             type: 'string',
             hidden: ({ document }) => document?.paletaActiva !== 'custom',
+            validation: Rule => Rule.regex(/^#?[0-9a-fA-F]{3,8}$/, { name: 'color hexadecimal' }),
         }),
 
         // ── Variante visual + patrón decorativo (RF-16) ───────────────────────

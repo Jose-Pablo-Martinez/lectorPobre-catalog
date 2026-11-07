@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -62,7 +63,27 @@ function cleanBrokenDownloads(baseCacheDir) {
 
 function downloadArchive(url, tempFile, platform) {
     const curlBinary = platform === 'win32' ? 'curl.exe' : 'curl';
-    execSync(`${curlBinary} -L -o "${tempFile}" "${url}"`, { stdio: 'inherit' });
+    execSync(`${curlBinary} --proto "=https" --tlsv1.2 -sSfL -o "${tempFile}" "${url}"`, { stdio: 'inherit' });
+}
+
+function verifyArchiveSha256(url, tempFile, platform) {
+    const checksumFile = `${tempFile}.sha256`;
+    try {
+        downloadArchive(`${url}.sha256`, checksumFile, platform);
+        const expected = fs.readFileSync(checksumFile, 'utf8').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+        const actual = crypto.createHash('sha256').update(fs.readFileSync(tempFile)).digest('hex').toLowerCase();
+
+        if (!/^[a-f0-9]{64}$/.test(expected) || actual !== expected) {
+            if (fs.existsSync(tempFile)) {
+                fs.unlinkSync(tempFile);
+            }
+            throw new Error(`Checksum SHA-256 inválido para ${path.basename(tempFile)} (esperado: ${expected}, obtenido: ${actual})`);
+        }
+    } finally {
+        if (fs.existsSync(checksumFile)) {
+            fs.unlinkSync(checksumFile);
+        }
+    }
 }
 
 function extractArchive(tempFile, targetDir) {
@@ -104,6 +125,7 @@ async function main() {
 
     console.log(`[setup-vercel-go] Descargando Go desde ${url}...`);
     downloadArchive(url, tempFile, platform);
+    verifyArchiveSha256(url, tempFile, platform);
 
     console.log(`[setup-vercel-go] Extrayendo en ${targetDir}...`);
     fs.mkdirSync(targetDir, { recursive: true });

@@ -15,6 +15,10 @@ import type { Producto, SanityImage } from '~/types/sanity';
 
 export const CART_STORAGE_KEY = 'lectorpobre-carrito';
 
+const SLUG_OR_ID_RE = /^[\w-]{1,128}$/;
+const MAX_CART_QTY = 99;
+const MAX_CART_PRICE = 1_000_000;
+
 export interface CartItem {
     id: string;
     nombre: string;
@@ -52,14 +56,27 @@ export function obtenerClasesBotonPedido(
     return `bg-brand-primario text-white border-2 border-brand-texto dark:border-slate-400 ${shadowClass} hover:opacity-95 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none`;
 }
 
-function isValidCartItem(entry: unknown): entry is CartItem {
+export function isValidCartItem(entry: unknown): entry is CartItem {
     if (!entry || typeof entry !== 'object') return false;
     const candidate = entry as CartItem;
     return (
         typeof candidate.id === 'string' &&
+        SLUG_OR_ID_RE.test(candidate.id) &&
         typeof candidate.nombre === 'string' &&
-        typeof candidate.cantidad === 'number' &&
-        candidate.cantidad > 0
+        candidate.nombre.trim().length > 0 &&
+        candidate.nombre.length <= 200 &&
+        typeof candidate.slug === 'string' &&
+        SLUG_OR_ID_RE.test(candidate.slug) &&
+        typeof candidate.categoria === 'string' &&
+        candidate.categoria.length <= 100 &&
+        Number.isInteger(candidate.cantidad) &&
+        candidate.cantidad > 0 &&
+        candidate.cantidad <= MAX_CART_QTY &&
+        Number.isFinite(candidate.precio) &&
+        candidate.precio >= 0 &&
+        candidate.precio <= MAX_CART_PRICE &&
+        Number.isInteger(candidate.stockMax) &&
+        candidate.stockMax >= 1
     );
 }
 
@@ -108,19 +125,29 @@ export function useCart() {
         const existingIndex = cartItems.value.findIndex(
             (i) => i.id === producto._id
         );
-        const maxStock = Math.max(1, producto.stock);
+        const maxStock = Math.min(
+            MAX_CART_QTY,
+            Math.max(1, Math.floor(producto.stock))
+        );
+        const safeQty = Math.max(1, Math.floor(cantidad));
+        const safePrice =
+            typeof producto.precio === 'number' &&
+                Number.isFinite(producto.precio) &&
+                producto.precio >= 0
+                ? Math.min(MAX_CART_PRICE, producto.precio)
+                : 0;
 
         if (existingIndex >= 0) {
             const current = cartItems.value[existingIndex];
             if (current) {
-                const nextQty = Math.min(maxStock, current.cantidad + cantidad);
+                const nextQty = Math.min(maxStock, current.cantidad + safeQty);
                 cartItems.value[existingIndex] = {
                     ...current,
                     cantidad: nextQty,
                     stockMax: maxStock,
                     precio:
                         typeof producto.precio === 'number'
-                            ? producto.precio
+                            ? safePrice
                             : current.precio,
                 };
             }
@@ -130,9 +157,8 @@ export function useCart() {
                 nombre: producto.nombre,
                 slug: producto.slug?.current ?? producto._id,
                 categoria: producto.categoria?.nombre ?? 'General',
-                precio:
-                    typeof producto.precio === 'number' ? producto.precio : 0,
-                cantidad: Math.min(maxStock, cantidad),
+                precio: safePrice,
+                cantidad: Math.min(maxStock, safeQty),
                 stockMax: maxStock,
                 imagenPrincipal: producto.imagenPrincipal,
             });
@@ -140,6 +166,55 @@ export function useCart() {
 
         writeCartStorage(cartItems.value);
         return true;
+    };
+
+    /**
+     * Reconcilia los artículos almacenados en el carrito contra el catálogo vigente (V-08).
+     * Sustituye `precio`, `nombre`, `slug`, `categoria` y `stockMax` por los valores reales del catálogo
+     * y descarta productos eliminados, inactivos o agotados, impidiendo manipulación desde `localStorage`.
+     */
+    const reconcileWithCatalog = (catalogo: Producto[]): void => {
+        if (!Array.isArray(catalogo) || catalogo.length === 0 || cartItems.value.length === 0) {
+            return;
+        }
+
+        const catalogMap = new Map<string, Producto>();
+        for (const prod of catalogo) {
+            if (prod?._id && prod.activo !== false && prod.stock > 0) {
+                catalogMap.set(prod._id, prod);
+            }
+        }
+
+        const reconciled: CartItem[] = [];
+        for (const item of cartItems.value) {
+            const prod = catalogMap.get(item.id);
+            if (!prod) continue;
+
+            const maxStock = Math.min(
+                MAX_CART_QTY,
+                Math.max(1, Math.floor(prod.stock))
+            );
+            const safePrice =
+                typeof prod.precio === 'number' &&
+                    Number.isFinite(prod.precio) &&
+                    prod.precio >= 0
+                    ? Math.min(MAX_CART_PRICE, prod.precio)
+                    : 0;
+
+            reconciled.push({
+                id: prod._id,
+                nombre: prod.nombre,
+                slug: prod.slug?.current ?? prod._id,
+                categoria: prod.categoria?.nombre ?? item.categoria,
+                precio: safePrice,
+                cantidad: Math.min(maxStock, Math.max(1, Math.floor(item.cantidad))),
+                stockMax: maxStock,
+                imagenPrincipal: prod.imagenPrincipal ?? item.imagenPrincipal,
+            });
+        }
+
+        cartItems.value = reconciled;
+        writeCartStorage(cartItems.value);
     };
 
     const removeItem = (productId: string): void => {
@@ -204,6 +279,7 @@ export function useCart() {
         totalItems,
         totalAmount,
         hydrateCart,
+        reconcileWithCatalog,
         addItem,
         removeItem,
         updateQuantity,

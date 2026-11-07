@@ -58,4 +58,20 @@ describe('Sitemap XML (RF-20, RNF-02)', () => {
             globalThis.fetch = originalFetch;
         }
     });
+
+    it('M-2: buildSitemapXml codifica slugs y escapa caracteres especiales XML (&, <, >, ", \')', () => {
+        const xml = buildSitemapXml(
+            [
+                { slug: 'pin & sticker <edición>', _updatedAt: '2026-10-31T00:00:00Z' },
+                { slug: '   ' },
+            ],
+            'https://lectorpobre.com/',
+            '2026-10-31'
+        );
+
+        expect(xml).toContain(
+            '<loc>https://lectorpobre.com/product/pin%20%26%20sticker%20%3Cedici%C3%B3n%3E</loc>'
+        );
+        expect(xml).not.toContain('<edición>');
+    });
 });
