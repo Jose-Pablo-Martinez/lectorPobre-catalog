@@ -109,6 +109,12 @@ const caracteresRestantes = computed(
 );
 
 const cargarEstadoLocal = (): void => {
+    savedRating.value = null;
+    estrellaSeleccionada.value = 0;
+    savedComment.value = '';
+    textoComentario.value = '';
+    savedReviewId.value = undefined;
+
     if (!props.productoId) return;
     const stored = getStoredUserReview(props.productoId);
     if (stored?.rating && stored.rating >= 1 && stored.rating <= 5) {
@@ -127,6 +133,13 @@ const cargarEstadoLocal = (): void => {
 onMounted(() => {
     cargarEstadoLocal();
 });
+
+watch(
+    () => props.productoId,
+    () => {
+        cargarEstadoLocal();
+    }
+);
 
 // Comentarios reactivos locales sincronizados con props
 const comentariosLocales = ref<Comentario[]>([]);
@@ -193,7 +206,9 @@ const cambiaronEstrellas = computed(
 );
 
 const cambioComentario = computed(
-    () => comentarioLimpio.value !== savedComment.value.trim()
+    () =>
+        !comentarioVacio.value &&
+        comentarioLimpio.value !== savedComment.value.trim()
 );
 
 const sinCambios = computed(
@@ -320,6 +335,8 @@ const procesarEnvioRating = async (
     const valorPrevio = savedRating.value;
     savedRating.value = estrellaSeleccionada.value;
     reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
+    reviewData.updatedAt = new Date().toISOString();
+    saveStoredUserReview(props.productoId, reviewData);
     sincronizarComentarioLocal(estrellaSeleccionada.value);
     const mensajeRating = eraModificacion
         ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
@@ -354,10 +371,11 @@ const procesarEnvioComentario = async (
     reviewData: StoredUserReview,
     estrellasCambiaron = false
 ): Promise<boolean> => {
+    const textoEfectivo = comentarioLimpio.value || savedComment.value.trim();
     const debeEnviarComentario =
-        !comentarioVacio.value &&
+        textoEfectivo.length > 0 &&
         (cambioComentario.value ||
-            !savedComment.value ||
+            (!savedComment.value && !comentarioVacio.value) ||
             (estrellasCambiaron && Boolean(savedComment.value)));
     if (!debeEnviarComentario) {
         return true;
@@ -365,7 +383,7 @@ const procesarEnvioComentario = async (
 
     const resComment = await ejecutarFetchComment({
         productId: props.productoId,
-        text: comentarioLimpio.value,
+        text: textoEfectivo,
         rating: estrellaSeleccionada.value as StarRatingValue,
         userId,
     });
@@ -388,8 +406,11 @@ const procesarEnvioComentario = async (
     const soloCambiaronEstrellas =
         eraModificacion && !cambioComentario.value && estrellasCambiaron;
 
-    savedComment.value = comentarioLimpio.value;
-    reviewData.comment = comentarioLimpio.value;
+    savedComment.value = textoEfectivo;
+    if (!comentarioVacio.value) {
+        textoComentario.value = textoEfectivo;
+    }
+    reviewData.comment = textoEfectivo;
     sincronizarComentarioLocal(
         estrellaSeleccionada.value,
         soloCambiaronEstrellas ? undefined : 'pendiente'

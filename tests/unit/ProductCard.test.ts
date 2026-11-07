@@ -72,4 +72,26 @@ describe('UT-VUE-04 & UT-VUE-05: ProductCard.vue', () => {
         expect(addBtn.attributes('disabled')).toBeDefined();
         expect(addBtn.text()).toBe('Agotado');
     });
+
+    it('muestra retroalimentación "Stock máximo en carrito" cuando ya se alcanzó todo el stock disponible', async () => {
+        const wrapper = mount(ProductCard, {
+            props: {
+                producto: {
+                    ...BASE_PRODUCTO,
+                    _id: 'prod-card-stock-1',
+                    stock: 1,
+                },
+            },
+        });
+
+        const addBtn = wrapper.find('[data-testid="add-to-order-button"]');
+
+        // Primer clic agrega la única unidad disponible
+        await addBtn.trigger('click');
+        expect(addBtn.text()).toContain('Agregado a mi carrito');
+
+        // Segundo clic ya no puede agregar más y muestra retroalimentación de límite de stock
+        await addBtn.trigger('click');
+        expect(addBtn.text()).toContain('Stock máximo en carrito');
+    });
 });

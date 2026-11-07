@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
             <div class="flex-1 overflow-y-auto p-5 space-y-3">
                 <div
                     v-if="items.length === 0"
-                    class="py-12 px-4 text-center bg-white dark:bg-slate-850 rounded-xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-3"
+                    class="py-12 px-4 text-center bg-white dark:bg-slate-800/90 rounded-xl border border-zinc-200 dark:border-slate-700/80 shadow-sm space-y-3 transition-colors"
                     data-testid="cart-empty-state"
                 >
                     <ShoppingBag class="w-12 h-12 mx-auto text-zinc-400 dark:text-slate-500 stroke-[1.5]" aria-hidden="true" />

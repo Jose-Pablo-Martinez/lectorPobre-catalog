@@ -327,6 +327,11 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Reseña enviada');
         expect(wrapper.find('[data-testid="comment-submit-button"]').attributes('disabled')).toBeDefined();
 
+        // Si el usuario borra el textarea opcional sin cambiar estrellas, el botón permanece deshabilitado ("Reseña enviada")
+        await wrapper.find('[data-testid="comment-textarea"]').setValue('');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').text()).toContain('Reseña enviada');
+        expect(wrapper.find('[data-testid="comment-submit-button"]').attributes('disabled')).toBeDefined();
+
         // Ajuste de texto largo (break-words y contenedor sin desborde)
         expect(wrapper.find('[data-testid="comment-item"] p').classes()).toContain('break-words');
 
@@ -415,6 +420,13 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         addItem(prodValido, 1);
         removeItem('p-cart-1');
         expect(items.value).toHaveLength(0);
+        await wrapper.vm.$nextTick();
+
+        // Estado vacío del carrito usa fondo oscuro válido en Dark Mode (dark:bg-slate-800/90)
+        const emptyState = wrapper.find('[data-testid="cart-empty-state"]');
+        expect(emptyState.exists()).toBe(true);
+        expect(emptyState.classes()).toContain('dark:bg-slate-800/90');
+        expect(emptyState.classes()).not.toContain('dark:bg-slate-850');
 
         // useStock en tiempo real
         const stockState = useStock('p-cart-1', {
