@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_SYNONYM_GROUPS } from '../../composables/search/normalize';
+import { verificarIntegridadNumeroWhatsApp } from '../../composables/useWhatsApp';
 import type {
     SearchableCategory,
     SearchableProduct,
@@ -279,6 +280,7 @@ async function fetchCatalogFromSanity(): Promise<{
                 "slug": coalesce(slug.current, lower(nombre))
             },
             "config": *[_type == "configuracionGlobal"][0]{
+                numeroWhatsApp,
                 sinonimos[]{ terminos }
             }
         }`;
@@ -286,8 +288,15 @@ async function fetchCatalogFromSanity(): Promise<{
         const result = await client.fetch<{
             products?: ProductDocument[];
             categories?: SearchableCategory[];
-            config?: { sinonimos?: SynonymGroup[] } | null;
+            config?: { numeroWhatsApp?: string; sinonimos?: SynonymGroup[] } | null;
         }>(query);
+
+        if (result?.config) {
+            verificarIntegridadNumeroWhatsApp(
+                result.config.numeroWhatsApp,
+                env['EXPECTED_WHATSAPP_NUMBER']
+            );
+        }
 
         const products =
             (result?.products?.length ?? 0) > 0
@@ -303,7 +312,10 @@ async function fetchCatalogFromSanity(): Promise<{
                 : DEFAULT_SYNONYM_GROUPS;
 
         return { products, categories, synonyms };
-    } catch {
+    } catch (err) {
+        if (err instanceof Error && err.message.startsWith('[V-07 SEGURIDAD]')) {
+            throw err;
+        }
         return getFallbackCatalogBundle();
     }
 }

@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
 import {
     construirUrlWhatsApp,
     construirUrlWhatsAppCarrito,
+    sanitizarNumeroWhatsApp,
+    verificarIntegridadNumeroWhatsApp,
 } from '~/composables/useWhatsApp';
 import ProductDetailPage from '~/pages/product/[slug].vue';
 import type { Producto } from '~/types/sanity';
@@ -125,5 +127,34 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
 
         // El promedio se recalculó a 1.0
         expect(wrapper.find('[data-testid="rating-average"]').text()).toBe("1.0");
+    });
+
+    it('V-07: sanitizarNumeroWhatsApp exige entre 10 y 15 dígitos y verificarIntegridadNumeroWhatsApp detecta cambios no autorizados', () => {
+        expect(sanitizarNumeroWhatsApp('+52 (999) 123-4567')).toBe('529991234567');
+        expect(sanitizarNumeroWhatsApp('9991234567')).toBe('9991234567'); // 10 dígitos
+        expect(sanitizarNumeroWhatsApp('123456789012345')).toBe('123456789012345'); // 15 dígitos
+
+        // Números fuera de rango (<10 o >15 dígitos) se descartan devolviendo ''
+        expect(sanitizarNumeroWhatsApp('12345')).toBe('');
+        expect(sanitizarNumeroWhatsApp('1234567890123456')).toBe('');
+        expect(sanitizarNumeroWhatsApp('')).toBe('');
+
+        // Cuando el número es inválido (<10 dígitos), construirUrlWhatsApp usa el fallback sin número
+        const urlConNumeroCorto = construirUrlWhatsApp('123', 'Llavero Gato');
+        expect(urlConNumeroCorto.startsWith('https://wa.me/?text=')).toBe(true);
+
+        // Verificación de integridad en prebuild (EXPECTED_WHATSAPP_NUMBER)
+        expect(() => verificarIntegridadNumeroWhatsApp('5219991234567', undefined)).not.toThrow();
+        expect(() => verificarIntegridadNumeroWhatsApp('5219991234567', '   ')).not.toThrow();
+        expect(() =>
+            verificarIntegridadNumeroWhatsApp('+52 1 999 123 4567', '5219991234567')
+        ).not.toThrow();
+
+        expect(() =>
+            verificarIntegridadNumeroWhatsApp('5215559998888', '5219991234567')
+        ).toThrow(/\[V-07 SEGURIDAD\]/);
+        expect(() => verificarIntegridadNumeroWhatsApp('', '5219991234567')).toThrow(
+            /\[V-07 SEGURIDAD\]/
+        );
     });
 });
