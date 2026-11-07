@@ -24,7 +24,7 @@ func getSanitySearcher() (sanity.Searcher, error) {
 	if defaultSanitySearcher != nil {
 		return defaultSanitySearcher, nil
 	}
-	return sanity.NewClient()
+	return sanity.NewPublicClient()
 }
 
 // Handler procesa la solicitud de búsqueda de productos.

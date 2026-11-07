@@ -14,9 +14,15 @@ import PrimaryButton from '~/components/PrimaryButton.vue';
 import StarRating from '~/components/StarRating.vue';
 import StockIndicator from '~/components/StockIndicator.vue';
 import WhatsAppButton from '~/components/WhatsAppButton.vue';
-import { useCart } from '~/composables/useCart';
+import { CART_STORAGE_KEY, isValidCartItem, useCart } from '~/composables/useCart';
+import { PUBLIC_COMMENTS_GROQ_FIELDS } from '~/composables/useCatalog';
 import { useComment } from '~/composables/useComment';
 import { useRating } from '~/composables/useRating';
+import {
+    getOrCreateUserId,
+    getStoredUserReview,
+    saveStoredUserReview,
+} from '~/composables/useReviewStorage';
 import { buildSanityImageUrl, useSanityImage } from '~/composables/useSanityImage';
 import { useStock } from '~/composables/useStock';
 import { useWhatsApp } from '~/composables/useWhatsApp';
@@ -75,6 +81,16 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         });
         expect(disabled.find('[data-testid="whatsapp-button-disabled"]').exists()).toBe(true);
         expect(disabled.text()).toBe('Agotado');
+
+        // V-06: Un href con esquema javascript: o dominio ajeno a wa.me se bloquea y no renderiza <a>
+        const unsafeHref = mount(WhatsAppButton, {
+            props: {
+                href: 'javascript:alert(document.domain)',
+                disabled: false,
+            },
+        });
+        expect(unsafeHref.find('[data-testid="whatsapp-button"]').exists()).toBe(false);
+        expect(unsafeHref.find('[data-testid="whatsapp-button-disabled"]').exists()).toBe(true);
 
         const { construirUrlWhatsApp, construirUrlWhatsAppCarrito } = useWhatsApp();
         const urlSinVariable = construirUrlWhatsApp(
@@ -462,5 +478,186 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
         await flushPromises();
         expect(wrapper.find('[data-testid="rating-success-message"]').exists()).toBe(false);
         vi.useRealTimers();
+    });
+
+    it('V-01: proyección pública GROQ no incluye usuarioId y CommentForm sincroniza mediante reviewId opaco', async () => {
+        expect(PUBLIC_COMMENTS_GROQ_FIELDS).not.toContain('usuarioId');
+
+        const uid1 = getOrCreateUserId();
+        const uid2 = getOrCreateUserId();
+        expect(uid1).toBe(uid2);
+        expect(uid1.length).toBeGreaterThanOrEqual(20);
+
+        // Probar fallback de getOrCreateUserId cuando randomUUID no está disponible
+        globalThis.localStorage.clear();
+        const spyUuid = vi
+            .spyOn(globalThis.crypto, 'randomUUID')
+            .mockReturnValue(undefined as unknown as `${string}-${string}-${string}-${string}-${string}`);
+        const fallbackUid = getOrCreateUserId();
+        expect(fallbackUid.startsWith('usr_')).toBe(true);
+        spyUuid.mockRestore();
+
+        // Guardar reseña previa con reviewId opaco y verificar sincronización local
+        const opaqueReviewId = 'comentario-prod-v01-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
+        saveStoredUserReview('prod-v01', {
+            rating: 5,
+            comment: 'Comentario aprobado propio',
+            reviewId: opaqueReviewId,
+        });
+        expect(getStoredUserReview('prod-v01')?.reviewId).toBe(opaqueReviewId);
+
+        const mockRatingFetcher = vi.fn().mockResolvedValue({
+            ok: true,
+            data: { reviewId: 'calificacion-prod-v01-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4' },
+        });
+        const mockCommentFetcher = vi.fn().mockResolvedValue({
+            ok: true,
+            data: { reviewId: opaqueReviewId },
+        });
+
+        const wrapper = mount(CommentForm, {
+            props: {
+                productoId: 'prod-v01',
+                comentarios: [
+                    {
+                        _id: opaqueReviewId,
+                        _type: 'comentario',
+                        _createdAt: '2026-09-01T10:00:00Z',
+                        _updatedAt: '2026-09-01T10:00:00Z',
+                        _rev: '1',
+                        texto: 'Comentario aprobado propio',
+                        calificacion: 5,
+                        producto: { _type: 'reference', _ref: 'prod-v01' },
+                        fechaCreacion: '2026-09-01T10:00:00Z',
+                        estado: 'aprobado',
+                    },
+                ],
+                ratingFetcher: mockRatingFetcher,
+                commentFetcher: mockCommentFetcher,
+            },
+        });
+
+        await wrapper.find('[data-testid="star-select-button-3"]').trigger('click');
+        await wrapper.find('[data-testid="comment-form"]').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(mockCommentFetcher).toHaveBeenCalled();
+        expect(getStoredUserReview('prod-v01')?.reviewId).toBe(opaqueReviewId);
+    });
+
+    it('V-08: isValidCartItem y reconcileWithCatalog bloquean precios/cantidades manipulados en localStorage', () => {
+        const { hydrateCart, reconcileWithCatalog, items, totalAmount } = useCart();
+
+        // 1. Validación estricta de estructura al hidratar desde localStorage
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 85,
+                cantidad: 2,
+                stockMax: 5,
+            })
+        ).toBe(true);
+
+        // Rechazar precios negativos/NaN, cantidades fraccionarias o >99, IDs con caracteres inválidos
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: -10,
+                cantidad: 1,
+                stockMax: 5,
+            })
+        ).toBe(false);
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 50,
+                cantidad: 150,
+                stockMax: 200,
+            })
+        ).toBe(false);
+        expect(
+            isValidCartItem({
+                id: 'prod/../../bad',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 50,
+                cantidad: 1,
+                stockMax: 5,
+            })
+        ).toBe(false);
+
+        // 2. Reconciliación con el catálogo vigente sobrescribe precios adulterados y descarta inactivos/agotados
+        globalThis.localStorage.setItem(
+            CART_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: 'prod-real-1',
+                    nombre: 'Nombre Adulterado',
+                    slug: 'slug-adulterado',
+                    categoria: 'Pines',
+                    precio: 1, // Adulterado en localStorage ($1.00 en lugar de $120.00)
+                    cantidad: 10, // Excede stock real (3)
+                    stockMax: 50,
+                },
+                {
+                    id: 'prod-inactivo',
+                    nombre: 'Producto Descontinuado',
+                    slug: 'prod-inactivo',
+                    categoria: 'Pines',
+                    precio: 50,
+                    cantidad: 1,
+                    stockMax: 5,
+                },
+            ])
+        );
+
+        hydrateCart();
+        expect(items.value).toHaveLength(2);
+
+        reconcileWithCatalog([
+            {
+                _id: 'prod-real-1',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Llavero Totoro Original',
+                slug: { _type: 'slug', current: 'llavero-totoro-original' },
+                categoria: { nombre: 'Llaveros', slug: { _type: 'slug', current: 'llaveros' } },
+                precio: 120,
+                stock: 3,
+                activo: true,
+            },
+            {
+                _id: 'prod-inactivo',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Producto Descontinuado',
+                slug: { _type: 'slug', current: 'prod-inactivo' },
+                categoria: { nombre: 'Pines', slug: { _type: 'slug', current: 'pines' } },
+                precio: 50,
+                stock: 5,
+                activo: false,
+            },
+        ]);
+
+        expect(items.value).toHaveLength(1);
+        expect(items.value[0]?.nombre).toBe('Llavero Totoro Original');
+        expect(items.value[0]?.precio).toBe(120);
+        expect(items.value[0]?.cantidad).toBe(3);
+        expect(items.value[0]?.stockMax).toBe(3);
+        expect(totalAmount.value).toBe(360);
     });
 });

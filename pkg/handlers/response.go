@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -13,8 +14,9 @@ import (
 )
 
 const (
-	errInternalMsg  = "error interno"
-	applicationJSON = "application/json"
+	errInternalMsg       = "error interno"
+	applicationJSON      = "application/json"
+	maxMutationBodyBytes = 8 << 10 // 8 KB: suficiente para comentarios/calificaciones legítimos (V-09)
 )
 
 // SendJSON escribe una respuesta ApiResponse en formato JSON con el código HTTP correspondiente.
@@ -75,6 +77,7 @@ type MutationConfig[T any] struct {
 	Validate    func(payload T) error
 	ErrorCode   string
 	Execute     func(ctx context.Context, payload T) error
+	ResultData  func(payload T) any
 }
 
 // ExecuteMutation ejecuta el ciclo estándar de una función serverless de mutación POST en Sanity:
@@ -102,8 +105,14 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxMutationBodyBytes)
 	payload, err := cfg.Decode(r)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			SendError(w, http.StatusRequestEntityTooLarge, "carga útil demasiado grande", constants.ErrCodes.InvalidPayload)
+			return
+		}
 		SendError(w, http.StatusBadRequest, "payload inválido", constants.ErrCodes.InvalidPayload)
 		return
 	}
@@ -118,10 +127,18 @@ func ExecuteMutation[T any](w http.ResponseWriter, r *http.Request, cfg Mutation
 	}
 
 	if err := cfg.Execute(r.Context(), payload); err != nil {
+		if errors.Is(err, ErrProductNotFound) || errors.Is(err, ErrUserIDRequired) {
+			SendError(w, http.StatusBadRequest, err.Error(), constants.ErrCodes.InvalidPayload)
+			return
+		}
 		log.Printf("[ERROR] %s: error en ejecución de mutación: %v", cfg.HandlerName, err)
 		SendInternalError(w)
 		return
 	}
 
-	SendSuccess(w, http.StatusCreated, nil)
+	var data any
+	if cfg.ResultData != nil {
+		data = cfg.ResultData(payload)
+	}
+	SendSuccess(w, http.StatusCreated, data)
 }

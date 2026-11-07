@@ -163,8 +163,6 @@ export interface Comentario extends SanityDocument {
     texto: string;
     /** Calificación por estrellas (1–5) asociada al comentario. */
     calificacion?: number;
-    /** Identificador anónimo del usuario/dispositivo para garantizar unicidad por producto. */
-    usuarioId?: string;
     /** Referencia cruda al producto padre. Desreferenciada con `producto->` en GROQ cuando se requiere. */
     producto: { _type: 'reference'; _ref: string };
     fechaCreacion?: string;

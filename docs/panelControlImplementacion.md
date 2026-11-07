@@ -146,20 +146,21 @@ lectorPobre/
 |---|---|---|
 | `NUXT_PUBLIC_SANITY_PROJECT_ID` | All | ID del proyecto Sanity |
 | `NUXT_PUBLIC_SANITY_DATASET` | Production / Preview | `production` / `staging` |
-| `SANITY_ADMIN_WRITE_TOKEN` | All | Token de escritura exclusivo del panel |
+| `SANITY_ADMIN_WRITE_TOKEN` | All | Token de escritura exclusivo del panel (nunca compartido con `SANITY_REVIEWS_TOKEN` de la tienda — `V-10`) |
 | `ADMIN_USER` | All | Nombre de usuario del administrador |
-| `ADMIN_PASSWORD_HASH` | All | Hash bcrypt |
-| `ADMIN_JWT_SECRET` | All | Secreto del JWT |
+| `ADMIN_PASSWORD_HASH` | All | Hash bcrypt (costo ≥ 12) |
+| `ADMIN_JWT_SECRET` | All | Secreto del JWT (≥ 32 bytes CSPRNG en hex/base64) |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | All | Vercel KV |
 | `STORE_REBUILD_HOOK_URL` | Production | Deploy Hook de la tienda |
-| `ALLOWED_ORIGIN` | Production | `https://admin.lectorpobre.com` |
+| `ALLOWED_ORIGIN` | Production / Preview | `https://admin.lectorpobre.com` (prohibido usar `*`; en Preview usar origen exacto o validación estricta `https://*-*.vercel.app` — `V-09`) |
 
-### P0.3 Verificación
+### P0.3 Verificación y Controles de Seguridad
 
 - [ ] Subdominio resuelve y sirve HTTPS válido
-- [ ] Proyecto Vercel del panel separado del de la tienda
-- [ ] Token del panel distinto al de la tienda; ninguno aparece en el repositorio
-- [ ] KV accesible desde una función de prueba
+- [ ] Proyecto Vercel del panel separado del de la tienda y con **Vercel Authentication (Deployment Protection)** activo en entornos Preview (`M-9`)
+- [ ] Token `SANITY_ADMIN_WRITE_TOKEN` distinto a `SANITY_REVIEWS_TOKEN` de la tienda; ninguno aparece en el repositorio ni en variables `NUXT_PUBLIC_*` (`V-10`)
+- [ ] `ADMIN_JWT_SECRET` generado con CSPRNG (≥ 32 bytes) y `ALLOWED_ORIGIN` sin comodines `*` en producción (`V-09`)
+- [ ] KV accesible desde una función de prueba con credenciales exclusivas de servidor
 
 ---
 
@@ -174,17 +175,18 @@ lectorPobre/
 1. Crear `admin/` con Nuxt 3 + TypeScript + Tailwind, reutilizando `tailwind.config.ts` y los tipos de `types/sanity.ts` (vía alias de workspace).
 2. Actualizar `pnpm-workspace.yaml` con `admin/` y `admin-api/`.
 3. Decidir el destino de los stubs de la Fase 1 de la tienda y retirarlos del `ignore` de `nuxt.config.ts` solo si permanecen en el proyecto de la tienda (ver [Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/Solucion_Error_Vite_EPIPE_Optimizacion_Watcher.md)).
-4. Cabeceras globales: `X-Robots-Tag: noindex, nofollow`, CSP estricta, `Referrer-Policy: no-referrer`.
-5. `robots.txt` del panel con `Disallow: /` y **sin** mencionar rutas.
-6. GitHub Actions: lint, typecheck, pruebas unitarias del panel; Preview de Vercel por PR.
+4. Cabeceras globales en `admin/vercel.json`: `X-Robots-Tag: noindex, nofollow`, CSP estricta (`default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'`), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` y `Cache-Control: no-store` en `/api/(.*)` (`V-13`).
+5. `robots.txt` del panel con `Disallow: /` y **sin** mencionar rutas; mantener en el `.vercelignore` de la tienda pública la exclusión de `admin/`, `admin-api/` y `api/auth` para evitar exponer rutas administrativas en el dominio de clientes (`V-12`).
+6. GitHub Actions: lint, typecheck, pruebas unitarias del panel; fijar versiones exactas de dependencias críticas, declarar `permissions: contents: read` y verificar `SHA-256` de cualquier binario descargado en CI (`V-14`).
 7. Saneamiento de constantes globales: depurar `pkg/constants/errorcodes.go` agregando los códigos de error requeridos por el panel administrativo (`TokenExpired`, `TokenRevoked`, `Forbidden`, `RevConflict`) y retirar el comentario preventivo `TODO` de la Fase 5 ([SonarCloud `AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
-### P1.2 Verificación
+### P1.2 Verificación y Controles de Seguridad
 
 - [ ] `pnpm --filter admin dev` levanta el panel en un puerto distinto a la tienda
 - [ ] Build del panel sin errores y sin importar código de la tienda pública
-- [ ] El bundle de la tienda **no contiene** ninguna referencia al panel (`grep` de CI)
-- [ ] CI del panel en verde
+- [ ] El bundle y el despliegue de la tienda pública **no contienen** ninguna referencia al panel ni exponen `/api/auth/*` o `/api/admin/*` (`grep` de CI + `.vercelignore` — `V-12`)
+- [ ] Cabeceras `Cache-Control: no-store` en `/api/*` y `frame-ancestors 'none'` verificadas (`V-13`)
+- [ ] CI del panel en verde con permisos mínimos y verificación de integridad SHA-256 (`V-14`)
 - [ ] Commit: `feat(admin): scaffold control panel app with isolated deployment`
 
 ---
@@ -197,23 +199,27 @@ lectorPobre/
 
 ### P2.1 Login (RF-08) — `POST /api/auth/login`
 
-1. Recibe `{ usuario, password }`.
-2. Compara contra `ADMIN_USER` y `ADMIN_PASSWORD_HASH` con `bcrypt.CompareHashAndPassword` (comparación en tiempo constante, mismo tiempo de respuesta si el usuario no existe).
-3. Genera JWT (HS256) con `jti`, `sub`, `exp` = 8 h, firmado con `ADMIN_JWT_SECRET`.
-4. Lo entrega en **cookie** `httpOnly; Secure; SameSite=Strict; Path=/`.
+1. Recibe `{ usuario, password }` limitando el body a `8 KB` (`http.MaxBytesReader`) con `DisallowUnknownFields()` y rechazando contraseñas de más de 72 bytes (límite de `bcrypt` para prevenir truncamiento o DoS criptográfico — `V-09`).
+2. Compara `usuario` contra `ADMIN_USER` con `subtle.ConstantTimeCompare` y valida siempre `password` con `bcrypt.CompareHashAndPassword` contra `ADMIN_PASSWORD_HASH` (o contra un hash bcrypt dummy precomputado si el usuario no coincide), garantizando tiempo de respuesta idéntico y evitando enumeración de usuario por *timing attack*.
+3. Genera JWT (`HS256`) con `jti` (UUID v4 criptográfico), `sub`, `iss: "lectorpobre-admin"`, `aud: "lectorpobre-admin-api"`, `iat` y `exp` = 8 h, firmado con `ADMIN_JWT_SECRET` (fallando cerrado si el secreto tiene menos de 32 bytes — `V-01`).
+4. Lo entrega en **cookie** `__Host-admin_session` con atributos `HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=28800`.
 5. Error: `{ ok: false, error: "credenciales inválidas" }` genérico, **sin revelar si el usuario existe**.
-6. **Bloqueo por intentos:** tras 5 fallos por IP/ventana de 15 min responde 429 (contador en KV).
+6. **Bloqueo por intentos:** tras 5 fallos por IP (leída exclusivamente de `X-Vercel-Forwarded-For`, nunca de `X-Forwarded-For` manipulable — `V-09`) o tras 15 fallos globales sobre la cuenta en ventana de 15 min, responde 429 (contador atómico en KV).
 7. **Resolución SonarCloud:** Reemplaza el stub de `api/auth/login.go` y elimina el comentario `TODO(RF-08)` ([SonarCloud `AaFemq538vtWdHVNHwwq`](https://sonarcloud.io/project/issues?open=AaFemq538vtWdHVNHwwq&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P2.2 Logout (RF-09) — `POST /api/auth/logout`
 
-1. Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la cookie. Toda petición posterior con ese token es rechazada (401).
+1. Inserta el `jti` en KV con TTL igual al tiempo restante del token y borra la cookie (`Max-Age=-1`). Toda petición posterior con ese token es rechazada (401). Si la escritura en KV falla, responde 500 sin confirmar cierre falso.
 2. **Resolución SonarCloud:** Reemplaza el stub de `api/auth/logout/logout.go` y elimina el comentario `TODO(RF-09)` ([SonarCloud `AaFemq398vtWdHVNHwwi`](https://sonarcloud.io/project/issues?open=AaFemq398vtWdHVNHwwi&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P2.3 Middleware (RF-10)
 
 - **Nuxt (UX):** redirige a `/login` si no hay sesión.
-- **Go (seguridad real):** `RequireAdmin` valida firma, expiración y lista negra en **cada** función `/api/admin/*`.
+- **Go (seguridad real):** `RequireAdmin` valida en **cada** función `/api/admin/*`:
+  1. Algoritmo de firma restringido estrictamente a `HS256` (`jwt.WithValidMethods([]string{"HS256"})`) para bloquear ataques de confusión de algoritmo (`alg: none`).
+  2. Claims obligatorios (`exp`, `iss`, `aud`, `jti`) y ausencia del `jti` en la denylist de KV (**política Fail-Closed**: si KV no responde o da error, se rechaza el acceso con 503/401, nunca se permite por defecto).
+  3. Verificación CSRF en métodos de mutación (`POST`, `PATCH`, `DELETE`): la cabecera `Origin` debe estar presente y coincidir exactamente con `ALLOWED_ORIGIN`.
+  4. Prohibido incluir banderas o cabeceras de bypass de autenticación para entornos de prueba o desarrollo.
 - **Ocultamiento:** las rutas protegidas responden **404** (no 401/redirect revelador) a visitantes sin cookie válida; solo `/login` es visible y no se indexa.
 
 ### P2.4 Tests (Modelo en V)
@@ -224,13 +230,14 @@ lectorPobre/
 | P2.2 logout | PC-UT-04 (JTI en lista negra), PC-IT-01 (token invalidado devuelve 401) | nuevos |
 | P2.3 middleware | ST-20 (`/admin` sin token), ST-21 (JWT expirado), PC-SEC-01 (rutas protegidas devuelven 404 a anónimos) | VyV §5.6 + nuevos |
 
-### P2.5 Verificación
+### P2.5 Verificación y Controles de Seguridad
 
-- [ ] Login correcto emite cookie `httpOnly` y entra al panel (UAT-11)
-- [ ] Credenciales incorrectas: mensaje genérico (RF-08)
-- [ ] Logout invalida el token de inmediato (RF-09)
-- [ ] Acceso sin sesión no revela el panel (RF-10, NF-10)
-- [ ] El JWT expira a las 8 h
+- [ ] Login correcto emite cookie `__Host-admin_session` (`HttpOnly; Secure; SameSite=Strict`) y entra al panel (UAT-11)
+- [ ] Credenciales incorrectas o usuario inexistente tardan el mismo tiempo (sin *timing leak*) y devuelven mensaje genérico (RF-08)
+- [ ] Tokens con `alg: none` o algoritmo distinto a `HS256` son rechazados inmediatamente
+- [ ] Logout invalida el token de inmediato en KV y si KV falla el middleware aplica *Fail-Closed* (RF-09)
+- [ ] Peticiones `POST/PATCH/DELETE` con `Origin` distinto a `ALLOWED_ORIGIN` son bloqueadas con 403 (anti-CSRF)
+- [ ] Acceso sin sesión no revela el panel (RF-10, NF-10) y el JWT expira a las 8 h
 - [ ] Eliminados los comentarios TODO de autenticación en `login.go` y `logout.go` (cerrando issues de SonarCloud `AaFemq538vtWdHVNHwwq` y `AaFemq398vtWdHVNHwwi`)
 - [ ] Commit: `feat(auth): implement admin login/logout with JWT, KV blacklist and protected routes [RF-08, RF-09, RF-10, RNF-04]`
 
@@ -245,10 +252,13 @@ lectorPobre/
 ### P3.1 Tareas
 
 1. Cliente Sanity en Go (`pkg/sanity`) que usa **solo** `SANITY_ADMIN_WRITE_TOKEN`; el token nunca se expone al navegador.
-2. Validación de esquema de entrada en cada endpoint (tipos, longitudes, whitelist de campos); rechazar campos desconocidos.
-3. Middleware global: CORS restringido a `ALLOWED_ORIGIN`, rate limiting, límite de tamaño de body, registro sin datos sensibles.
-4. Tras cada mutación exitosa: llamar a `STORE_REBUILD_HOOK_URL` (con debounce para agrupar ediciones en lote).
-5. Manejo de conflictos: usar `_rev` para concurrencia optimista y devolver 409 si cambió.
+2. **Prevención de inyección GROQ y Mass Assignment:**
+   - **Prohibido concatenar strings en consultas GROQ** (equivalente a inyección SQL en Sanity). Toda consulta o filtro dinámico debe usar exclusivamente parámetros tipados (`$id`, `$slug`, `$estado`) en el mapa `params`, y los campos de ordenamiento deben validarse contra una lista blanca cerrada en Go (`M-3`).
+   - Deserializar cuerpos JSON con `json.Decoder` + `DisallowUnknownFields()` sobre structs tipados en un solo idioma canónico (evitando ambigüedad de parámetros — `M-5`). Nunca reenviar `map[string]any` crudos del cliente a Sanity ni permitir que el cliente modifique `_type`, `_id` reservado (`global-config` fuera de `/api/admin/config`) o contadores calculados (`ratingSum`, `ratingCount`).
+   - Verificar en servidor que el `_id` objetivo cumpla `^[A-Za-z0-9_-]{1,100}$` y corresponda al `_type` esperado antes de aplicar `patch` o `delete` (`V-03`).
+3. Middleware global: CORS restringido estrictamente a `ALLOWED_ORIGIN` con `Vary: Origin`, rate limiting por acción usando `X-Vercel-Forwarded-For`, límite de tamaño de body (`http.MaxBytesReader`: 64 KB para JSON de catálogo, 5 MB solo en subida de imágenes), y mensajes de error genéricos sin filtrar detalles internos de GROQ o stack traces (`V-09`, `M-3`).
+4. Tras cada mutación exitosa: llamar a `STORE_REBUILD_HOOK_URL` (desde servidor con timeout de 8 s, nunca recibiendo la URL por parámetro del cliente para evitar SSRF, y con cooldown/debounce de 5 min para agrupar ediciones en lote — `V-04`, `V-11`).
+5. Manejo de conflictos: exigir `ifRevisionID` (`_rev`) en mutaciones de edición para concurrencia optimista y devolver 409 si cambió, evitando sobrescrituras silenciosas ante fallos de lectura (`M-6`).
 6. Consolidar `pkg/constants/errorcodes.go` y su contraparte en TypeScript asegurando que no existan `TODO`s abiertos en SonarCloud ([SonarCloud `AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog)).
 
 ### P3.2 Endpoints
@@ -270,11 +280,13 @@ lectorPobre/
 - PC-IT-02..PC-IT-06: integración contra dataset `staging` (crear/editar/eliminar y verificar en Sanity).
 - PC-SEC-02: el token de Sanity no aparece en ninguna respuesta ni log.
 
-### P3.4 Verificación
+### P3.4 Verificación y Controles de Seguridad
 
-- [ ] Todos los endpoints `/api/admin/*` devuelven 401 sin JWT válido
-- [ ] CORS solo permite el origen del panel
-- [ ] Mutaciones reflejadas en Sanity y disparan rebuild de la tienda (< 5 min)
+- [ ] Todos los endpoints `/api/admin/*` devuelven 401/404 sin JWT válido
+- [ ] Cero concatenación de strings en consultas GROQ (100% parametrizadas con `$params`) y validación de `_type` previa a cualquier `patch`/`delete` (`V-03`)
+- [ ] `DisallowUnknownFields()` activo en todos los decoders JSON para impedir *Mass Assignment* (`M-5`)
+- [ ] CORS solo permite `ALLOWED_ORIGIN` y `STORE_REBUILD_HOOK_URL` aplica cooldown anti-DoS de 5 min (`V-04`, `V-09`)
+- [ ] Mutaciones reflejadas en Sanity con control de revisión `ifRevisionID` (`_rev`) y disparan rebuild de la tienda (< 5 min)
 - [ ] Códigos de error centralizados y saneados en `pkg/constants/errorcodes.go` sin TODOs pendientes
 - [ ] Commit: `feat(admin-api): add secured admin API layer over Sanity mutations [RF-11..RF-14, RNF-04]`
 
@@ -286,24 +298,25 @@ lectorPobre/
 
 **Satisface:** RF-11, RF-12, RF-13, RF-14
 
-### P4.1 Pantallas
+### P4.1 Pantallas y Reglas de Seguridad de Entrada
 
-1. **Productos:** tabla con búsqueda, filtros (categoría, estado, stock) y paginación; formulario de creación/edición con validación y vista previa de cómo se verá en la tienda.
-2. **Imágenes:** subida con previsualización, recorte/hotspot básico, texto alternativo obligatorio (accesibilidad), reordenar galería.
-3. **Categorías:** CRUD con reordenamiento.
-4. **Stock:** edición rápida en línea, indicador de bajo stock configurable, historial opcional de ajustes.
+1. **Productos:** tabla con búsqueda, filtros (categoría, estado, stock) y paginación; formulario de creación/edición con validación y vista previa de cómo se verá en la tienda. Validar en servidor `slug` con regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (evitando caracteres que rompan rutas o el sitemap XML — `M-2`) y `precio` numérico finito `>= 0` (`V-08`).
+2. **Imágenes:** subida con previsualización, recorte/hotspot básico, texto alternativo obligatorio (accesibilidad), reordenar galería. **Seguridad de archivos (`POST /api/admin/imagenes`):** validar *magic bytes* en servidor con `http.DetectContentType` permitiendo únicamente `image/jpeg`, `image/png`, `image/webp` e `image/avif` (rechazar explícitamente `image/svg+xml` y HTML para prevenir Stored XSS), limitar tamaño a 5 MB y generar nombres de asset sanitizados sin usar rutas del cliente.
+3. **Categorías:** CRUD con reordenamiento; impedir eliminar una categoría que aún tenga productos referenciados sin reasignación previa.
+4. **Stock:** edición rápida en línea, indicador de bajo stock configurable, historial opcional de ajustes; validar en servidor que `stock` sea entero en rango `[0, 99999]`.
 5. Confirmación explícita al eliminar y estado "borrador/publicado".
 
 ### P4.2 Tests
 
 - PC-ST-01..PC-ST-06: flujos E2E (crear, editar, subir imagen, ajustar stock, eliminar).
+- PC-SEC-03: rechazo de subida de archivos `.svg`/`.html` renombrados como `.png` y rechazo de slugs con caracteres especiales o precios negativos.
 - UAT-12..UAT-15 (VyV §6.1.4) se **re-validan** en el panel propio.
 
-### P4.3 Verificación
+### P4.3 Verificación y Controles de Seguridad
 
 - [ ] CRUD de productos funciona de punta a punta y se refleja en la tienda
-- [ ] Imagen subida aparece optimizada en la tienda
-- [ ] Stock editable y visible (RF-14)
+- [ ] Subida de imágenes verifica *magic bytes* en servidor, bloquea SVG/scripts y aplica límite de 5 MB
+- [ ] Slugs, precios y stock validados en backend contra valores negativos, `NaN` o caracteres fuera de formato (`V-08`, `M-2`)
 - [ ] Equivalencia funcional con Sanity Studio verificada con una matriz comparativa
 - [ ] Commit: `feat(admin): catalog management screens for products, images, categories and stock [RF-11..RF-14]`
 
@@ -315,24 +328,30 @@ lectorPobre/
 
 **Satisface:** RF-15, RF-16, RF-17, RF-05, RF-06, RF-07
 
-### P5.1 Pantallas
+### P5.1 Pantallas y Controles de Integridad
 
-1. **Paleta (RF-15):** selector con vista previa en vivo y validación de contraste WCAG antes de guardar.
-2. **Variantes visuales (RF-16):** selección entre las variantes definidas.
-3. **Contacto y redes (RF-17, RF-05):** número de WhatsApp (formato validado), enlaces de redes (Instagram, Facebook, YouTube, etc.).
-4. **Búsqueda:** administración de sinónimos del motor de búsqueda.
-5. **Moderación:** bandeja de comentarios pendientes con aprobar/rechazar/eliminar, y vista de calificaciones.
+1. **Paleta (RF-15):** selector con vista previa en vivo y validación de contraste WCAG antes de guardar. **Defensa anti-inyección CSS (`V-05`):** el backend Go debe validar cada color con regex estricta `^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$` (o `rgb/hsl` puros sin `{ } ; : < > \ " '`) antes de persistir en `global-config`.
+2. **Variantes visuales (RF-16):** selección restringida en backend a la lista blanca cerrada de variantes definidas.
+3. **Contacto y redes (RF-17, RF-05):**
+   - Validar en backend que `numeroWhatsApp` contenga únicamente de 10 a 15 dígitos y alertar al administrador si debe actualizar `EXPECTED_WHATSAPP_NUMBER` en el entorno de la tienda (`V-07`).
+   - Validar en backend que todos los enlaces de redes sociales usen esquema `https://` y no contengan esquemas peligrosos (`javascript:`, `data:`, `vbscript:` — `V-06`).
+4. **Búsqueda:** administración de sinónimos del motor de búsqueda (rechazar metacaracteres GROQ `*[]{}"\|$` en términos de sinónimos — `M-3`).
+5. **Moderación:** bandeja de comentarios pendientes con aprobar/rechazar/eliminar, y vista de calificaciones:
+   - Renderizar el texto de comentarios exclusivamente como texto plano (`{{ comentario.texto }}`, prohibido `v-html`) para evitar *Blind Stored XSS* contra el administrador.
+   - Al eliminar una calificación o comentario calificado, el backend Go debe leer primero el valor almacenado en Sanity y descontar atómicamente (`inc` negativo) `ratingSum`, `ratingCount` y `ratingXCount` en una sola transacción de mutación (`V-02`).
+   - No exponer ni requerir identificadores crudos de dispositivo; operar sobre el `_id` opaco HMAC del documento (`V-01`).
 
 ### P5.2 Tests
 
 - PC-ST-07..PC-ST-10: cambio de paleta y verificación en la tienda, validación de contraste, moderación de comentarios.
-- PC-UT-13..PC-UT-15: validación de formatos (WhatsApp, URLs, colores).
+- PC-UT-13..PC-UT-15: validación en backend de formatos y rechazo de payloads maliciosos (inyección CSS en colores, `javascript:` en URLs de redes, recálculo atómico al eliminar calificaciones).
 
-### P5.3 Verificación
+### P5.3 Verificación y Controles de Seguridad
 
-- [ ] Cambiar paleta/variante en el panel actualiza la tienda tras el rebuild
-- [ ] Comentario pendiente aprobado aparece en la tienda; rechazado no
-- [ ] Redes y WhatsApp validados antes de guardar
+- [ ] Cambiar paleta/variante en el panel valida tokens en backend (bloqueando inyección CSS — `V-05`) y actualiza la tienda tras el rebuild
+- [ ] Comentario pendiente aprobado aparece en la tienda; rechazado no; el panel nunca usa `v-html` para contenido de usuarios
+- [ ] Eliminar una calificación actualiza atómicamente los contadores del producto en servidor (`V-02`)
+- [ ] Redes (`https://`) y WhatsApp (10–15 dígitos + alineación con `EXPECTED_WHATSAPP_NUMBER`) validados en servidor antes de guardar (`V-06`, `V-07`)
 - [ ] Commit: `feat(admin): global settings and moderation modules [RF-05, RF-06, RF-07, RF-15, RF-16, RF-17]`
 
 ---
@@ -347,17 +366,19 @@ lectorPobre/
 
 - KPIs: total de productos, productos sin stock, comentarios pendientes, calificación promedio global.
 - Gráficas: calificaciones por producto, distribución de stock por categoría, comentarios por periodo, productos mejor/peor evaluados.
-- Tráfico: resumen desde la API de Plausible (si se usa en la tienda; solo lectura, token propio del panel).
+- Tráfico: resumen desde la API de Plausible consumido exclusivamente desde el backend Go (`/api/admin/metricas`) con URL base fija en servidor (previniendo SSRF) y token de solo lectura mantenido en variable de entorno privada (nunca expuesto al navegador — `V-10`).
+- Consultas de agregación GROQ parametrizadas y acotadas con límites (`[0...100]`) para evitar agotamiento de cuota o DoS por consultas masivas.
 - Carga diferida de la librería de gráficas (solo en la ruta del dashboard).
 
 ### P6.2 Tests
 
 - PC-UT-16..PC-UT-18: cálculo de agregados; PC-ST-11: render del dashboard con datos de prueba; accesibilidad de gráficas (alternativa textual).
 
-### P6.3 Verificación
+### P6.3 Verificación y Controles de Seguridad
 
 - [ ] Dashboard carga en < 3 s con el dataset de producción
-- [ ] Cifras coinciden con los datos reales de Sanity
+- [ ] Cifras coinciden con los datos reales de Sanity y el token de Plausible no viaja al navegador (`V-10`)
+- [ ] Parámetros de filtro de periodo validados contra lista cerrada (`7d`, `30d`, `12m`) sin interpolación libre en GROQ ni URLs externas (anti-SSRF)
 - [ ] Commit: `feat(admin): metrics dashboard with charts and KPIs [RF-14, RNF-06]`
 
 ---
@@ -370,13 +391,16 @@ lectorPobre/
 
 ### P7.1 Checklist de seguridad del panel
 
-- [ ] Ningún secreto en el repositorio ni en el bundle (escaneo de CI)
-- [ ] Cookies `httpOnly`/`Secure`/`SameSite=Strict`
-- [ ] CSP estricta, sin `unsafe-inline` donde sea posible
-- [ ] Rate limiting y bloqueo por intentos activos
-- [ ] CORS restringido al origen del panel
-- [ ] Rutas protegidas devuelven 404 a anónimos; `noindex` activo
-- [ ] Rotación documentada de `ADMIN_JWT_SECRET` y del token de Sanity
+- [ ] Ningún secreto en el repositorio ni en el bundle (`gitleaks` en CI con verificación SHA-256 — `V-14`)
+- [ ] Cookies `__Host-admin_session` con `HttpOnly`/`Secure`/`SameSite=Strict` y verificación de `Origin` anti-CSRF
+- [ ] JWT restringido a `HS256` (bloqueando `alg: none`) y denylist en KV operando en modo *Fail-Closed*
+- [ ] Cero concatenación de strings en consultas GROQ (100% `$params`), `DisallowUnknownFields()` en JSON y validación previa de `_type` (`V-03`, `M-3`, `M-5`)
+- [ ] Subida de imágenes validada por *magic bytes* en servidor (bloqueando SVG/HTML) y colores/URLs validados contra inyección CSS y XSS (`V-05`, `V-06`)
+- [ ] CSP estricta (`frame-ancestors 'none'`, `object-src 'none'`) y `Cache-Control: no-store` en `/api/*` (`V-13`)
+- [ ] Rate limiting y bloqueo por intentos activos usando `X-Vercel-Forwarded-For` (`V-09`)
+- [ ] CORS restringido exclusivamente a `ALLOWED_ORIGIN` (sin `*`) y Deployment Protection activo en Preview (`V-09`, `M-9`)
+- [ ] Rutas protegidas devuelven 404 a anónimos; `noindex` activo; `.vercelignore` de la tienda excluye rutas de admin (`V-12`)
+- [ ] Rotación documentada de `ADMIN_JWT_SECRET` y de `SANITY_ADMIN_WRITE_TOKEN` (`V-10`)
 - [ ] `pnpm audit` / `govulncheck` sin vulnerabilidades altas
 - [ ] Opcional: restricción por IP o Cloudflare Access/Zero Trust delante del subdominio
 - [ ] Opcional: 2FA (TOTP) como mejora futura

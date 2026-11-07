@@ -6,6 +6,11 @@
 
 import { defineType, defineField } from 'sanity';
 
+const ESTADO_ICONS: Record<string, string> = {
+    aprobado: '✓',
+    rechazado: '✗',
+};
+
 export const comment = defineType({
     name: 'comentario',
     title: 'Comentario',
@@ -21,7 +26,7 @@ export const comment = defineType({
             name: 'calificacion',
             title: 'Calificación asociada (1–5)',
             type: 'number',
-            validation: Rule => Rule.required().min(1).max(5).integer()
+            validation: Rule => Rule.min(1).max(5).integer()
         }),
         defineField({
             name: 'usuarioId',
@@ -67,7 +72,7 @@ export const comment = defineType({
             const estado = selection.subtitle as string;
             const rating = (selection.rating as number) ?? 0;
             const stars = rating > 0 ? ` (${'★'.repeat(rating)}${'☆'.repeat(5 - rating)})` : '';
-            const icon = estado === 'aprobado' ? '✓' : estado === 'rechazado' ? '✗' : '⏳';
+            const icon = ESTADO_ICONS[estado] ?? '⏳';
             return { title: selection.title as string, subtitle: `${icon} ${estado}${stars}` };
         }
     }

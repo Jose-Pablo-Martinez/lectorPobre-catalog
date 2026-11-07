@@ -65,6 +65,7 @@ const hoverEstrella = ref<number>(0);
 const textoComentario = ref<string>('');
 const savedRating = ref<number | null>(null);
 const savedComment = ref<string>('');
+const savedReviewId = ref<string | undefined>(undefined);
 const enviando = ref<boolean>(false);
 
 // Retroalimentación independiente con auto-cierre en 7 segundos
@@ -117,6 +118,9 @@ const cargarEstadoLocal = (): void => {
     if (stored?.comment) {
         savedComment.value = stored.comment;
         textoComentario.value = stored.comment;
+    }
+    if (stored?.reviewId) {
+        savedReviewId.value = stored.reviewId;
     }
 };
 
@@ -316,7 +320,7 @@ const procesarEnvioRating = async (
     const valorPrevio = savedRating.value;
     savedRating.value = estrellaSeleccionada.value;
     reviewData.rating = estrellaSeleccionada.value as StarRatingValue;
-    sincronizarComentarioLocal(userId, estrellaSeleccionada.value);
+    sincronizarComentarioLocal(estrellaSeleccionada.value);
     const mensajeRating = eraModificacion
         ? `Calificación actualizada a ${estrellaSeleccionada.value} estrellas.`
         : `Tu calificación de ${estrellaSeleccionada.value} estrellas se registró correctamente.`;
@@ -330,14 +334,12 @@ const procesarEnvioRating = async (
 };
 
 const sincronizarComentarioLocal = (
-    userId: string,
     rating: number,
     nuevoEstado?: 'pendiente'
 ): void => {
+    if (!savedReviewId.value) return;
     const propio = comentariosLocales.value.find(
-        (c) =>
-            (c.usuarioId && c.usuarioId === userId) ||
-            c._id === `comentario-${props.productoId}-${userId}`
+        (c) => c._id === savedReviewId.value
     );
     if (propio) {
         propio.calificacion = rating;
@@ -374,6 +376,14 @@ const procesarEnvioComentario = async (
         return false;
     }
 
+    const returnedReviewId = (
+        resComment.data as { reviewId?: string } | undefined
+    )?.reviewId;
+    if (returnedReviewId) {
+        savedReviewId.value = returnedReviewId;
+        reviewData.reviewId = returnedReviewId;
+    }
+
     const eraModificacion = Boolean(savedComment.value);
     const soloCambiaronEstrellas =
         eraModificacion && !cambioComentario.value && estrellasCambiaron;
@@ -381,7 +391,6 @@ const procesarEnvioComentario = async (
     savedComment.value = comentarioLimpio.value;
     reviewData.comment = comentarioLimpio.value;
     sincronizarComentarioLocal(
-        userId,
         estrellaSeleccionada.value,
         soloCambiaronEstrellas ? undefined : 'pendiente'
     );

@@ -143,3 +143,39 @@ func TestHMAC_FormatoSanity_V1Vacio_RetornaFalse(t *testing.T) {
 		t.Errorf("VerifyHMAC esperada false para 'v1=' vacío")
 	}
 }
+
+// TestHMAC_FormatoSanity_TimestampExpiradoOMilisegundos verifica la protección anti-replay de 5 minutos (V-11).
+func TestHMAC_FormatoSanity_TimestampExpiradoOMilisegundos(t *testing.T) {
+	payload := []byte(`{"_type":"producto","slug":"pin-pobre"}`)
+	secret := "secreto-anti-replay-v11" // gitleaks:allow
+
+	signWithTimestamp := func(ts string) string {
+		signedContent := append([]byte(ts+"."), payload...)
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write(signedContent)
+		return fmt.Sprintf("t=%s,v1=%s", ts, hex.EncodeToString(mac.Sum(nil)))
+	}
+
+	// 1. Timestamp válido en milisegundos (> 1e12) debe ser aceptado
+	validMs := fmt.Sprintf("%d", time.Now().UnixMilli())
+	if !VerifyHMAC(payload, signWithTimestamp(validMs), secret) {
+		t.Errorf("VerifyHMAC esperaba true para timestamp fresco en milisegundos")
+	}
+
+	// 2. Timestamp expirado (hace 10 minutos) con firma criptográfica válida -> rechazado
+	expiredSec := fmt.Sprintf("%d", time.Now().Add(-10*time.Minute).Unix())
+	if VerifyHMAC(payload, signWithTimestamp(expiredSec), secret) {
+		t.Errorf("VerifyHMAC esperaba false para firma válida con timestamp expirado (> 5 min)")
+	}
+
+	// 3. Timestamp adelantado en el futuro (> 5 minutos) -> rechazado
+	futureSec := fmt.Sprintf("%d", time.Now().Add(10*time.Minute).Unix())
+	if VerifyHMAC(payload, signWithTimestamp(futureSec), secret) {
+		t.Errorf("VerifyHMAC esperaba false para timestamp adelantado > 5 min")
+	}
+
+	// 4. Timestamp malformado (no numérico) -> rechazado
+	if VerifyHMAC(payload, signWithTimestamp("not-a-timestamp"), secret) {
+		t.Errorf("VerifyHMAC esperaba false para timestamp no numérico")
+	}
+}

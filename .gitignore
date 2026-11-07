@@ -37,5 +37,6 @@ test-results/
 public/data/
 scripts/recommendations/.cache/
 product-vectors.json
-.vercel
 .env*
+!.env.example
+!sanity/.env.development

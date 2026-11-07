@@ -7,6 +7,9 @@ package sanity
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,20 +65,13 @@ type Client struct {
 	baseURL    string // Opcional, usado en pruebas con httptest.Server
 }
 
-// NewClient crea una nueva instancia de Client leyendo credenciales desde las variables de entorno.
-// Retorna un error descriptivo si falta el token o el ID de proyecto requerido.
-func NewClient() (*Client, error) {
-	token := strings.Trim(strings.TrimSpace(os.Getenv("SANITY_WRITE_TOKEN")), `"'`)
-	if token == "" {
-		return nil, errors.New("SANITY_WRITE_TOKEN es requerido en las variables de entorno")
-	}
-
+func resolveProjectAndDataset() (string, string, error) {
 	projectID := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_PROJECT_ID")), `"'`)
 	if projectID == "" {
 		projectID = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_PROJECT_ID")), `"'`)
 	}
 	if projectID == "" {
-		return nil, errors.New("NUXT_PUBLIC_SANITY_PROJECT_ID o SANITY_PROJECT_ID es requerido")
+		return "", "", errors.New("NUXT_PUBLIC_SANITY_PROJECT_ID o SANITY_PROJECT_ID es requerido")
 	}
 
 	dataset := strings.Trim(strings.TrimSpace(os.Getenv("NUXT_PUBLIC_SANITY_DATASET")), `"'`)
@@ -86,10 +82,44 @@ func NewClient() (*Client, error) {
 		dataset = "production"
 	}
 
+	return projectID, dataset, nil
+}
+
+// NewClient crea una nueva instancia autenticada de Client leyendo credenciales desde las variables de entorno.
+// Prioriza SANITY_REVIEWS_TOKEN (token acotado para reseñas/calificaciones — V-10) con fallback a SANITY_WRITE_TOKEN.
+func NewClient() (*Client, error) {
+	token := strings.Trim(strings.TrimSpace(os.Getenv("SANITY_REVIEWS_TOKEN")), `"'`)
+	if token == "" {
+		token = strings.Trim(strings.TrimSpace(os.Getenv("SANITY_WRITE_TOKEN")), `"'`)
+	}
+	if token == "" {
+		return nil, errors.New("SANITY_REVIEWS_TOKEN o SANITY_WRITE_TOKEN es requerido en las variables de entorno")
+	}
+
+	projectID, dataset, err := resolveProjectAndDataset()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		projectID:  projectID,
 		dataset:    dataset,
 		token:      token,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}, nil
+}
+
+// NewPublicClient crea una instancia de Client sin token de autorización para consultas de solo lectura
+// sobre el dataset público (como /api/search — V-10).
+func NewPublicClient() (*Client, error) {
+	projectID, dataset, err := resolveProjectAndDataset()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		projectID:  projectID,
+		dataset:    dataset,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}, nil
 }
@@ -139,8 +169,28 @@ func sanitizeIDSegment(raw string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-func buildDeterministicID(prefix, productID, userID string) string {
-	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), sanitizeIDSegment(userID))
+func opaqueUserKey(userID string) (string, error) {
+	secret := strings.Trim(strings.TrimSpace(os.Getenv("REVIEW_ID_SECRET")), `"'`)
+	if secret == "" {
+		return "", errors.New("REVIEW_ID_SECRET es requerido en las variables de entorno")
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(strings.TrimSpace(userID)))
+	return hex.EncodeToString(mac.Sum(nil))[:32], nil
+}
+
+func buildDeterministicID(prefix, productID, opaqueKey string) string {
+	return fmt.Sprintf("%s-%s-%s", prefix, sanitizeIDSegment(productID), opaqueKey)
+}
+
+// BuildReviewDocumentID deriva un identificador determinista opaco mediante HMAC-SHA256
+// para evitar exponer el userId del navegador en Sanity y en el HTML público (V-01).
+func BuildReviewDocumentID(prefix, productID, userID string) (string, error) {
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return "", err
+	}
+	return buildDeterministicID(prefix, productID, opaqueKey), nil
 }
 
 type existingCommentInfo struct {
@@ -149,9 +199,18 @@ type existingCommentInfo struct {
 	Estado string `json:"estado"`
 }
 
+type existingRatingInfo struct {
+	ID    string `json:"_id"`
+	Valor int    `json:"valor"`
+}
+
 // postJSON ejecuta una solicitud HTTP POST con cuerpo JSON y encabezados de autenticación hacia Sanity.
 // Si out no es nil, decodifica el cuerpo de la respuesta en la estructura proporcionada.
 func (c *Client) postJSON(ctx context.Context, endpointURL string, payload interface{}, out interface{}) error {
+	return c.postJSONWithAuth(ctx, endpointURL, payload, out, true)
+}
+
+func (c *Client) postJSONWithAuth(ctx context.Context, endpointURL string, payload interface{}, out interface{}, includeAuth bool) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("error al serializar payload para Sanity: %w", err)
@@ -163,7 +222,7 @@ func (c *Client) postJSON(ctx context.Context, endpointURL string, payload inter
 	}
 
 	req.Header.Set(headerContentType, contentTypeJSON)
-	if c.token != "" {
+	if includeAuth && c.token != "" {
 		req.Header.Set(headerAuthorization, authBearerPrefix+c.token)
 	}
 
@@ -186,21 +245,46 @@ func (c *Client) postJSON(ctx context.Context, endpointURL string, payload inter
 	return nil
 }
 
-func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
+func (c *Client) queryByID(ctx context.Context, query, id string, out interface{}) error {
 	payload := map[string]interface{}{
-		"query": `*[_id == $id][0]{ _id, texto, estado }`,
-		"params": map[string]interface{}{
-			"id": id,
-		},
+		"query":  query,
+		"params": map[string]interface{}{"id": id},
 	}
+	return c.postJSON(ctx, c.getQueryURL(), payload, out)
+}
 
+func (c *Client) assertActiveProduct(ctx context.Context, id string) error {
+	var resp struct {
+		Result *string `json:"result"`
+	}
+	const q = `*[_type == "producto" && _id == $id && activo == true][0]._id`
+	if err := c.queryByID(ctx, q, strings.TrimSpace(id), &resp); err != nil {
+		return fmt.Errorf("error al verificar producto activo: %w", err)
+	}
+	if resp.Result == nil || *resp.Result == "" {
+		return handlers.ErrProductNotFound
+	}
+	return nil
+}
+
+func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCommentInfo, error) {
 	var response struct {
 		Result *existingCommentInfo `json:"result"`
 	}
-	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+	if err := c.queryByID(ctx, `*[_id == $id][0]{ _id, texto, estado }`, id, &response); err != nil {
 		return nil, fmt.Errorf("error al consultar comentario existente: %w", err)
 	}
+	return response.Result, nil
+}
 
+func (c *Client) getExistingRating(ctx context.Context, id string) (*existingRatingInfo, error) {
+	var response struct {
+		Result *existingRatingInfo `json:"result"`
+	}
+	const q = `*[_id == $id && _type == "calificacion"][0]{ _id, valor }`
+	if err := c.queryByID(ctx, q, id, &response); err != nil {
+		return nil, fmt.Errorf("error al consultar calificación existente: %w", err)
+	}
 	return response.Result, nil
 }
 
@@ -211,59 +295,59 @@ func (c *Client) getExistingComment(ctx context.Context, id string) (*existingCo
 //   se conserva el estado de moderación previo (ej. "aprobado") y se actualiza únicamente "calificacion".
 // - Si el comentario es nuevo o el texto fue modificado, pasa al estado "pendiente" para moderación manual.
 func (c *Client) UpsertComment(ctx context.Context, p handlers.CommentPayload) error {
-	now := time.Now().UTC().Format(time.RFC3339)
 	userID := strings.TrimSpace(p.UserID)
-	var docID string
+	if userID == "" {
+		return handlers.ErrUserIDRequired
+	}
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return err
+	}
+	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
+		return err
+	}
 
-	if userID != "" {
-		docID = buildDeterministicID("comentario", p.ProductID, userID)
-		existing, err := c.getExistingComment(ctx, docID)
-		if err == nil && existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
-			// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
-			if p.Rating >= 1 && p.Rating <= 5 {
-				payload := map[string]interface{}{
-					"mutations": []map[string]interface{}{
-						{
-							"patch": map[string]interface{}{
-								"id": docID,
-								"set": map[string]interface{}{
-									"calificacion": p.Rating,
-								},
-							},
+	docID := buildDeterministicID("comentario", p.ProductID, opaqueKey)
+	existing, err := c.getExistingComment(ctx, docID)
+	if err != nil {
+		return err
+	}
+	if existing != nil && strings.TrimSpace(existing.Texto) == strings.TrimSpace(p.Text) {
+		// El texto no cambió: solo se actualiza la calificación conservando el estado de moderación (ej. aprobado)
+		if p.Rating >= 1 && p.Rating <= 5 {
+			payload := map[string]interface{}{
+				"mutations": []map[string]interface{}{
+					{
+						"patch": map[string]interface{}{
+							"id":  docID,
+							"set": map[string]interface{}{"calificacion": p.Rating},
 						},
 					},
-				}
-				return c.executeMutation(ctx, payload)
+				},
 			}
-			return nil
+			return c.executeMutation(ctx, payload)
 		}
+		return nil
 	}
 
 	doc := map[string]interface{}{
+		"_id":           docID,
 		"_type":         "comentario",
 		"texto":         p.Text,
+		"usuarioId":     opaqueKey,
 		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
 		"estado":        "pendiente",
-		"fechaCreacion": now,
+		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
 	}
 	if p.Rating >= 1 && p.Rating <= 5 {
 		doc["calificacion"] = p.Rating
 	}
 
-	mutationKey := "create"
-	if userID != "" {
-		doc["_id"] = docID
-		doc["usuarioId"] = userID
-		mutationKey = "createOrReplace"
-	}
-
-	payload := map[string]interface{}{
+	return c.executeMutation(ctx, map[string]interface{}{
 		"mutations": []map[string]interface{}{
-			{mutationKey: doc},
+			{"createOrReplace": doc},
 		},
-	}
-
-	return c.executeMutation(ctx, payload)
+	})
 }
 
 // CreateComment implementa Writer.CreateComment.
@@ -313,27 +397,41 @@ func buildRatingCounterPatch(productID string, value int, previousValue int) map
 }
 
 // UpsertRating crea o reemplaza la calificación de un usuario y actualiza atómicamente los contadores del producto.
+// El valor previo se consulta en el servidor como única fuente de verdad (V-02).
 func (c *Client) UpsertRating(ctx context.Context, p handlers.RatingPayload) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	doc := map[string]interface{}{
-		"_type":         "calificacion",
-		"valor":         p.Value,
-		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
-		"fechaCreacion": now,
+	userID := strings.TrimSpace(p.UserID)
+	if userID == "" {
+		return handlers.ErrUserIDRequired
+	}
+	opaqueKey, err := opaqueUserKey(userID)
+	if err != nil {
+		return err
+	}
+	if err := c.assertActiveProduct(ctx, p.ProductID); err != nil {
+		return err
 	}
 
-	mutationKey := "create"
-	userID := strings.TrimSpace(p.UserID)
-	if userID != "" {
-		doc["_id"] = buildDeterministicID("calificacion", p.ProductID, userID)
-		doc["usuarioId"] = userID
-		mutationKey = "createOrReplace"
+	docID := buildDeterministicID("calificacion", p.ProductID, opaqueKey)
+	prev := 0
+	if existing, err := c.getExistingRating(ctx, docID); err != nil {
+		return err
+	} else if existing != nil {
+		prev = existing.Valor
+	}
+
+	doc := map[string]interface{}{
+		"_id":           docID,
+		"_type":         "calificacion",
+		"valor":         p.Value,
+		"usuarioId":     opaqueKey,
+		"producto":      map[string]string{"_type": "reference", "_ref": p.ProductID},
+		"fechaCreacion": time.Now().UTC().Format(time.RFC3339),
 	}
 
 	mutations := []map[string]interface{}{
-		{mutationKey: doc},
+		{"createOrReplace": doc},
 	}
-	if patch := buildRatingCounterPatch(p.ProductID, p.Value, p.PreviousValue); patch != nil {
+	if patch := buildRatingCounterPatch(p.ProductID, p.Value, prev); patch != nil {
 		mutations = append(mutations, map[string]interface{}{"patch": patch})
 	}
 
@@ -378,7 +476,8 @@ func (c *Client) SearchProducts(ctx context.Context, query string) ([]map[string
 	var response struct {
 		Result []map[string]interface{} `json:"result"`
 	}
-	if err := c.postJSON(ctx, c.getQueryURL(), payload, &response); err != nil {
+	// La búsqueda de catálogo consulta únicamente documentos públicos publicados y no debe enviar token (V-10).
+	if err := c.postJSONWithAuth(ctx, c.getQueryURL(), payload, &response, false); err != nil {
 		return nil, fmt.Errorf("error al consultar Sanity: %w", err)
 	}
 
@@ -401,9 +500,9 @@ func CrearComentario(ctx context.Context, payload handlers.CommentPayload) error
 	return DispatchComment(ctx, client, payload)
 }
 
-// BuscarProductos es una función helper de conveniencia para consultar productos.
+// BuscarProductos es una función helper de conveniencia para consultar productos sin requerir token de escritura (V-10).
 func BuscarProductos(ctx context.Context, query string) ([]map[string]interface{}, error) {
-	client, err := NewClient()
+	client, err := NewPublicClient()
 	if err != nil {
 		return nil, err
 	}

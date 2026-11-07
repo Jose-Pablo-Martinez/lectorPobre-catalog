@@ -135,6 +135,23 @@ export const PRODUCTO_GROQ_FIELDS = `
 
 export const CATALOG_PRODUCTS_QUERY = `*[_type == "producto" && activo == true] | order(_createdAt desc) { ${PRODUCTO_GROQ_FIELDS} }`;
 
+/**
+ * Proyección GROQ pública para comentarios aprobados en detalle de producto.
+ * Excluye explícitamente `usuarioId` para evitar secuestro de reseñas ajenas (V-01).
+ */
+export const PUBLIC_COMMENTS_GROQ_FIELDS = `
+    _id,
+    _type,
+    _createdAt,
+    _updatedAt,
+    _rev,
+    texto,
+    calificacion,
+    producto,
+    fechaCreacion,
+    estado
+`;
+
 export const CATALOG_CATEGORIES_QUERY = `*[_type == "categoria"] | order(orden asc) {
     _id,
     _type,

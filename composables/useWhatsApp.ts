@@ -18,6 +18,8 @@ export interface WhatsAppOrderItem {
 const DEFAULT_TEMPLATE = 'Hola, me interesa el producto {{nombre}}';
 const NOMBRE_TOKEN_REGEX = /\{\{\s{0,5}nombre\s{0,5}\}\}/gi;
 const PRECIO_TOKEN_REGEX = /\{\{\s{0,5}precio\s{0,5}\}\}/gi;
+const MIN_WHATSAPP_DIGITS = 10;
+const MAX_WHATSAPP_DIGITS = 15;
 
 /**
  * Formatea un monto numérico como moneda mexicana (`$XX.XX MXN`) o devuelve el texto de respaldo.
@@ -49,13 +51,45 @@ export function codificarParaWhatsApp(texto: string): string {
 }
 
 /**
- * Limpia el número telefónico dejando únicamente dígitos en formato internacional sin '+'.
+ * Limpia el número telefónico dejando únicamente dígitos en formato internacional sin '+'
+ * y valida que su longitud esté entre 10 y 15 dígitos (V-07). Si es inválido, retorna cadena vacía.
  *
  * @param numero Número de WhatsApp configurado.
- * @returns Cadena de dígitos limpia.
+ * @returns Cadena de dígitos limpia (10 a 15 dígitos) o `""` si no cumple el rango.
  */
 export function sanitizarNumeroWhatsApp(numero: string): string {
-    return (numero ?? '').replaceAll(/\D/g, '');
+    const clean = (numero ?? '').replaceAll(/\D/g, '');
+    if (clean.length < MIN_WHATSAPP_DIGITS || clean.length > MAX_WHATSAPP_DIGITS) {
+        return '';
+    }
+    return clean;
+}
+
+/**
+ * Verifica en tiempo de compilación (prebuild) que el número de WhatsApp configurado en Sanity
+ * coincida con `EXPECTED_WHATSAPP_NUMBER` cuando dicha variable de entorno está definida (V-07).
+ *
+ * @param numeroSanity Valor de `configuracionGlobal.numeroWhatsApp` obtenido desde Sanity.
+ * @param numeroEsperadoEnv Valor de la variable `EXPECTED_WHATSAPP_NUMBER` (opcional).
+ * @throws Error si `EXPECTED_WHATSAPP_NUMBER` está definido y difiere del número en Sanity.
+ */
+export function verificarIntegridadNumeroWhatsApp(
+    numeroSanity: string | null | undefined,
+    numeroEsperadoEnv: string | null | undefined
+): void {
+    const esperadoTrim = numeroEsperadoEnv?.trim() ?? '';
+    if (esperadoTrim.length === 0) {
+        return;
+    }
+
+    const esperadoLimpio = sanitizarNumeroWhatsApp(esperadoTrim);
+    const actualLimpio = sanitizarNumeroWhatsApp(numeroSanity ?? '');
+
+    if (esperadoLimpio.length === 0 || actualLimpio !== esperadoLimpio) {
+        throw new Error(
+            `[V-07 SEGURIDAD] El numeroWhatsApp en Sanity (${actualLimpio || 'vacío/inválido'}) no coincide con EXPECTED_WHATSAPP_NUMBER.`
+        );
+    }
 }
 
 /**
@@ -84,8 +118,8 @@ export function construirUrlWhatsApp(
     NOMBRE_TOKEN_REGEX.lastIndex = 0;
 
     let mensaje = baseTemplate
-        .replaceAll(NOMBRE_TOKEN_REGEX, nombreProducto)
-        .replaceAll(PRECIO_TOKEN_REGEX, precioFormateado);
+        .replaceAll(NOMBRE_TOKEN_REGEX, () => nombreProducto)
+        .replaceAll(PRECIO_TOKEN_REGEX, () => precioFormateado);
 
     if (!contieneTokenNombre && nombreProducto) {
         mensaje = `${mensaje}: ${nombreProducto}`;
@@ -145,6 +179,7 @@ export function useWhatsApp() {
     return {
         formatearPrecioMXN,
         sanitizarNumeroWhatsApp,
+        verificarIntegridadNumeroWhatsApp,
         construirUrlWhatsApp,
         construirUrlWhatsAppCarrito,
         codificarParaWhatsApp,

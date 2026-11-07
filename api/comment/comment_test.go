@@ -41,6 +41,9 @@ func (m *mockSanityWriter) UpsertComment(ctx context.Context, p handlers.Comment
 	if m.upsertCommentFunc != nil {
 		return m.upsertCommentFunc(ctx, p)
 	}
+	if m.createCommentFunc != nil {
+		return m.createCommentFunc(ctx, p.ProductID, p.Text)
+	}
 	return nil
 }
 
@@ -51,8 +54,9 @@ func (m *mockSanityWriter) UpsertRating(ctx context.Context, p handlers.RatingPa
 	return nil
 }
 
-// TestComentarHandler_ConRatingYUserId_Retorna201 verifica asociar calificacion y usuario en comentario.
+// TestComentarHandler_ConRatingYUserId_Retorna201 verifica asociar calificacion y usuario en comentario y devolver reviewId opaco (V-01).
 func TestComentarHandler_ConRatingYUserId_Retorna201(t *testing.T) {
+	t.Setenv("REVIEW_ID_SECRET", "test-secret-for-comment-handler-v01")
 	middleware.DefaultRateLimiter.Reset()
 	var capturedPayload handlers.CommentPayload
 	mock := &mockSanityWriter{
@@ -76,6 +80,9 @@ func TestComentarHandler_ConRatingYUserId_Retorna201(t *testing.T) {
 	if capturedPayload.Rating != 4 || capturedPayload.UserID != "usr-42" {
 		t.Errorf("Payload capturado incorrecto: %+v", capturedPayload)
 	}
+	if !strings.Contains(w.Body.String(), `"reviewId":"comentario-prod-xyz-`) || strings.Contains(w.Body.String(), "usr-42") {
+		t.Errorf("Respuesta debe incluir reviewId opaco sin exponer usr-42: %s", w.Body.String())
+	}
 }
 
 // TestComentarHandler_RatingInvalido_Retorna400 verifica que rating fuera de 1-5 retorne 400.
@@ -83,7 +90,7 @@ func TestComentarHandler_RatingInvalido_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
-	payload := `{"productId":"prod-xyz","text":"Gran pieza","rating":6}`
+	payload := `{"productId":"prod-xyz","text":"Gran pieza","rating":6,"userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -109,7 +116,7 @@ func TestComentarHandler_PayloadJSON_Retorna201(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"prod-xyz-123","text":"Excelente libro, me encantó la historia."}`
+	payload := `{"productId":"prod-xyz-123","text":"Excelente libro, me encantó la historia.","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -133,14 +140,14 @@ func TestComentarHandler_PayloadJSON_Retorna201(t *testing.T) {
 	}
 }
 
-// TestComentarHandler_CamposEspanol_Retorna201 verifica soporte para payloads con campos en español (productoId, texto).
+// TestComentarHandler_CamposEspanol_Retorna201 verifica soporte para payloads con campos en español (productoId, texto, usuarioId).
 // Satisface: RF-07, DEVELOPMENT_GUIDELINES.md §3.2.
 func TestComentarHandler_CamposEspanol_Retorna201(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	mock := &mockSanityWriter{}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productoId":"prod-456","texto":"Muy buena calidad."}`
+	payload := `{"productoId":"prod-456","texto":"Muy buena calidad.","usuarioId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comentar", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -219,7 +226,7 @@ func TestRespuestaError_NuncaExponeTrazas(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"prod-1","text":"Hola"}`
+	payload := `{"productId":"prod-1","text":"Hola","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -239,15 +246,16 @@ func TestRespuestaError_NuncaExponeTrazas(t *testing.T) {
 	}
 }
 
-// TestComentarHandler_ValidacionFallida_Retorna400 valida que textos vacíos o excediendo 1000 caracteres retornen HTTP 400.
+// TestComentarHandler_ValidacionFallida_Retorna400 valida que textos vacíos, sin userId o excediendo 1000 caracteres retornen HTTP 400.
 func TestComentarHandler_ValidacionFallida_Retorna400(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
 	casos := []string{
-		`{"productId":"","text":"Texto válido"}`,
-		`{"productId":"p1","text":""}`,
-		`{"productId":"p1","text":"` + strings.Repeat("x", 1001) + `"}`,
+		`{"productId":"","text":"Texto válido","userId":"usr-1"}`,
+		`{"productId":"p1","text":"","userId":"usr-1"}`,
+		`{"productId":"p1","text":"Texto válido sin userId"}`,
+		`{"productId":"p1","text":"` + strings.Repeat("x", 1001) + `","userId":"usr-1"}`,
 	}
 
 	for _, payload := range casos {
@@ -265,7 +273,7 @@ func TestComentarHandler_ValidacionFallida_Retorna400(t *testing.T) {
 
 // TestComentarHandler_CORSRechazado_Retorna403 verifica que orígenes no autorizados sean bloqueados.
 func TestComentarHandler_CORSRechazado_Retorna403(t *testing.T) {
-	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.com")
+	os.Setenv("ALLOWED_ORIGIN", "https://lectorpobre.vercel.app")
 	defer os.Unsetenv("ALLOWED_ORIGIN")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(`{}`))
@@ -284,7 +292,7 @@ func TestComentarHandler_RateLimitExcedido_Retorna429(t *testing.T) {
 	middleware.DefaultRateLimiter.Reset()
 	handler.SetSanityWriter(&mockSanityWriter{})
 
-	payload := `{"productId":"p1","text":"Un comentario"}`
+	payload := `{"productId":"p1","text":"Un comentario","userId":"usr-1"}`
 
 	// 10 peticiones válidas permitidas
 	for i := 1; i <= 10; i++ {
@@ -321,7 +329,7 @@ func TestComentarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 	}
 	handler.SetSanityWriter(mock)
 
-	payload := `{"productId":"p1","text":"Comentario"}`
+	payload := `{"productId":"p1","text":"Comentario","userId":"usr-1"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -334,6 +342,47 @@ func TestComentarHandler_PanicRecuperado_Retorna500(t *testing.T) {
 
 	if strings.Contains(w.Body.String(), "simulated fatal panic") {
 		t.Errorf("La respuesta expuso el texto del pánico: %s", w.Body.String())
+	}
+}
+
+// TestComentarHandler_ProductoNoEncontradoOInvalido_Retorna400 verifica que documentos no-producto o IDs malformados retornen 400 (V-03).
+func TestComentarHandler_ProductoNoEncontradoOInvalido_Retorna400(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	mock := &mockSanityWriter{
+		createCommentFunc: func(ctx context.Context, productID string, text string) error {
+			return handlers.ErrProductNotFound
+		},
+	}
+	handler.SetSanityWriter(mock)
+
+	for _, pid := range []string{"global-config", "cat-1", "drafts.prod-1"} {
+		payload := `{"productId":"` + pid + `","text":"Comentario válido","userId":"usr-1"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		handler.Handler(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Esperado 400 para productId %q, obtenido %d", pid, w.Code)
+		}
+	}
+}
+
+// TestComentarHandler_BodyExcede8KB_Retorna413 verifica que un cuerpo mayor a 8 KB sea rechazado con HTTP 413 (V-09).
+func TestComentarHandler_BodyExcede8KB_Retorna413(t *testing.T) {
+	middleware.DefaultRateLimiter.Reset()
+	handler.SetSanityWriter(&mockSanityWriter{})
+
+	oversized := `{"productId":"prod-1","text":"` + strings.Repeat("a", 9000) + `","userId":"usr-1"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/comment", strings.NewReader(oversized))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.Handler(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("Esperado 413 Request Entity Too Large para body > 8 KB, obtenido %d", w.Code)
 	}
 }
 

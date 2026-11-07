@@ -14,6 +14,7 @@ import { computed, ref, watch } from 'vue';
 import { Moon, ShoppingBag, Sparkles, Sun } from 'lucide-vue-next';
 import CartDrawer from '~/components/CartDrawer.vue';
 import { useCart } from '~/composables/useCart';
+import { sanitizarUrlRed } from '~/composables/useSafeUrl';
 import { useTheme } from '~/composables/useTheme';
 import { resolverTokensPaleta } from '~/plugins/palette';
 import { resolverClaseVariante, VARIANTES_PERMITIDAS } from '~/plugins/variant';
@@ -86,6 +87,10 @@ try {
     // Fallback seguro fuera de Nuxt runtime
 }
 
+const FALLBACK_INSTAGRAM_URL = 'https://www.instagram.com/lector_pobre';
+const FALLBACK_FACEBOOK_URL = 'https://www.facebook.com/profile.php?id=61594042757515';
+const FALLBACK_YOUTUBE_URL = 'https://www.youtube.com/@lectorpobre';
+
 const nombreSitio = computed(() => configGlobal.value?.nombreSitio ?? 'Lector Pobre');
 const numeroWhatsApp = computed(
     () => configGlobal.value?.numeroWhatsApp ?? ''
@@ -93,19 +98,19 @@ const numeroWhatsApp = computed(
 const urlInstagram = computed(() => {
     const val = configGlobal.value?.urlInstagram;
     if (val && !val.includes('instagram.com/lectorpobre')) {
-        return val;
+        return sanitizarUrlRed(val, 'instagram', FALLBACK_INSTAGRAM_URL);
     }
-    return 'https://www.instagram.com/lector_pobre';
+    return FALLBACK_INSTAGRAM_URL;
 });
 const urlFacebook = computed(() => {
     const val = configGlobal.value?.urlFacebook;
     if (val && !val.includes('facebook.com/lectorpobre')) {
-        return val;
+        return sanitizarUrlRed(val, 'facebook', FALLBACK_FACEBOOK_URL);
     }
-    return 'https://www.facebook.com/profile.php?id=61594042757515';
+    return FALLBACK_FACEBOOK_URL;
 });
-const urlYouTube = computed(
-    () => configGlobal.value?.urlYouTube || 'https://www.youtube.com/@lectorpobre'
+const urlYouTube = computed(() =>
+    sanitizarUrlRed(configGlobal.value?.urlYouTube, 'youtube', FALLBACK_YOUTUBE_URL)
 );
 </script>
 
