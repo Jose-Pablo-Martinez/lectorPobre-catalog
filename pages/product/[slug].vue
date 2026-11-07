@@ -14,6 +14,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import {
     ArrowLeft,
     Check,
+    CircleAlert,
     Image as ImageIcon,
     Minus,
     Plus,
@@ -219,20 +220,36 @@ const urlWhatsApp = computed<string>(() => {
 
 // Agregar a la Lista de Pedido (RF-14)
 const recienAgregado = ref(false);
+const limiteStockDetalle = ref(false);
 
 const clasesBotonDetallePedido = computed<string>(() =>
-    obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard')
+    obtenerClasesBotonPedido(
+        agotado.value,
+        recienAgregado.value,
+        'hard',
+        limiteStockDetalle.value
+    )
 );
 
 const manejarAgregarLista = (): void => {
     if (!producto.value || agotado.value) return;
-    const exito = addItem(producto.value, cantidadSeleccionada.value);
+    const exito = addItem(
+        { ...producto.value, stock: stockActual.value },
+        cantidadSeleccionada.value
+    );
     if (exito) {
+        limiteStockDetalle.value = false;
         recienAgregado.value = true;
         openCart();
         setTimeout(() => {
             recienAgregado.value = false;
         }, 1200);
+    } else {
+        recienAgregado.value = false;
+        limiteStockDetalle.value = true;
+        setTimeout(() => {
+            limiteStockDetalle.value = false;
+        }, 2000);
     }
 };
 
@@ -241,12 +258,8 @@ const manejarRatingActualizado = (evento: RatingUpdatedPayload | number): void =
     const nuevoValor = typeof evento === 'number' ? evento : evento.nuevoValor;
     const valorPrevio = typeof evento === 'number' ? null : (evento.valorPrevio ?? null);
     const eraModificacion = typeof evento === 'number' ? false : evento.eraModificacion;
-    const count = producto.value.ratingCount ?? 0;
+    const count = Math.max(0, producto.value.ratingCount ?? 0);
     const promActual = producto.value.calificacionPromedio ?? 0;
-    const sumaActual = promActual * count;
-
-    let nuevoCount = count;
-    let nuevaSuma: number;
 
     const r1 = Math.max(0, producto.value.rating1Count ?? 0);
     const r2 = Math.max(0, producto.value.rating2Count ?? 0);
@@ -254,10 +267,24 @@ const manejarRatingActualizado = (evento: RatingUpdatedPayload | number): void =
     const r4 = Math.max(0, producto.value.rating4Count ?? 0);
     const r5 = Math.max(0, producto.value.rating5Count ?? 0);
     const counts: Record<number, number> = { 1: r1, 2: r2, 3: r3, 4: r4, 5: r5 };
+    const totalDesglosePrevio = r1 + r2 + r3 + r4 + r5;
+    const sumaActual =
+        totalDesglosePrevio === count && count > 0
+            ? r1 * 1 + r2 * 2 + r3 * 3 + r4 * 4 + r5 * 5
+            : promActual * count;
+
+    let nuevoCount = count;
+    let nuevaSuma: number;
 
     if (eraModificacion && valorPrevio && valorPrevio >= 1 && valorPrevio <= 5) {
-        nuevaSuma = sumaActual - valorPrevio + nuevoValor;
-        counts[valorPrevio] = Math.max(0, (counts[valorPrevio] ?? 1) - 1);
+        if (count > 0) {
+            nuevaSuma = Math.max(nuevoValor, sumaActual - valorPrevio + nuevoValor);
+            counts[valorPrevio] = Math.max(0, (counts[valorPrevio] ?? 1) - 1);
+        } else {
+            nuevoCount = 1;
+            nuevaSuma = nuevoValor;
+            counts[valorPrevio] = 0;
+        }
         counts[nuevoValor] = (counts[nuevoValor] ?? 0) + 1;
     } else {
         nuevoCount = count + 1;
@@ -522,6 +549,10 @@ try {
                         >
                             <template v-if="agotado">
                                 <span>Agotado</span>
+                            </template>
+                            <template v-else-if="limiteStockDetalle">
+                                <CircleAlert class="w-5 h-5 shrink-0" aria-hidden="true" />
+                                <span>Stock máximo en carrito</span>
                             </template>
                             <template v-else-if="recienAgregado">
                                 <Check class="w-5 h-5" aria-hidden="true" />

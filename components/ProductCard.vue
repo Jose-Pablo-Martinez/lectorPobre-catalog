@@ -9,7 +9,7 @@
 -->
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Check, Image as ImageIcon, ShoppingBag, Star } from 'lucide-vue-next';
+import { Check, CircleAlert, Image as ImageIcon, ShoppingBag, Star } from 'lucide-vue-next';
 import StockIndicator from '~/components/StockIndicator.vue';
 import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import { useSanityImage } from '~/composables/useSanityImage';
@@ -34,6 +34,7 @@ const { addItem } = useCart();
 
 const errorImagen = ref(false);
 const recienAgregado = ref(false);
+const limiteStockAlcanzado = ref(false);
 
 const imagenUrl = computed<string | null>(() => {
     if (errorImagen.value || !props.producto.imagenPrincipal) {
@@ -54,7 +55,12 @@ const precioFormateado = computed<string>(() =>
 );
 
 const clasesBotonAgregar = computed<string>(() =>
-    obtenerClasesBotonPedido(agotado.value, recienAgregado.value, 'hard-sm')
+    obtenerClasesBotonPedido(
+        agotado.value,
+        recienAgregado.value,
+        'hard-sm',
+        limiteStockAlcanzado.value
+    )
 );
 
 const manejarAgregar = (): void => {
@@ -62,10 +68,17 @@ const manejarAgregar = (): void => {
     const exito = addItem(props.producto, 1);
     if (exito) {
         emit('agregar', props.producto);
+        limiteStockAlcanzado.value = false;
         recienAgregado.value = true;
         setTimeout(() => {
             recienAgregado.value = false;
         }, 1200);
+    } else {
+        recienAgregado.value = false;
+        limiteStockAlcanzado.value = true;
+        setTimeout(() => {
+            limiteStockAlcanzado.value = false;
+        }, 2000);
     }
 };
 </script>
@@ -177,6 +190,10 @@ const manejarAgregar = (): void => {
                 >
                     <template v-if="agotado">
                         <span>Agotado</span>
+                    </template>
+                    <template v-else-if="limiteStockAlcanzado">
+                        <CircleAlert class="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>Stock máximo en carrito</span>
                     </template>
                     <template v-else-if="recienAgregado">
                         <Check class="w-4 h-4 shrink-0" aria-hidden="true" />
