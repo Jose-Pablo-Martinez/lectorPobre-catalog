@@ -77,15 +77,37 @@ describe('UT-VUE-14 & UT-VUE-15: Plugin de Paleta de Colores (RF-15)', () => {
         expect(cssRule).toContain('--color-brand-primario:#112233');
     });
 
-    it('normalizarHexToken maneja entradas válidas, incompletas, formatos funcionales y fallbacks seguros', () => {
+    it('normalizarHexToken maneja entradas válidas, incompletas, formatos funcionales y bloquea inyecciones CSS/HTML (V-05)', () => {
         expect(normalizarHexToken('e4007c', '#000000')).toBe('#e4007c');
         expect(normalizarHexToken('#e4007c', '#000000')).toBe('#e4007c');
         expect(normalizarHexToken('   #fff  ', '#000000')).toBe('#fff');
         expect(normalizarHexToken('rgb(255, 0, 128)', '#000000')).toBe('rgb(255, 0, 128)');
+        expect(normalizarHexToken('rgba(0, 0, 0, 0.5)', '#000000')).toBe('rgba(0, 0, 0, 0.5)');
+        expect(normalizarHexToken('rgb(255 0 0 / 50%)', '#000000')).toBe('rgb(255 0 0 / 50%)');
         expect(normalizarHexToken('hsl(120, 100%, 50%)', '#000000')).toBe('hsl(120, 100%, 50%)');
+        expect(normalizarHexToken('hsla(210deg 50% 40% / .5)', '#000000')).toBe('hsla(210deg 50% 40% / .5)');
         expect(normalizarHexToken('', '#000000')).toBe('#000000');
         expect(normalizarHexToken(undefined, '#000000')).toBe('#000000');
         expect(normalizarHexToken('invalid-color', '#000000')).toBe('#000000');
+
+        // Payloads maliciosos de inyección CSS y ruptura de etiqueta <style> (V-05)
+        expect(
+            normalizarHexToken('rgb(1)}</style><script>alert(1)</script><style>a{b:c(1)', '#000000')
+        ).toBe('#000000');
+        expect(
+            normalizarHexToken('rgb(0,0,0);} body{display:none} x{y:z(1)', '#000000')
+        ).toBe('#000000');
+        expect(normalizarHexToken('rgb(1, 2)', '#000000')).toBe('#000000');
+        expect(normalizarHexToken('rgb(1, 2, 3, 4, 5)', '#000000')).toBe('#000000');
+        expect(normalizarHexToken('rgb(1, var(--x), 3)', '#000000')).toBe('#000000');
+
+        // Defensa en profundidad en generarCssVariablesRoot
+        const cssSeguro = generarCssVariablesRoot({
+            '--color-brand-primario': '#e4007c',
+            '--color-brand-secundario': '#000; } body { display: none',
+            'propiedad-invalida': '#ffffff',
+        });
+        expect(cssSeguro).toBe(':root { --color-brand-primario:#e4007c }');
     });
 
     it('ejecutarPluginPaleta obtiene la configuración, inyecta CSS y sincroniza el DOM', async () => {

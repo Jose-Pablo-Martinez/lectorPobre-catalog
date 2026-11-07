@@ -55,10 +55,27 @@ export const PALETAS_PREDEFINIDAS: Record<string, Record<string, string>> = {
     },
 };
 
+const FUNC_WRAPPER_REGEX = /^(?:rgb|hsl)a?\(([^()]{1,50})\)$/i;
+const NUM_ARG_REGEX = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:deg|%)?$/i;
+const UNSAFE_CSS_CHARS_REGEX = /[<>{};\\]/;
+
+function esFuncionColorSegura(clean: string): boolean {
+    const match = FUNC_WRAPPER_REGEX.exec(clean);
+    const inner = match?.[1]?.trim();
+    if (!inner || !/^[0-9a-zA-Z.,%/\s-]+$/.test(inner)) {
+        return false;
+    }
+    const args = inner.split(/[\s,/]+/).filter(Boolean);
+    if (args.length < 3 || args.length > 4) {
+        return false;
+    }
+    return args.every((arg) => NUM_ARG_REGEX.test(arg));
+}
+
 /**
- * Normaliza y valida un código de color hexadecimal.
+ * Normaliza y valida un código de color hexadecimal o función CSS segura.
  * Soporta entradas con o sin '#' (ej: 'e4007c' -> '#e4007c', '#e4007c' -> '#e4007c').
- * Si el valor no es un color válido, retorna el fallback seguro.
+ * Si el valor no es un color válido, retorna el fallback seguro (prevención de inyección CSS/HTML V-05).
  *
  * @param customValue Valor ingresado por el usuario o API.
  * @param fallbackValue Valor de respaldo garantizado.
@@ -69,7 +86,7 @@ export function normalizarHexToken(
 ): string {
     if (!customValue) return fallbackValue;
     const clean = customValue.trim();
-    if (!clean) return fallbackValue;
+    if (!clean || UNSAFE_CSS_CHARS_REGEX.test(clean)) return fallbackValue;
 
     // Acepta formato hex sin '#' (ej: "e4007c" o "fff")
     if (/^[0-9a-fA-F]{3,8}$/.test(clean)) {
@@ -81,8 +98,8 @@ export function normalizarHexToken(
         return clean;
     }
 
-    // Acepta formatos funcionales válidos de CSS (rgb, rgba, hsl, hsla)
-    if (/^(rgb|hsl)a?\(.+?\)$/.test(clean)) {
+    // Acepta únicamente formatos funcionales numéricos seguros de CSS (rgb, rgba, hsl, hsla)
+    if (esFuncionColorSegura(clean)) {
         return clean;
     }
 
@@ -139,10 +156,12 @@ export function resolverTokensPaleta(
 }
 
 /**
- * Convierte un mapa de tokens CSS en la regla `:root { ... }` para inyectar en el `<head>`.
+ * Convierte un mapa de tokens CSS en la regla `:root { ... }` para inyectar en el `<head>`,
+ * descartando cualquier clave o valor con caracteres peligrosos de ruptura CSS/HTML (V-05).
  */
 export function generarCssVariablesRoot(tokens: Record<string, string>): string {
     const declarations = Object.entries(tokens)
+        .filter(([k, v]) => k.startsWith('--color-') && !UNSAFE_CSS_CHARS_REGEX.test(v))
         .map(([k, v]) => `${k}:${v}`)
         .join(';');
     return `:root { ${declarations} }`;
