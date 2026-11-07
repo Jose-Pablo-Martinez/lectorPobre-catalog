@@ -127,8 +127,18 @@ if (props.initialProducto === undefined) {
 }
 
 const { urlFor } = useSanityImage();
-const { addItem, openCart } = useCart();
+const { addItem, openCart, reconcileWithCatalog } = useCart();
 const { addProduct: registrarVistoReciente } = useRecentlyViewed();
+
+watch(
+    catalogoProductos,
+    (lista) => {
+        if (Array.isArray(lista) && lista.length > 0) {
+            reconcileWithCatalog(lista);
+        }
+    },
+    { immediate: true }
+);
 
 const umbralStockBajo = computed<number>(
     () => configGlobal.value?.umbralStockBajo ?? 5

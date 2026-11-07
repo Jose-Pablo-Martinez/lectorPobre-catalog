@@ -14,7 +14,7 @@ import PrimaryButton from '~/components/PrimaryButton.vue';
 import StarRating from '~/components/StarRating.vue';
 import StockIndicator from '~/components/StockIndicator.vue';
 import WhatsAppButton from '~/components/WhatsAppButton.vue';
-import { useCart } from '~/composables/useCart';
+import { CART_STORAGE_KEY, isValidCartItem, useCart } from '~/composables/useCart';
 import { PUBLIC_COMMENTS_GROQ_FIELDS } from '~/composables/useCatalog';
 import { useComment } from '~/composables/useComment';
 import { useRating } from '~/composables/useRating';
@@ -543,5 +543,121 @@ describe('UT-VUE-08 a UT-VUE-13: Componentes y Composables del Frontend', () => 
 
         expect(mockCommentFetcher).toHaveBeenCalled();
         expect(getStoredUserReview('prod-v01')?.reviewId).toBe(opaqueReviewId);
+    });
+
+    it('V-08: isValidCartItem y reconcileWithCatalog bloquean precios/cantidades manipulados en localStorage', () => {
+        const { hydrateCart, reconcileWithCatalog, items, totalAmount } = useCart();
+
+        // 1. Validación estricta de estructura al hidratar desde localStorage
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 85,
+                cantidad: 2,
+                stockMax: 5,
+            })
+        ).toBe(true);
+
+        // Rechazar precios negativos/NaN, cantidades fraccionarias o >99, IDs con caracteres inválidos
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: -10,
+                cantidad: 1,
+                stockMax: 5,
+            })
+        ).toBe(false);
+        expect(
+            isValidCartItem({
+                id: 'prod-1',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 50,
+                cantidad: 150,
+                stockMax: 200,
+            })
+        ).toBe(false);
+        expect(
+            isValidCartItem({
+                id: 'prod/../../bad',
+                nombre: 'Llavero',
+                slug: 'llavero',
+                categoria: 'Llaveros',
+                precio: 50,
+                cantidad: 1,
+                stockMax: 5,
+            })
+        ).toBe(false);
+
+        // 2. Reconciliación con el catálogo vigente sobrescribe precios adulterados y descarta inactivos/agotados
+        globalThis.localStorage.setItem(
+            CART_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: 'prod-real-1',
+                    nombre: 'Nombre Adulterado',
+                    slug: 'slug-adulterado',
+                    categoria: 'Pines',
+                    precio: 1, // Adulterado en localStorage ($1.00 en lugar de $120.00)
+                    cantidad: 10, // Excede stock real (3)
+                    stockMax: 50,
+                },
+                {
+                    id: 'prod-inactivo',
+                    nombre: 'Producto Descontinuado',
+                    slug: 'prod-inactivo',
+                    categoria: 'Pines',
+                    precio: 50,
+                    cantidad: 1,
+                    stockMax: 5,
+                },
+            ])
+        );
+
+        hydrateCart();
+        expect(items.value).toHaveLength(2);
+
+        reconcileWithCatalog([
+            {
+                _id: 'prod-real-1',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Llavero Totoro Original',
+                slug: { _type: 'slug', current: 'llavero-totoro-original' },
+                categoria: { nombre: 'Llaveros', slug: { _type: 'slug', current: 'llaveros' } },
+                precio: 120,
+                stock: 3,
+                activo: true,
+            },
+            {
+                _id: 'prod-inactivo',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Producto Descontinuado',
+                slug: { _type: 'slug', current: 'prod-inactivo' },
+                categoria: { nombre: 'Pines', slug: { _type: 'slug', current: 'pines' } },
+                precio: 50,
+                stock: 5,
+                activo: false,
+            },
+        ]);
+
+        expect(items.value).toHaveLength(1);
+        expect(items.value[0]?.nombre).toBe('Llavero Totoro Original');
+        expect(items.value[0]?.precio).toBe(120);
+        expect(items.value[0]?.cantidad).toBe(3);
+        expect(items.value[0]?.stockMax).toBe(3);
+        expect(totalAmount.value).toBe(360);
     });
 });
