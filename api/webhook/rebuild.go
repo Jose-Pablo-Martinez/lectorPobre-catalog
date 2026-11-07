@@ -3,6 +3,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -13,12 +14,16 @@ import (
 	"github.com/tu-org/lectorpobre/pkg/middleware"
 )
 
-const defaultRebuildCooldown = 5 * time.Minute
+const (
+	defaultRebuildCooldown = 5 * time.Minute
+	maxWebhookBodyBytes    = 1 << 20 // 1 MB (V-11)
+)
 
 var (
 	cooldownMu    sync.Mutex
 	lastRebuildAt time.Time
 	nowFunc       = time.Now
+	hookClient    = &http.Client{Timeout: 8 * time.Second}
 )
 
 // ResetRebuildCooldown reinicia el estado del cooldown de rebuild (para pruebas unitarias).
@@ -84,8 +89,15 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_, _ = w.Write([]byte(`{"error":"carga útil demasiado grande"}`))
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"error":"error interno"}`))
 		return
@@ -109,10 +121,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Disparar rebuild en Vercel via Vercel Deploy Hook
+	// Disparar rebuild en Vercel via Vercel Deploy Hook con timeout acotado (V-11)
 	deployHookURL := os.Getenv("VERCEL_DEPLOY_HOOK_URL")
 	if deployHookURL != "" {
-		resp, err := http.Post(deployHookURL, "application/json", nil)
+		resp, err := hookClient.Post(deployHookURL, "application/json", nil)
 		if err != nil {
 			log.Printf("[WARN] RebuildHandler: error al llamar Vercel Deploy Hook: %v", err)
 		} else {

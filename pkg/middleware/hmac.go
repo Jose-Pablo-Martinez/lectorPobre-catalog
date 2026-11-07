@@ -7,8 +7,27 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"strconv"
 	"strings"
+	"time"
 )
+
+const maxWebhookTimestampDriftSeconds = 300
+
+func timestampFresco(t string) bool {
+	n, err := strconv.ParseInt(strings.TrimSpace(t), 10, 64)
+	if err != nil {
+		return false
+	}
+	if n > 1e12 {
+		n /= 1000
+	}
+	diff := time.Now().Unix() - n
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff <= maxWebhookTimestampDriftSeconds
+}
 
 // VerifyHMAC verifica la firma HMAC-SHA256 de una carga útil de webhook entrante.
 // La firma se espera en el encabezado "Sanity-Webhook-Signature".
@@ -34,6 +53,9 @@ func VerifyHMAC(payload []byte, signature, secret string) bool {
 func verifySanityTimestamped(payload []byte, header string, secretBytes []byte) bool {
 	timestamp, v1Sig := parseSanityHeader(header)
 	if v1Sig == "" {
+		return false
+	}
+	if timestamp != "" && !timestampFresco(timestamp) {
 		return false
 	}
 

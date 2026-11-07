@@ -193,3 +193,36 @@ func TestRebuildHandler_CooldownYDocumentosExcluidos(t *testing.T) {
 	}
 	handler.SetRebuildClock(nil)
 }
+
+// TestRebuildHandler_LimiteBodyYAntiReplay verifica que cuerpos > 1 MB retornen 413 y firmas antiguas retornen 401 (V-11).
+func TestRebuildHandler_LimiteBodyYAntiReplay(t *testing.T) {
+	handler.ResetRebuildCooldown()
+	secret := "test-sanity-secret-v11" // gitleaks:allow
+	t.Setenv("SANITY_WEBHOOK_SECRET", secret)
+
+	// 1. Cuerpo mayor a 1 MB -> 413 Request Entity Too Large
+	largeBody := strings.Repeat("a", (1<<20)+64)
+	reqLarge := httptest.NewRequest(http.MethodPost, "/api/webhook/rebuild", strings.NewReader(largeBody))
+	reqLarge.Header.Set("Sanity-Webhook-Signature", signWebhookPayload(largeBody, secret))
+	wLarge := httptest.NewRecorder()
+	handler.Handler(wLarge, reqLarge)
+
+	if wLarge.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("Esperado 413 Request Entity Too Large para cuerpo > 1 MB, obtenido %d", wLarge.Code)
+	}
+
+	// 2. Firma con timestamp expirado (> 5 min) -> 401 Unauthorized
+	body := `{"_type":"producto","_id":"prod-1"}`
+	oldTs := "1700000000"
+	signedOld := oldTs + "." + body
+	headerOld := "t=" + oldTs + ",v1=" + signWebhookPayload(signedOld, secret)
+
+	reqOld := httptest.NewRequest(http.MethodPost, "/api/webhook/rebuild", strings.NewReader(body))
+	reqOld.Header.Set("Sanity-Webhook-Signature", headerOld)
+	wOld := httptest.NewRecorder()
+	handler.Handler(wOld, reqOld)
+
+	if wOld.Code != http.StatusUnauthorized {
+		t.Errorf("Esperado 401 Unauthorized para timestamp expirado, obtenido %d", wOld.Code)
+	}
+}
