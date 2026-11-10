@@ -19,18 +19,18 @@ El desarrollo se divide en dos entregas secuenciales e independientes:
 | **Release 2** | Panel de Control propio (este plan) | `panelControlImplementacion.md` | Panel propio **+** Sanity Studio como respaldo |
 
 > [!IMPORTANT]
-> **Prerrequisito de inicio:** las 7 fases activas del plan de la tienda deben estar terminadas y la tienda desplegada en producción. Este plan **no modifica** la tienda: la tienda nunca enlaza ni referencia al panel.
+> **Prerrequisito de inicio:** las 7 fases activas del plan de la tienda deben estar terminadas y la tienda desplegada en producción. La tienda nunca enlaza ni referencia al panel. Como paso inicial preparatorio del Release 2 (Fase P0.0), se incorporan en el catálogo y en Sanity la taxonomía de subcategorías jerárquicas, la ordenación dinámica configurable (con fallback aleatorio) y los filtros de precio por presupuesto para que el panel de administración nazca con soporte completo para gestionar colecciones de productos diversas (no limitadas a lucha libre).
 
 ### 1.2 Qué incluye el Panel de Control
 
 | Módulo | Descripción | Requisitos ERS |
 |---|---|---|
 | Autenticación | Login, logout con invalidación real, sesión protegida | RF-08, RF-09, RF-10 |
-| Productos | Crear, editar, eliminar, publicar/despublicar, orden | RF-11, RF-13 |
+| Productos | Crear, editar, eliminar, publicar/despublicar, orden, asignación de subcategoría | RF-11, RF-13 |
 | Imágenes | Subir, reemplazar, eliminar y asignar imagen principal/galería | RF-12 |
 | Stock | Vista y edición rápida de existencias, alertas de bajo stock | RF-14 |
-| Categorías | CRUD de categorías y asignación | RF-13 (ampliado) |
-| Configuración global | Paleta (RF-15), variantes visuales (RF-16), WhatsApp (RF-17), redes sociales (RF-05), sinónimos de búsqueda | RF-15, RF-16, RF-17, RF-05 |
+| Categorías y Subcategorías | CRUD de categorías y subcategorías jerárquicas, asignación y reordenamiento | RF-13 (ampliado), RF-04 (ampliado) |
+| Configuración global | Paleta (RF-15), variantes visuales (RF-16), WhatsApp (RF-17), redes sociales (RF-05), sinónimos de búsqueda, criterio de orden predeterminado del catálogo | RF-15, RF-16, RF-17, RF-05, RF-04 (ampliado) |
 | Moderación | Aprobar/rechazar/eliminar comentarios y calificaciones | RF-06, RF-07 |
 | Métricas y gráficas | Productos más vistos, comentarios, calificaciones, stock, resumen de tráfico | RF-14 (ampliado) / RNF-06 |
 
@@ -45,6 +45,7 @@ El desarrollo se divide en dos entregas secuenciales e independientes:
 
 | Fase | Nombre | Alcance | Entregables clave |
 |---|---|---|---|
+| P0.0 | Mejoras de catálogo: Subcategorías, Orden y Precios | Taxonomía Sanity, navegación, ordenación dinámica y filtro de precios | Esquema `subcategoria`, relación padre-hija, selector de orden predeterminado en `globalConfig` (fallback aleatorio), dropdown de orden en tienda, filtro de precio (presets y personalizado), convivencia total con etiquetas |
 | P0 | Prerrequisitos y aislamiento | Dominio, proyecto Vercel, tokens | Subdominio `admin.`, proyecto Vercel separado, token Sanity exclusivo del panel |
 | P1 | Scaffolding del panel | App `admin/`, layout, CI | Nuxt (SPA/SSR sin SSG público), `pnpm-workspace`, CI, `noindex` |
 | P2 | Autenticación y seguridad de acceso | RF-08, RF-09, RF-10 | Login bcrypt+JWT, cookie httpOnly, logout con JTI en KV, middleware, bloqueo por intentos |
@@ -123,6 +124,94 @@ lectorPobre/
 ├── sanity/                   # Esquemas compartidos (sin cambios)
 └── pnpm-workspace.yaml       # Agrega admin/ y admin-api/
 ```
+
+---
+
+## Fase P0.0 — Fundación de Catálogo: Subcategorías, Ordenación Dinámica y Filtros de Precio (Sanity y Tienda)
+
+**Objetivo:** Extender el modelo de datos en Sanity y la interfaz de navegación del catálogo para soportar subcategorías jerárquicas vinculadas a categorías principales, un sistema de ordenación dinámica configurable (con fallback aleatorio por defecto) y filtros de presupuesto por rango de precios. Esto permite organizar de manera intuitiva nuevas líneas de productos de temáticas variadas (arte botánico, cultura pop diversa, artesanías locales, papelería de autor, etc.) sin depender de la lucha libre como eje único, empoderando al cliente con herramientas ágiles de exploración y estableciendo los contratos de datos que consumirá el futuro panel de control.
+
+**Satisface:** RF-04 (Filtrado por categoría y navegación en catálogo — ampliado), RF-01 (Listado en catálogo), RF-13 (Gestión de catálogo), RF-15/RF-16 (Configuración de catálogo).
+
+### P0.0.1 Principio de No-Migración y Coexistencia con Etiquetas (`palabrasClave`)
+
+> [!IMPORTANT]
+> **Las subcategorías y las etiquetas son conceptos complementarios con propósitos técnicos distintos; NO se realiza migración de etiquetas a subcategorías:**
+> 1. **Etiquetas (`palabrasClave`):** Siguen siendo términos libres no jerárquicos (vocabulario abierto). Se utilizan exclusivamente para:
+>    - Ponderación en el motor de búsqueda difusa Fuse.js (peso 0.25).
+>    - Expansión de sinónimos (`DEFAULT_SYNONYM_GROUPS`).
+>    - Cálculo vectorial de similitud por contenido TF-IDF para piezas recomendadas (`SimilarProducts`).
+> 2. **Subcategorías:** Representan una taxonomía estructurada y formal (vocabulario cerrado). Pertenecen obligatoriamente a una categoría principal padre (ej. Categoría: *Llaveros* → Subcategoría: *Acrílico*, *Resina*, *Locales*) y se utilizan exclusivamente para:
+>    - Navegación visual y filtrado facetado en la interfaz de la tienda.
+>    - Organización administrativa formal en el futuro panel de control.
+
+### P0.0.2 Subcategorías Jerárquicas (Sanity y Tienda)
+
+1. **Esquema de Sanity (`sanity/schemaTypes/subcategory.ts`):**
+   - Definir documento `subcategoria` con campos: `nombre` (string, requerido), `slug` (slug generado desde nombre, requerido), `categoriaPadre` (referencia estricta a `categoria`, requerida), `descripcion` (texto opcional) y `orden` (número para ordenamiento determinista en menú).
+   - Actualizar `sanity/schemaTypes/product.ts` agregando el campo opcional `subcategoria` como referencia a `subcategoria`, con filtro GROQ condicionado a que su categoría padre coincida con la categoría seleccionada en el producto (`options.filter: 'categoriaPadre._ref == $categoriaId'`).
+2. **Consultas GROQ y Tipos TypeScript (`types/sanity.ts`, `composables/useCatalog.ts`):**
+   - Incorporar interfaz `Subcategoria` en `types/sanity.ts` y actualizar `Producto` con `subcategoria?: { nombre: string; slug: { current: string } }`.
+   - Crear consulta `CATALOG_SUBCATEGORIES_QUERY` y actualizar `PRODUCTO_GROQ_FIELDS` con `subcategoria->{nombre, slug, "categoriaPadreSlug": categoriaPadre->slug.current}`.
+3. **Navegación y Filtrado en Frontend (`pages/index.vue`, `composables/useCatalog.ts`):**
+   - Extender `useCatalog.ts` con estado reactivo `subcategoriaSeleccionada` y lógica de filtrado bidimensional (productos que coincidan con la categoría activa y, si aplica, con la subcategoría activa).
+   - Al seleccionar una categoría principal en la barra superior de filtros, renderizar un segundo nivel de chips/pills contextuales con las subcategorías correspondientes y el chip `"Todas"`.
+   - Limpiar automáticamente `subcategoriaSeleccionada` al cambiar de categoría principal o al ejecutar una búsqueda difusa libre.
+4. **Ficha de Detalle de Producto (`pages/product/[slug].vue`):**
+   - Actualizar el encabezado y las migas de pan Schema.org (`BreadcrumbList`) para reflejar la jerarquía: `Catálogo › Categoría › Subcategoría › Producto`.
+
+### P0.0.3 Sistema de Ordenación Dinámica (Sanity + Cliente)
+
+1. **Definición en Sanity (`sanity/schemaTypes/globalConfig.ts`):**
+   - Agregar campo `criterioOrdenDefault` (string con lista cerrada de opciones) en `configuracionGlobal`:
+     - `'aleatorio'` (**Valor por defecto** si el administrador no define ninguno o queda en blanco).
+     - `'recientes'` (Novedades: `_createdAt desc`).
+     - `'alfabetico_asc'` (Nombre A - Z: comparación lexicográfica completa en español `localeCompare('es')`, ordenando carácter por carácter de tal forma que *"Llavero Místico"* preceda a *"Llavero Xibalba"*).
+     - `'alfabetico_desc'` (Nombre Z - A).
+     - `'precio_asc'` (Precio: menor a mayor).
+     - `'precio_desc'` (Precio: mayor a menor).
+2. **Inicialización y Control del Cliente en la Tienda (`pages/index.vue`, `composables/useCatalog.ts`):**
+   - La tienda lee `configGlobal.criterioOrdenDefault` y arranca con ese orden (fallback automático a `'aleatorio'` si no está configurado).
+   - Para el criterio aleatorio, se genera una semilla SSR sincronizada (`useState('catalogo-sort-seed')`) para evitar *hydration mismatch* entre servidor y cliente.
+   - En la interfaz del catálogo, junto a los filtros de categorías, se incorpora un menú desplegable accesible (`<select>` estilizado o listbox) con la etiqueta `"Ordenar por:"`, ofreciendo al cliente las 6 opciones completas para que pueda alternar libremente su preferencia de vista.
+   - El cambio de orden recalcula reactivamente `productosPaginados` y reinicia la paginación a `paginaActual = 1`.
+
+### P0.0.4 Filtros de Rango de Precio por Presupuesto
+
+1. **Lógica en Composable (`composables/useCatalog.ts`):**
+   - Variables reactivas: `filtroPrecioPreset` (`'todos' | 'lt50' | 'lt100' | 'lt200' | 'custom'`) y rango manual `precioMin` / `precioMax`.
+   - Integración conjuntiva (AND) en `productosFiltrados`: además de coincidir con la categoría y subcategoría, el precio del producto debe cumplir `precio >= (precioMin ?? 0) && precio <= (precioMax ?? Infinity)`.
+2. **Componente de Filtro de Precios en Tienda (`pages/index.vue`):**
+   - Selector visual de presupuesto ubicado junto a los controles de navegación con dos modalidades:
+     - **Presets rápidos de un clic:**
+       - *Cualquier precio* (sin restricción).
+       - *Menos de $50 MXN* (`precio <= 50`).
+       - *Menos de $100 MXN* (`precio <= 100`).
+       - *Menos de $200 MXN* (`precio <= 200`).
+     - **Rango personalizado:**
+       - Campos de entrada numéricos para precio mínimo y máximo (`De $X a $Y`) con botón de aplicar y validación en cliente ($X \ge 0$, $Y \ge X$).
+   - Botón de limpieza rápida para reiniciar el filtro de precio a *Cualquier precio*.
+
+### P0.0.5 Tests (Modelo en V)
+
+| Sección | Tests | Origen |
+|---|---|---|
+| Esquema Sanity | PC-UT-SUB-01 (validación de campos obligatorios y referencia a categoría padre en `subcategoria`) | Nuevos |
+| Ordenación Catálogo | PC-UT-ORD-01 (orden alfabético completo A-Z y Z-A comparando strings completos con `localeCompare`), PC-UT-ORD-02 (orden por precio ascendente/descendente), PC-UT-ORD-03 (orden aleatorio determinista mediante semilla SSR), PC-UT-ORD-04 (fallback a aleatorio cuando `criterioOrdenDefault` es nulo o indefinido) | Nuevos |
+| Filtro de Precios | PC-UT-PRC-01 (filtrado por presets `<50`, `<100`, `<200`), PC-UT-PRC-02 (filtrado por rango personalizado min/max), PC-UT-PRC-03 (validación y descarte de precios negativos o rangos invertidos) | Nuevos |
+| Integración Combinada | PC-IT-CAT-01 (filtrado simultáneo categoría + subcategoría + rango de precio + ordenación en `useCatalog.ts`), PC-IT-CAT-02 (convivencia total y no interferencia con búsqueda difusa y sinónimos de etiquetas) | Nuevos |
+| Interfaz Tienda | PC-ST-CAT-01 (renderizado y conmutación de dropdown de orden y selector de presupuesto en `pages/index.vue`) | Nuevos |
+
+### P0.0.6 Verificación y Controles de Seguridad
+
+- [ ] Esquema `subcategoria` desplegado en Sanity con validación estricta de `categoriaPadre`
+- [ ] Slugs de subcategorías sanitizados con regex cerrada `^[a-z0-9]+(?:-[a-z0-9]+)*$` evitando inyección de caracteres especiales (`M-2`)
+- [ ] Consultas GROQ 100% parametrizadas con `$params` para subcategorías y ordenación, sin concatenación dinámica de strings (`M-3`)
+- [ ] Valores de ordenación restringidos a una lista blanca cerrada (`aleatorio`, `recientes`, `alfabetico_asc`, `alfabetico_desc`, `precio_asc`, `precio_desc`); cualquier valor desconocido aplica fallback a `aleatorio`
+- [ ] Filtros de precios sanitizados validando números finitos $\ge 0$; prevención de inyección o valores `NaN`/negativos (`V-08`)
+- [ ] Filtrado bidimensional en tienda verificado: la selección de subcategorías solo muestra piezas que pertenecen a la categoría padre activa
+- [ ] Búsqueda difusa y recomendaciones por etiquetas (`palabrasClave`) operan con total normalidad sin degradación ni mezcla funcional
+- [ ] Commit: `feat(catalog): implement subcategories, dynamic sorting and price range filters [RF-01, RF-04, RF-13, RF-15]`
 
 ---
 
@@ -269,7 +358,8 @@ lectorPobre/
 | PATCH/DELETE | `/api/admin/productos/{id}` | Editar / eliminar |
 | POST/DELETE | `/api/admin/imagenes` | Subir (asset Sanity) / eliminar |
 | PATCH | `/api/admin/stock/{id}` | Ajustar existencias |
-| GET/POST/PATCH/DELETE | `/api/admin/categorias` | CRUD de categorías |
+| GET/POST/PATCH/DELETE | `/api/admin/categorias` | CRUD de categorías principales |
+| GET/POST/PATCH/DELETE | `/api/admin/subcategorias` | CRUD de subcategorías jerárquicas con validación de categoría padre |
 | GET/PATCH | `/api/admin/config` | Configuración global |
 | GET/PATCH/DELETE | `/api/admin/moderacion` | Comentarios y calificaciones |
 | GET | `/api/admin/metricas` | Agregados para el dashboard |
@@ -302,7 +392,7 @@ lectorPobre/
 
 1. **Productos:** tabla con búsqueda, filtros (categoría, estado, stock) y paginación; formulario de creación/edición con validación y vista previa de cómo se verá en la tienda. Validar en servidor `slug` con regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (evitando caracteres que rompan rutas o el sitemap XML — `M-2`) y `precio` numérico finito `>= 0` (`V-08`).
 2. **Imágenes:** subida con previsualización, recorte/hotspot básico, texto alternativo obligatorio (accesibilidad), reordenar galería. **Seguridad de archivos (`POST /api/admin/imagenes`):** validar *magic bytes* en servidor con `http.DetectContentType` permitiendo únicamente `image/jpeg`, `image/png`, `image/webp` e `image/avif` (rechazar explícitamente `image/svg+xml` y HTML para prevenir Stored XSS), limitar tamaño a 5 MB y generar nombres de asset sanitizados sin usar rutas del cliente.
-3. **Categorías:** CRUD con reordenamiento; impedir eliminar una categoría que aún tenga productos referenciados sin reasignación previa.
+3. **Categorías y Subcategorías:** CRUD de categorías y subcategorías jerárquicas (establecidas en P0.0) con reordenamiento determinista; selector dependiente de subcategoría en formulario de producto; impedir eliminar categorías o subcategorías que aún tengan productos referenciados sin reasignación previa.
 4. **Stock:** edición rápida en línea, indicador de bajo stock configurable, historial opcional de ajustes; validar en servidor que `stock` sea entero en rango `[0, 99999]`.
 5. Confirmación explícita al eliminar y estado "borrador/publicado".
 
@@ -429,12 +519,15 @@ lectorPobre/
 
 ```mermaid
 graph LR
-    R1[Release 1: Tienda desplegada] --> P0[P0: Prerrequisitos]
+    R1[Release 1: Tienda desplegada] --> P0_0[P0.0: Subcategorías, orden y precios]
+    P0_0 --> P0[P0: Prerrequisitos]
     P0 --> P1[P1: Scaffolding]
+    P0_0 -. taxonomía y filtros listos para admin .-> P4[P4: Catálogo]
+    P0_0 -. configuración de orden default .-> P5[P5: Configuración y moderación]
     P1 --> P2[P2: Autenticación]
     P2 --> P3[P3: API de administración]
-    P3 --> P4[P4: Catálogo]
-    P3 --> P5[P5: Configuración y moderación]
+    P3 --> P4
+    P3 --> P5
     P4 --> P6[P6: Métricas]
     P5 --> P6
     P6 --> P7[P7: Hardening y liberación]
@@ -462,12 +555,13 @@ Se reutiliza [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/lectorPob
 
 | Requisito | Descripción | Fase del panel |
 |---|---|---|
+| RF-04 (ampliado) | Filtrado por subcategorías, ordenación dinámica (Sanity/cliente) y filtro de precios | **P0.0**, **P4**, **P5** |
 | RF-08 | Login de administrador | **P2** |
 | RF-09 | Logout con invalidación | **P2** |
 | RF-10 | Panel protegido | **P2**, **P3** |
-| RF-11 | Editar producto | **P4** |
+| RF-11 | Editar producto (incluye selector de subcategoría) | **P4** |
 | RF-12 | Modificar imagen | **P4** |
-| RF-13 | Crear/eliminar productos y categorías | **P4** |
+| RF-13 (ampliado) | Crear/eliminar productos, categorías y subcategorías | **P0.0**, **P4** |
 | RF-14 | Visualizar y editar stock (+ métricas) | **P4**, **P6** |
 | RF-15 | Personalización de paleta | **P5** |
 | RF-16 | Variantes visuales | **P5** |
