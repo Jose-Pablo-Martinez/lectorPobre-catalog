@@ -37,6 +37,7 @@ import {
 import { useRecentlyViewed } from '~/composables/useRecentlyViewed';
 import { useSanityImage } from '~/composables/useSanityImage';
 import { useStock } from '~/composables/useStock';
+import { buildProductJsonLd } from '~/composables/useStructuredData';
 import {
     construirUrlWhatsApp,
     formatearPrecioMXN,
@@ -331,8 +332,27 @@ watch(
     }
 );
 
-// Metadatos SEO y Open Graph (RF-20)
+// Metadatos SEO, Open Graph y Datos Estructurados JSON-LD (RF-20)
 try {
+    const siteUrl = 'https://lectorpobre.vercel.app';
+    const canonicalUrl = computed(() => {
+        const slug = producto.value?.slug?.current;
+        return slug ? `${siteUrl}/product/${encodeURIComponent(slug)}` : siteUrl;
+    });
+
+    const schemaJsonLd = computed(() => {
+        if (!producto.value) return null;
+        return buildProductJsonLd({
+            producto: producto.value,
+            siteUrl,
+            imageUrl: producto.value.imagenPrincipal
+                ? urlFor(producto.value.imagenPrincipal, { width: 1200 })
+                : null,
+            stockActual: stockActual.value,
+            comentarios: comentarios.value,
+        });
+    });
+
     useSeoMeta({
         title: () =>
             producto.value
@@ -343,11 +363,34 @@ try {
             'Pieza ilustrada del taller Lector Pobre.',
         ogTitle: () => producto.value?.nombre ?? 'Lector Pobre',
         ogDescription: () => producto.value?.descripcion?.slice(0, 160) ?? '',
+        ogUrl: () => canonicalUrl.value,
         ogImage: () =>
             producto.value?.imagenPrincipal
-                ? urlFor(producto.value.imagenPrincipal, { width: 1200 }) ?? ''
-                : '',
+                ? urlFor(producto.value.imagenPrincipal, { width: 1200 }) ?? `${siteUrl}/logo.png`
+                : `${siteUrl}/logo.png`,
+        twitterImage: () =>
+            producto.value?.imagenPrincipal
+                ? urlFor(producto.value.imagenPrincipal, { width: 1200 }) ?? `${siteUrl}/logo.png`
+                : `${siteUrl}/logo.png`,
         twitterCard: 'summary_large_image',
+    });
+
+    useHead({
+        link: () => [
+            {
+                rel: 'canonical',
+                href: canonicalUrl.value,
+            },
+        ],
+        script: () =>
+            schemaJsonLd.value
+                ? [
+                      {
+                          type: 'application/ld+json',
+                          innerHTML: JSON.stringify(schemaJsonLd.value),
+                      },
+                  ]
+                : [],
     });
 } catch {
     // Fallback seguro en entorno de pruebas unitarias

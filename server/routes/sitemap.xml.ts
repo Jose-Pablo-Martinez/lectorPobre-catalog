@@ -26,13 +26,13 @@ export function escapeXml(valor: string): string {
  * Construye el documento XML para el sitemap cumpliendo el protocolo sitemaps.org.
  *
  * @param productos Lista de productos activos con su slug y fecha de modificación.
- * @param baseUrl URL base canónica del sitio web.
+ * @param baseUrl URL base canónica del sitio web (por defecto https://lectorpobre.vercel.app o NUXT_PUBLIC_SITE_URL).
  * @param currentDate Fecha ISO opcional de referencia para la raíz.
  * @returns Cadena con el XML formateado del sitemap.
  */
 export function buildSitemapXml(
     productos: ProductSitemapItem[],
-    baseUrl = 'https://lectorpobre.com',
+    baseUrl = process.env.NUXT_PUBLIC_SITE_URL || 'https://lectorpobre.vercel.app',
     currentDate?: string
 ): string {
     const nowIso = currentDate ?? new Date().toISOString().split('T')[0];
@@ -98,8 +98,13 @@ const sitemapRouteHandler = async (event: any) => {
     if (typeof setHeader === 'function') {
         setHeader(event, 'content-type', 'application/xml; charset=utf-8');
     }
+    const config = typeof useRuntimeConfig === 'function' ? useRuntimeConfig() : undefined;
+    const baseUrl =
+        config?.public?.siteUrl ||
+        process.env.NUXT_PUBLIC_SITE_URL ||
+        'https://lectorpobre.vercel.app';
     const productos = await fetchProductsForSitemap();
-    return buildSitemapXml(productos);
+    return buildSitemapXml(productos, baseUrl);
 };
 
 export default typeof defineEventHandler === 'function'
