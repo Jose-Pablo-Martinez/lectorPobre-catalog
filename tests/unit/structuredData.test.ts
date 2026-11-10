@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildProductJsonLd,
     buildWebsiteJsonLd,
+    removeTrailingSlash,
 } from '~/composables/useStructuredData';
 import type { Comentario, Producto } from '~/types/sanity';
 
@@ -110,6 +111,13 @@ describe('Datos Estructurados Schema.org JSON-LD (RF-20)', () => {
         expect(productNode.offers.availability).toBe('https://schema.org/OutOfStock');
         expect(productNode.aggregateRating).toBeUndefined();
         expect(productNode.review).toBeUndefined();
+    });
+
+    it('removeTrailingSlash remueve de forma segura diagonales finales sin expresiones regulares', () => {
+        expect(removeTrailingSlash('https://lectorpobre.vercel.app')).toBe('https://lectorpobre.vercel.app');
+        expect(removeTrailingSlash('https://lectorpobre.vercel.app/')).toBe('https://lectorpobre.vercel.app');
+        expect(removeTrailingSlash('https://lectorpobre.vercel.app///')).toBe('https://lectorpobre.vercel.app');
+        expect(removeTrailingSlash('')).toBe('');
     });
 });
 

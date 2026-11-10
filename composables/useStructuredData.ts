@@ -23,10 +23,22 @@ export interface ProductSchemaOptions {
 }
 
 /**
+ * Remueve diagonales finales de una URL de forma segura sin usar expresiones regulares
+ * para evitar problemas de backtracking y rendimiento superlineal (SonarQube S5852).
+ */
+export function removeTrailingSlash(url: string): string {
+    let clean = url;
+    while (clean.endsWith('/')) {
+        clean = clean.slice(0, -1);
+    }
+    return clean;
+}
+
+/**
  * Genera el JSON-LD de WebSite y Store (Organización) para la página principal.
  */
 export function buildWebsiteJsonLd(options: WebsiteSchemaOptions): Record<string, any> {
-    const siteUrl = options.siteUrl.replace(/\/+$/, '');
+    const siteUrl = removeTrailingSlash(options.siteUrl);
     const siteName = options.siteName || 'Lector Pobre';
     const description =
         options.description ||
@@ -63,7 +75,7 @@ export function buildWebsiteJsonLd(options: WebsiteSchemaOptions): Record<string
  * permitiendo a Google mostrar precio, disponibilidad, estrellas y reseñas en los resultados.
  */
 export function buildProductJsonLd(options: ProductSchemaOptions): Record<string, any> {
-    const siteUrl = options.siteUrl.replace(/\/+$/, '');
+    const siteUrl = removeTrailingSlash(options.siteUrl);
     const prod = options.producto;
     const slug = prod.slug?.current ?? prod._id;
     const currentUrl = `${siteUrl}/product/${encodeURIComponent(slug)}`;
