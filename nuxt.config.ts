@@ -79,6 +79,8 @@ export default defineNuxtConfig({
 
     runtimeConfig: {
         public: {
+            siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://lectorpobre.vercel.app',
+            googleSiteVerification: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
             plausibleDomain: process.env.NUXT_PUBLIC_PLAUSIBLE_DOMAIN || '',
         },
     },
@@ -88,8 +90,25 @@ export default defineNuxtConfig({
             htmlAttrs: { lang: 'es' },
             meta: [
                 { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-                { property: 'og:image', content: '/logo.png' },
-                { name: 'twitter:image', content: '/logo.png' },
+                { name: 'robots', content: 'index, follow' },
+                { property: 'og:site_name', content: 'Lector Pobre' },
+                { property: 'og:type', content: 'website' },
+                {
+                    property: 'og:image',
+                    content: `${process.env.NUXT_PUBLIC_SITE_URL || 'https://lectorpobre.vercel.app'}/logo.png`,
+                },
+                {
+                    name: 'twitter:image',
+                    content: `${process.env.NUXT_PUBLIC_SITE_URL || 'https://lectorpobre.vercel.app'}/logo.png`,
+                },
+                ...(process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+                    ? [
+                          {
+                              name: 'google-site-verification',
+                              content: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+                          },
+                      ]
+                    : []),
             ],
             script: [
                 ...(process.env.NUXT_PUBLIC_PLAUSIBLE_DOMAIN
