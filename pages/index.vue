@@ -32,6 +32,7 @@ import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import { useCatalog } from '~/composables/useCatalog';
 import { useRecentlyViewed } from '~/composables/useRecentlyViewed';
 import { useSanityImage } from '~/composables/useSanityImage';
+import { buildWebsiteJsonLd } from '~/composables/useStructuredData';
 import { useAnalytics } from '~/composables/useAnalytics';
 import { formatearPrecioMXN } from '~/composables/useWhatsApp';
 
@@ -257,8 +258,18 @@ const manejarTecladoBuscador = (ev: KeyboardEvent): void => {
     }
 };
 
-// Metadatos SEO y Open Graph (RF-20)
+// Metadatos SEO, Open Graph y Datos Estructurados JSON-LD (RF-20)
 try {
+    const siteUrl = 'https://lectorpobre.vercel.app';
+    const logoUrl = `${siteUrl}/logo.png`;
+    const websiteJsonLd = buildWebsiteJsonLd({
+        siteUrl,
+        siteName: 'Lector Pobre',
+        description:
+            'Explora el catálogo del taller Lector Pobre: llaveros de resina y acrílico, pines, art prints, tote bags, stickers ilustrados originalmente. Cotiza tu pedido por WhatsApp.',
+        logoUrl,
+    });
+
     useSeoMeta({
         title: 'Lector Pobre | Catálogo de Arte',
         description:
@@ -266,9 +277,25 @@ try {
         ogTitle: 'Lector Pobre | Arte y Artesanías Originales de diseños únicos',
         ogDescription:
             'Llaveros, pines, prints y stickers semi-artesanales de diseños completamente originales sobre lucha libre y cultura pop.',
-        ogImage: '/logo.png',
-        twitterImage: '/logo.png',
+        ogUrl: siteUrl,
+        ogImage: logoUrl,
+        twitterImage: logoUrl,
         twitterCard: 'summary_large_image',
+    });
+
+    useHead({
+        link: [
+            {
+                rel: 'canonical',
+                href: siteUrl,
+            },
+        ],
+        script: [
+            {
+                type: 'application/ld+json',
+                innerHTML: JSON.stringify(websiteJsonLd),
+            },
+        ],
     });
 } catch {
     // Fallback seguro fuera del contexto Nuxt en pruebas unitarias

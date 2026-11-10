@@ -52,7 +52,7 @@ describe('Sitemap XML (RF-20, RNF-02)', () => {
 
         try {
             const xml = await sitemapHandler({} as any);
-            expect(xml).toContain('<loc>https://lectorpobre.com/</loc>');
+            expect(xml).toContain('<loc>https://lectorpobre.vercel.app/</loc>');
             expect(xml).toContain('</urlset>');
         } finally {
             globalThis.fetch = originalFetch;
