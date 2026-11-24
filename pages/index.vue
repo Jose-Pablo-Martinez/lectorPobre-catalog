@@ -10,7 +10,7 @@
   @satisfies RF-01, RF-04, RF-15, RF-18, RF-19, RF-20, RF-22, RF-23, RNF-05, RNF-07
 -->
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
     ArrowRight,
     Check,
@@ -48,6 +48,9 @@ const {
     searchQuery,
     sugerencias,
     sugeridosEstadoVacio,
+    busquedaConfirmada,
+    sugerenciasConfirmadas,
+    confirmarBusqueda,
     cargarIndiceBusqueda,
     limpiarBusqueda,
     productosFiltrados,
@@ -83,8 +86,17 @@ watch(searchQuery, (nuevaQuery) => {
     }
 });
 
+onBeforeUnmount(() => {
+    if (timeoutBusqueda) {
+        clearTimeout(timeoutBusqueda);
+        timeoutBusqueda = null;
+    }
+});
+
 const mostrarDropdownSugerencias = ref(false);
 const indiceSugerenciaActiva = ref(-1);
+const searchInputRef = ref<HTMLInputElement | null>(null);
+const resultsSectionRef = ref<HTMLElement | null>(null);
 const errorImagenDestacado = ref(false);
 const recienAgregadoDestacado = ref(false);
 const limiteStockDestacado = ref(false);
@@ -201,15 +213,86 @@ const manejarBlurBuscador = (): void => {
     }, 180);
 };
 
+const sincronizarQueryEnUrl = (valor: string): void => {
+    try {
+        const route = useRoute();
+        const router = useRouter();
+        const nextQuery: Record<string, string | string[] | null | undefined> = {
+            ...(route.query as Record<string, string | string[] | null | undefined>),
+        };
+        if (valor) {
+            nextQuery.q = valor;
+        } else {
+            delete nextQuery.q;
+        }
+        void router.replace({ query: nextQuery });
+    } catch {
+        // Fallback seguro fuera del contexto de enrutamiento (pruebas unitarias)
+    }
+};
+
+onMounted(() => {
+    try {
+        const route = useRoute();
+        const qParam = route.query?.q;
+        if (typeof qParam === 'string') {
+            const limpio = qParam.trim().slice(0, 100);
+            if (limpio.length > 0) {
+                confirmarBusqueda(limpio);
+            }
+        }
+    } catch {
+        // Fallback seguro en entorno de pruebas unitarias
+    }
+});
+
+const manejarLimpiarBusqueda = (): void => {
+    if (timeoutBusqueda) {
+        clearTimeout(timeoutBusqueda);
+        timeoutBusqueda = null;
+    }
+    limpiarBusqueda();
+    mostrarDropdownSugerencias.value = false;
+    indiceSugerenciaActiva.value = -1;
+    sincronizarQueryEnUrl('');
+};
+
 const aplicarSugerencia = (sug: Suggestion): void => {
     if (sug.type === 'categoria') {
         seleccionarCategoria(sug.slug ?? sug.label);
-        limpiarBusqueda();
+        manejarLimpiarBusqueda();
     } else {
-        searchQuery.value = sug.label;
+        confirmarBusqueda(sug.label);
+        sincronizarQueryEnUrl(sug.label.trim());
+        resultsSectionRef.value?.scrollIntoView?.({
+            behavior: 'smooth',
+            block: 'start',
+        });
     }
     mostrarDropdownSugerencias.value = false;
     indiceSugerenciaActiva.value = -1;
+};
+
+const ejecutarConfirmacionBusqueda = (): void => {
+    if (timeoutBusqueda) {
+        clearTimeout(timeoutBusqueda);
+        timeoutBusqueda = null;
+    }
+    const limpio = searchQuery.value.trim();
+    confirmarBusqueda(limpio);
+    mostrarDropdownSugerencias.value = false;
+    indiceSugerenciaActiva.value = -1;
+    sincronizarQueryEnUrl(limpio);
+
+    if (limpio.length >= 2) {
+        trackSearch(limpio, productosFiltrados.value.length);
+    }
+
+    searchInputRef.value?.blur();
+    resultsSectionRef.value?.scrollIntoView?.({
+        behavior: 'smooth',
+        block: 'start',
+    });
 };
 
 const moverSeleccionSugerencia = (delta: number): void => {
@@ -228,9 +311,19 @@ const confirmarSugerenciaActiva = (): void => {
 };
 
 const manejarTecladoBuscador = (ev: KeyboardEvent): void => {
+    if (ev.key === 'Enter') {
+        ev.preventDefault();
+        if (listboxAbierto.value && indiceSugerenciaActiva.value >= 0) {
+            confirmarSugerenciaActiva();
+        } else {
+            ejecutarConfirmacionBusqueda();
+        }
+        return;
+    }
+
     if (!listboxAbierto.value) {
         if (ev.key === 'Escape' && searchQuery.value) {
-            limpiarBusqueda();
+            manejarLimpiarBusqueda();
         }
         return;
     }
@@ -243,12 +336,6 @@ const manejarTecladoBuscador = (ev: KeyboardEvent): void => {
         case 'ArrowUp':
             ev.preventDefault();
             moverSeleccionSugerencia(-1);
-            break;
-        case 'Enter':
-            if (indiceSugerenciaActiva.value >= 0) {
-                ev.preventDefault();
-                confirmarSugerenciaActiva();
-            }
             break;
         case 'Escape':
             ev.preventDefault();
@@ -319,7 +406,7 @@ try {
                 </h1>
 
                 <p class="font-sans text-zinc-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mt-2 leading-relaxed">
-                    Arma tu lista de artículos, agregando al carrito, con tus piezas favoritas del catálog y envíala directamente por WhatsApp para confirmar existencias y entrega con la artista Lector Pobre.
+                    Arma tu lista de artículos, agregando al carrito, con tus piezas favoritas del catálogo y envíala directamente por WhatsApp para confirmar existencias y entrega con la artista Lector Pobre.
                 </p>
             </div>
         </section>
@@ -517,6 +604,7 @@ try {
                     />
                     <input
                         id="catalog-search-input"
+                        ref="searchInputRef"
                         v-model="searchQuery"
                         type="search"
                         role="combobox"
@@ -537,7 +625,7 @@ try {
                         class="absolute right-2 p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-slate-200 focus-visible:outline-none"
                         aria-label="Limpiar búsqueda"
                         data-testid="clear-search-button"
-                        @click="limpiarBusqueda"
+                        @click="manejarLimpiarBusqueda"
                     >
                         <X class="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -573,6 +661,38 @@ try {
                         </button>
                     </li>
                 </ul>
+
+                <!-- Sugerencias guardadas tras confirmar búsqueda con Enter -->
+                <div
+                    v-if="!listboxAbierto && busquedaConfirmada && sugerenciasConfirmadas.length > 0"
+                    class="mt-3 flex flex-wrap items-center gap-2"
+                    aria-label="Sugerencias guardadas de tu búsqueda"
+                    data-testid="confirmed-search-suggestions"
+                >
+                    <span class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 shrink-0">
+                        Sugerencias relacionadas:
+                    </span>
+                    <template
+                        v-for="(sug, index) in sugerenciasConfirmadas"
+                        :key="`saved-${sug.type}-${sug.label}-${index}`"
+                    >
+                        <a
+                            v-if="sug.type === 'producto' && sug.slug"
+                            :href="`/product/${encodeURIComponent(sug.slug)}`"
+                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-200 hover:text-zinc-950 border border-zinc-300 dark:border-slate-700 transition-colors"
+                        >
+                            <span class="truncate max-w-[200px]">{{ sug.label }}</span>
+                        </a>
+                        <button
+                            v-else
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-secundario hover:text-white text-brand-texto dark:text-slate-200 border border-zinc-300 dark:border-slate-700 transition-colors cursor-pointer"
+                            @click="aplicarSugerencia(sug)"
+                        >
+                            <span class="truncate max-w-[200px]">{{ sug.label }}</span>
+                        </button>
+                    </template>
+                </div>
             </div>
 
             <!-- Carrusel Mobile-First de chips de categoría (scroll táctil en móvil, wrap en sm+) -->
@@ -623,6 +743,8 @@ try {
 
             <!-- Resumen accesible de resultados (aria-live) -->
             <div
+                id="catalog-results-grid"
+                ref="resultsSectionRef"
                 class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-100 dark:border-slate-800 font-sans text-xs text-zinc-600 dark:text-slate-400"
                 aria-live="polite"
             >
@@ -636,7 +758,7 @@ try {
                     data-testid="reset-filters-button"
                     @click="
                         seleccionarCategoria('');
-                        limpiarBusqueda();
+                        manejarLimpiarBusqueda();
                     "
                 >
                     Restablecer filtros

@@ -233,3 +233,173 @@ export function expandSynonyms(
     }
     return Array.from(expanded);
 }
+
+/**
+ * Grupo de búsqueda para un término original de la consulta y sus sinónimos.
+ * @satisfies RF-18, RF-23
+ */
+export interface QueryTokenGroup {
+    raw: string;
+    variants: string[];
+    isGeneric: boolean;
+}
+
+/**
+ * Términos genéricos de categoría, formato, material o rama que acotan el tipo de producto
+ * pero no identifican por sí solos al personaje/entidad principal cuando van acompañados.
+ */
+export const GENERIC_SEARCH_TOKENS: ReadonlySet<string> = new Set([
+    'llavero',
+    'llaveros',
+    'keychain',
+    'yavero',
+    'yaveros',
+    'charm',
+    'sticker',
+    'stickers',
+    'calcomania',
+    'calcomanias',
+    'pegatina',
+    'vinil',
+    'vinilo',
+    'pin',
+    'pines',
+    'pins',
+    'broche',
+    'prendedor',
+    'badge',
+    'print',
+    'prints',
+    'ilustracion',
+    'poster',
+    'lamina',
+    'acrilico',
+    'acrilicos',
+    'transparente',
+    'acrylic',
+    'resina',
+    'epoxica',
+    'epoxi',
+    'epoxy',
+    'domo',
+    'grande',
+    'pequeno',
+    'holografico',
+    'clasico',
+    'mascara',
+    'retrato',
+    'muneco',
+    'logo',
+    'luchador',
+    'luchadora',
+    'luchadores',
+    'lucha',
+    'libre',
+    'varonil',
+    'femenil',
+    'local',
+    'yucatan',
+]);
+
+/**
+ * Divide un texto normalizado por espacios preservando palabras cortas (1–3 letras)
+ * necesarias para coincidencias exactas como `"lee"`, `"gh"` o `"ph"`.
+ */
+export function splitNormalizedWords(text: string): string[] {
+    const normalized = normalizeText(text);
+    return normalized ? normalized.split(' ') : [];
+}
+
+/**
+ * Construye grupos conjuntivos de consulta conservando los sinónimos agrupados por
+ * cada token fuente y clasificando términos genéricos vs. de entidad.
+ */
+export function buildQueryTokenGroups(
+    query: string,
+    synonymMap: Map<string, string[]>
+): QueryTokenGroup[] {
+    const significant = tokenize(query);
+    const sourceTokens =
+        significant.length > 0 ? significant : splitNormalizedWords(query);
+    const seen = new Set<string>();
+    const groups: QueryTokenGroup[] = [];
+
+    for (const token of sourceTokens) {
+        if (!token || seen.has(token)) continue;
+        seen.add(token);
+        const variants = expandSynonyms([token], synonymMap);
+        const isGeneric = variants.some((v) => GENERIC_SEARCH_TOKENS.has(v));
+        groups.push({ raw: token, variants, isGeneric });
+    }
+
+    return groups;
+}
+
+/**
+ * Calcula la distancia de edición Levenshtein iterativa en O(min(m, n)) de memoria.
+ */
+export function levenshteinDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+    let prev = Array.from({ length: shorter.length + 1 }, (_, idx) => idx);
+    let curr = new Array<number>(shorter.length + 1).fill(0);
+
+    for (let i = 1; i <= longer.length; i++) {
+        curr[0] = i;
+        const longerChar = longer[i - 1];
+        for (let j = 1; j <= shorter.length; j++) {
+            const cost = longerChar === shorter[j - 1] ? 0 : 1;
+            const deletion = (prev[j] ?? 0) + 1;
+            const insertion = (curr[j - 1] ?? 0) + 1;
+            const substitution = (prev[j - 1] ?? 0) + cost;
+            curr[j] = Math.min(deletion, insertion, substitution);
+        }
+        [prev, curr] = [curr, prev];
+    }
+
+    return prev[shorter.length] ?? longer.length;
+}
+
+/**
+ * Evalúa la calidad de coincidencia de un término contra un arreglo de palabras normalizadas.
+ * Tokens cortos (`<= 3` caracteres) solo aceptan exacto o prefijo para evitar falsos positivos
+ * difusos (ej. `"lee"` contra `"libre"`).
+ */
+export function computeWordMatchScore(
+    term: string,
+    fieldWords: readonly string[],
+    maxFuzzyRatio = 0.25
+): number {
+    if (!term || fieldWords.length === 0) return 0;
+    let best = 0;
+
+    for (const word of fieldWords) {
+        if (word === term) return 1;
+
+        if (term.length >= 2 && word.startsWith(term) && best < 0.9) {
+            best = 0.9;
+            continue;
+        }
+
+        const allowFuzzy =
+            term.length >= 4 &&
+            word.length >= 4 &&
+            Math.abs(word.length - term.length) <= 2;
+
+        if (!allowFuzzy) continue;
+
+        const maxLen = Math.max(term.length, word.length);
+        const ratio = levenshteinDistance(term, word) / maxLen;
+        if (ratio <= maxFuzzyRatio) {
+            const fuzzyScore = Math.max(0.65, 1 - ratio * 1.2);
+            if (fuzzyScore > best) {
+                best = fuzzyScore;
+            }
+        }
+    }
+
+    return best;
+}

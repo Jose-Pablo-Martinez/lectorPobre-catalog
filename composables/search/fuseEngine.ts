@@ -9,11 +9,15 @@
 
 import Fuse from 'fuse.js';
 import {
+    buildQueryTokenGroups,
     buildSynonymMap,
+    computeWordMatchScore,
     DEFAULT_SYNONYM_GROUPS,
     expandSynonyms,
     normalizeText,
+    splitNormalizedWords,
     tokenize,
+    type QueryTokenGroup,
 } from './normalize';
 import type {
     SearchableCategory,
@@ -30,6 +34,10 @@ interface IndexedProduct extends SearchableProduct {
     palabrasClaveNorm: string;
     categoriaNorm: string;
     descripcionNorm: string;
+    nombreWords: string[];
+    palabrasClaveWords: string[];
+    categoriaWords: string[];
+    descripcionWords: string[];
 }
 
 export interface FuseEngineOptions {
@@ -39,12 +47,22 @@ export interface FuseEngineOptions {
     indexLoader?: () => Promise<SearchIndexPayload>;
     /** Payload inicial opcional para hidratar sin red en pruebas unitarias. */
     initialPayload?: SearchIndexPayload;
-    /** Umbral de tolerancia difusa de Fuse.js (por defecto 0.35). */
+    /** Umbral de tolerancia difusa (por defecto 0.25). */
     threshold?: number;
 }
 
+const MIN_RELEVANCE_SCORE = 0.5;
+const FIELD_WEIGHTS: ReadonlyArray<
+    readonly ['nombreWords' | 'palabrasClaveWords' | 'categoriaWords' | 'descripcionWords', number]
+> = [
+    ['nombreWords', 1.0],
+    ['palabrasClaveWords', 0.86],
+    ['categoriaWords', 0.78],
+    ['descripcionWords', 0.56],
+];
+
 /**
- * Motor de búsqueda difusa client-side basado en Fuse.js.
+ * Motor de búsqueda difusa client-side basado en Fuse.js con evaluación conjuntiva por grupos.
  * @satisfies RF-18, RF-23, RNF-07, RNF-08
  */
 export class FuseSearchEngine implements SearchEngine {
@@ -57,7 +75,7 @@ export class FuseSearchEngine implements SearchEngine {
     private readonly loader: () => Promise<SearchIndexPayload>;
 
     constructor(options: FuseEngineOptions = {}) {
-        this.threshold = options.threshold ?? 0.35;
+        this.threshold = options.threshold ?? 0.25;
         const customLoader = options.loader ?? options.indexLoader;
         this.loader =
             customLoader ??
@@ -107,13 +125,18 @@ export class FuseSearchEngine implements SearchEngine {
                 ...tokenize(product.categoria),
             ];
             const expandedKeywords = expandSynonyms(rawKeywords, this.synonymMap);
+            const palabrasClaveNorm = expandedKeywords.join(' ');
 
             return {
                 ...product,
                 nombreNorm,
-                palabrasClaveNorm: expandedKeywords.join(' '),
+                palabrasClaveNorm,
                 categoriaNorm,
                 descripcionNorm,
+                nombreWords: splitNormalizedWords(product.nombre),
+                palabrasClaveWords: splitNormalizedWords(palabrasClaveNorm),
+                categoriaWords: splitNormalizedWords(product.categoria),
+                descripcionWords: splitNormalizedWords(product.descripcion ?? ''),
             };
         });
 
@@ -158,7 +181,8 @@ export class FuseSearchEngine implements SearchEngine {
     }
 
     /**
-     * Ejecuta búsqueda difusa ponderando nombre (0.5) > palabrasClave (0.25) > categoría (0.15) > descripción (0.1).
+     * Ejecuta búsqueda conjuntiva por grupos de entidad y contexto con corte de relevancia
+     * para evitar explosión OR y falsos positivos en búsquedas multi-término.
      * @param query - Término ingresado por el usuario.
      * @param limit - Máximo de resultados a devolver (por defecto 24).
      * @satisfies RF-18, RF-23
@@ -168,58 +192,117 @@ export class FuseSearchEngine implements SearchEngine {
         const normalizedQuery = normalizeText(query);
         if (!normalizedQuery) return [];
 
-        const queryTokens = tokenize(normalizedQuery);
-        const baseTokens = queryTokens.length > 0 ? queryTokens : [normalizedQuery];
-        const expandedTokens = expandSynonyms(baseTokens, this.synonymMap);
+        const groups = buildQueryTokenGroups(normalizedQuery, this.synonymMap);
+        if (groups.length === 0) return [];
 
-        const candidateQueries = new Set<string>([
-            normalizedQuery,
-            ...expandedTokens,
-        ]);
-        const bestScores = new Map<string, number>();
+        const entityGroups = groups.filter((g) => !g.isGeneric);
+        const genericGroups = groups.filter((g) => g.isGeneric);
+        const results: SearchResult[] = [];
 
-        for (const candidate of candidateQueries) {
-            this.evaluateCandidateQuery(
-                candidate,
+        for (const item of this.indexedProducts) {
+            const score = this.scoreProductForGroups(
+                item,
                 normalizedQuery,
-                expandedTokens,
-                bestScores
+                groups,
+                entityGroups,
+                genericGroups
             );
-        }
-
-        return Array.from(bestScores.entries())
-            .map(([id, score]) => ({ id, score }))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit);
-    }
-
-    private evaluateCandidateQuery(
-        candidate: string,
-        normalizedQuery: string,
-        expandedTokens: readonly string[],
-        bestScores: Map<string, number>
-    ): void {
-        if (!this.fuse) return;
-        const queryPenalty = candidate === normalizedQuery ? 1 : 0.92;
-        const fuseResults = this.fuse.search(candidate);
-
-        for (const hit of fuseResults) {
-            const fuseDistance = hit.score ?? 0.5;
-            const baseSimilarity = Math.max(0.01, 1 - fuseDistance);
-            const fieldBoost = this.computeFieldWeightBoost(
-                hit.item,
-                normalizedQuery,
-                expandedTokens
-            );
-            const finalScore = Number(
-                Math.min(1, baseSimilarity * queryPenalty + fieldBoost).toFixed(4)
-            );
-
-            const previous = bestScores.get(hit.item._id) ?? 0;
-            if (finalScore > previous) {
-                bestScores.set(hit.item._id, finalScore);
+            if (score > 0) {
+                results.push({ id: item._id, score });
             }
         }
+
+        const sorted = [...results];
+        sorted.sort((a, b) => b.score - a.score);
+        return sorted.slice(0, limit);
+    }
+
+    private evaluateGroupMatch(
+        item: IndexedProduct,
+        group: QueryTokenGroup
+    ): number {
+        let best = 0;
+        for (const variant of group.variants) {
+            const synonymFactor = variant === group.raw ? 1 : 0.96;
+            for (const [fieldKey, weight] of FIELD_WEIGHTS) {
+                const wordScore = computeWordMatchScore(
+                    variant,
+                    item[fieldKey],
+                    this.threshold
+                );
+                if (wordScore === 0) continue;
+                const weighted = wordScore * weight * synonymFactor;
+                if (weighted > best) {
+                    best = weighted;
+                }
+            }
+        }
+        return best;
+    }
+
+    private evaluateRequiredGroups(
+        item: IndexedProduct,
+        requiredGroups: readonly QueryTokenGroup[]
+    ): { matched: number; sum: number } {
+        let matched = 0;
+        let sum = 0;
+        for (const group of requiredGroups) {
+            const groupScore = this.evaluateGroupMatch(item, group);
+            if (groupScore > 0) {
+                matched++;
+                sum += groupScore;
+            }
+        }
+        return { matched, sum };
+    }
+
+    private computeHybridScore(
+        item: IndexedProduct,
+        avgRequired: number,
+        genericGroups: readonly QueryTokenGroup[]
+    ): number {
+        let matchedGeneric = 0;
+        for (const group of genericGroups) {
+            if (this.evaluateGroupMatch(item, group) > 0) {
+                matchedGeneric++;
+            }
+        }
+        const genericCoverage = matchedGeneric / genericGroups.length;
+        return matchedGeneric === genericGroups.length
+            ? 0.84 + 0.16 * avgRequired
+            : 0.56 + 0.24 * avgRequired + 0.04 * genericCoverage;
+    }
+
+    private scoreProductForGroups(
+        item: IndexedProduct,
+        normalizedQuery: string,
+        groups: readonly QueryTokenGroup[],
+        entityGroups: readonly QueryTokenGroup[],
+        genericGroups: readonly QueryTokenGroup[]
+    ): number {
+        const requiredGroups = entityGroups.length > 0 ? entityGroups : groups;
+        const minRequired =
+            requiredGroups.length <= 2
+                ? requiredGroups.length
+                : Math.ceil(requiredGroups.length * 0.7);
+
+        const { matched, sum } = this.evaluateRequiredGroups(item, requiredGroups);
+        if (matched < minRequired) return 0;
+
+        const avgRequired = sum / requiredGroups.length;
+        const hasHybridGroups =
+            entityGroups.length > 0 && genericGroups.length > 0;
+        let baseScore = hasHybridGroups
+            ? this.computeHybridScore(item, avgRequired, genericGroups)
+            : avgRequired * (0.75 + 0.25 * (matched / requiredGroups.length));
+
+        if (item.nombreNorm.includes(normalizedQuery)) {
+            baseScore += 0.02;
+        }
+
+        return baseScore >= MIN_RELEVANCE_SCORE
+            ? Number(Math.min(1, baseScore).toFixed(4))
+            : 0;
     }
 
     /**
@@ -267,32 +350,5 @@ export class FuseSearchEngine implements SearchEngine {
         }
 
         return suggestions;
-    }
-
-    /**
-     * Calcula una bonificación determinista según el campo donde ocurre la coincidencia
-     * para garantizar el orden estricto: nombre (0.5) > palabrasClave (0.25) > categoría (0.15) > descripción (0.1).
-     */
-    private computeFieldWeightBoost(
-        item: IndexedProduct,
-        normalizedQuery: string,
-        expandedTokens: readonly string[]
-    ): number {
-        const validTerms = [normalizedQuery, ...expandedTokens].filter(
-            (term) => term.length > 0
-        );
-        const weightedFields: ReadonlyArray<readonly [string, number]> = [
-            [item.nombreNorm, 0.25],
-            [item.palabrasClaveNorm, 0.12],
-            [item.categoriaNorm, 0.06],
-            [item.descripcionNorm, 0.01],
-        ];
-
-        for (const [fieldText, boost] of weightedFields) {
-            if (validTerms.some((term) => fieldText.includes(term))) {
-                return boost;
-            }
-        }
-        return 0;
     }
 }

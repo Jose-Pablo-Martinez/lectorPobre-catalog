@@ -9,10 +9,14 @@ import { ref } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import { FuseSearchEngine } from '~/composables/search/fuseEngine';
 import {
+    buildQueryTokenGroups,
     buildSynonymMap,
+    computeWordMatchScore,
     DEFAULT_SYNONYM_GROUPS,
     expandSynonyms,
+    levenshteinDistance,
     normalizeText,
+    splitNormalizedWords,
     tokenize,
 } from '~/composables/search/normalize';
 import type { SearchableProduct, SearchIndexPayload } from '~/composables/search/types';
@@ -192,5 +196,219 @@ describe('UT-BUS-01 a UT-BUS-10: Búsqueda Difusa, Normalización y Contrato Sea
             expect(r.score).toBeGreaterThanOrEqual(0);
             expect(r.score).toBeLessThanOrEqual(1);
         }
+    });
+
+    it('PC-UT-SRCH-01: "llavero de Dragon lee" devuelve solo piezas de Dragon Lee sin falsos positivos de otros luchadores', async () => {
+        const realisticCatalog: SearchableProduct[] = [
+            {
+                _id: 'llavero-dragon-lee',
+                nombre: 'Llavero de Dragon Lee',
+                slug: 'llavero-de-dragon-lee',
+                descripcion: 'Llavero de acrílico de Dragon Lee II en la lucha libre.',
+                categoria: 'Llaveros',
+                palabrasClave: ['Dragon Lee', 'Llavero', 'Acrílico', 'Lucha Libre', 'Máscara', 'Varonil'],
+            },
+            {
+                _id: 'sticker-g-dragon-lee',
+                nombre: 'Sticker G de Dragon Lee',
+                slug: 'sticker-g-de-dragon-lee',
+                descripcion: 'Sticker de 8x4 cm de Dragon Lee II, orgullo de la lucha libre.',
+                categoria: 'Stickers',
+                palabrasClave: ['Dragon Lee', 'Grande', 'Lucha Libre', 'Sticker'],
+            },
+            {
+                _id: 'sticker-gh-dragon-lee',
+                nombre: 'Sticker GH de Dragon Lee',
+                slug: 'sticker-gh-de-dragon-lee',
+                descripcion: 'Sticker holográfico de Dragon Lee II ideal para llevar.',
+                categoria: 'Stickers',
+                palabrasClave: ['Dragon Lee', 'Holográfico', 'Grande', 'Sticker'],
+            },
+            {
+                _id: 'sticker-p-dragon-lee',
+                nombre: 'Sticker P de Dragon Lee',
+                slug: 'sticker-p-de-dragon-lee',
+                descripcion: 'Sticker pequeño de Dragon Lee II.',
+                categoria: 'Stickers',
+                palabrasClave: ['Dragon Lee', 'Pequeño', 'Sticker'],
+            },
+            {
+                _id: 'sticker-ph-dragon-lee',
+                nombre: 'Sticker PH de Dragon Lee',
+                slug: 'sticker-ph-de-dragon-lee',
+                descripcion: 'Sticker pequeño holográfico ideal para llevar la lucha libre.',
+                categoria: 'Stickers',
+                palabrasClave: ['Dragon Lee', 'Pequeño', 'Holográfico', 'Sticker'],
+            },
+            {
+                _id: 'llavero-mistico',
+                nombre: 'Llavero del Místico',
+                slug: 'llavero-del-mistico',
+                descripcion: 'Llavero de acrílico del Príncipe de plata y oro en la lucha libre.',
+                categoria: 'Llaveros',
+                palabrasClave: ['Místico', 'Llavero', 'Lucha Libre', 'Máscara'],
+            },
+            {
+                _id: 'sticker-ph-bandido',
+                nombre: 'Sticker PH de Bandido',
+                slug: 'sticker-ph-de-bandido',
+                descripcion: 'Ideal para llevar un toque brillante de la lucha libre en tu celular.',
+                categoria: 'Stickers',
+                palabrasClave: ['Bandido', 'Sticker', 'Pequeño', 'Holográfico', 'Lucha Libre'],
+            },
+            {
+                _id: 'sticker-g-penta',
+                nombre: 'Sticker G de Penta',
+                slug: 'sticker-g-de-penta',
+                descripcion: 'Diseño de Penta en la lucha libre mexicana.',
+                categoria: 'Stickers',
+                palabrasClave: ['Penta', 'Zero Miedo', 'Lucha Libre', 'Sticker'],
+            },
+        ];
+
+        const engine = new FuseSearchEngine({
+            initialPayload: {
+                schemaVersion: 1,
+                generatedAt: '2026-11-24T00:00:00Z',
+                products: realisticCatalog,
+                categories: [
+                    { _id: 'c1', nombre: 'Llaveros', slug: 'llaveros' },
+                    { _id: 'c2', nombre: 'Stickers', slug: 'stickers' },
+                ],
+                synonyms: DEFAULT_SYNONYM_GROUPS,
+            },
+        });
+
+        const results = engine.search('llavero de Dragon lee', 24);
+        const ids = results.map((r) => r.id);
+
+        expect(ids).toHaveLength(5);
+        expect(ids[0]).toBe('llavero-dragon-lee');
+        expect(ids).toEqual(
+            expect.arrayContaining([
+                'llavero-dragon-lee',
+                'sticker-g-dragon-lee',
+                'sticker-gh-dragon-lee',
+                'sticker-p-dragon-lee',
+                'sticker-ph-dragon-lee',
+            ])
+        );
+        expect(ids).not.toContain('llavero-mistico');
+        expect(ids).not.toContain('sticker-ph-bandido');
+        expect(ids).not.toContain('sticker-g-penta');
+    });
+
+    it('PC-UT-SRCH-02 & PC-UT-SRCH-03: tokens cortos no generan falsos positivos y typos/sinónimos siguen funcionando', () => {
+        const products: SearchableProduct[] = [
+            {
+                _id: 'mistico-llavero',
+                nombre: 'Llavero del Místico',
+                categoria: 'Llaveros',
+                descripcion: 'Llavero de acrílico ideal para llevar.',
+                palabrasClave: ['Místico', 'Lucha Libre', 'Máscara'],
+            },
+            {
+                _id: 'bandido-sticker',
+                nombre: 'Sticker PH de Bandido',
+                categoria: 'Stickers',
+                descripcion: 'Perfecto para llevar la leyenda de la lucha libre.',
+                palabrasClave: ['Bandido', 'Lucha Libre', 'Sticker'],
+            },
+        ];
+
+        const engine = new FuseSearchEngine({
+            initialPayload: {
+                schemaVersion: 1,
+                generatedAt: '2026-11-24T00:00:00Z',
+                products,
+                categories: [],
+                synonyms: DEFAULT_SYNONYM_GROUPS,
+            },
+        });
+
+        // Token corto "lee" NO coincide difusamente con "libre", "llevar" o "leyenda"
+        expect(engine.search('lee')).toEqual([]);
+
+        // Sinónimo + typo real: "yavero mistco" -> Llavero del Místico
+        const res = engine.search('yavero mistco');
+        expect(res).toHaveLength(1);
+        expect(res[0]?.id).toBe('mistico-llavero');
+
+        // Helpers unitarios de normalize.ts
+        expect(levenshteinDistance('', 'abc')).toBe(3);
+        expect(levenshteinDistance('abc', '')).toBe(3);
+        expect(levenshteinDistance('mistco', 'mistico')).toBe(1);
+        expect(splitNormalizedWords('Llavero de Lee')).toEqual(['llavero', 'de', 'lee']);
+        expect(computeWordMatchScore('', ['hola'])).toBe(0);
+        expect(computeWordMatchScore('de', [])).toBe(0);
+        expect(computeWordMatchScore('lee', ['libre', 'llevar', 'lee'])).toBe(1);
+        expect(computeWordMatchScore('dr', ['dragon'])).toBe(0.9);
+
+        const groups = buildQueryTokenGroups('de la', new Map());
+        expect(groups.map((g) => g.raw)).toEqual(['de', 'la']);
+    });
+
+    it('PC-UT-SRCH-04: useSearch guarda sugerencias al confirmar con Enter y tolera fallos en load()', async () => {
+        const catalogoMock = ref<Producto[]>([
+            {
+                _id: 'dl-1',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Llavero de Dragon Lee',
+                slug: { _type: 'slug', current: 'llavero-de-dragon-lee' },
+                categoria: { nombre: 'Llaveros', slug: { _type: 'slug', current: 'llaveros' } },
+                stock: 2,
+                precio: 90,
+                activo: true,
+                palabrasClave: ['Dragon Lee', 'Llavero'],
+            },
+            {
+                _id: 'dl-2',
+                _type: 'producto',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Sticker G de Dragon Lee',
+                slug: { _type: 'slug', current: 'sticker-g-de-dragon-lee' },
+                categoria: { nombre: 'Stickers', slug: { _type: 'slug', current: 'stickers' } },
+                stock: 2,
+                precio: 10,
+                activo: true,
+                palabrasClave: ['Dragon Lee', 'Sticker'],
+            },
+        ]);
+
+        const search = useSearch({ catalogoProductos: catalogoMock });
+        search.query.value = 'dragon lee';
+        search.confirmarBusqueda();
+
+        expect(search.busquedaConfirmada.value).toBe('dragon lee');
+        expect(search.sugerenciasConfirmadas.value).toHaveLength(2);
+        expect(search.resultados.value.map((p) => p._id)).toEqual(['dl-1', 'dl-2']);
+
+        // Confirmar con cadena vacía limpia estado
+        search.confirmarBusqueda('   ');
+        expect(search.busquedaConfirmada.value).toBe('');
+        expect(search.sugerenciasConfirmadas.value).toEqual([]);
+
+        // Segunda llamada a load() no repite fetch; error de red hidrata vacío seguro
+        const okFetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => INDEX_FIXTURE,
+        });
+        vi.stubGlobal('fetch', okFetch);
+        const engineDefault = new FuseSearchEngine();
+        await engineDefault.load();
+        await engineDefault.load();
+        expect(okFetch).toHaveBeenCalledTimes(1);
+
+        const failFetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+        vi.stubGlobal('fetch', failFetch);
+        const engineFail = new FuseSearchEngine();
+        await engineFail.load();
+        expect(engineFail.search('llavero')).toEqual([]);
+        expect(engineFail.suggest('a')).toEqual([]);
     });
 });
