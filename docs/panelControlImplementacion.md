@@ -1,9 +1,10 @@
 # Plan de Implementación — Panel de Control de LectorPobre (Release 2)
 
-> **Versión:** 1.0
+> **Versión del documento:** 2.0 (Hoja de ruta versionada desde `v1.1.2` → `v2.0.0`)
+> **Versión actual del catálogo en producción:** `v1.1.2`
 > **Documentos base:** [ERS_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/ERS_LectorPobre.md) · [Arquitectura_Tecnica_Detallada_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/Arquitectura_Tecnica_Detallada_LectorPobre.md) · [Stack_Tecnologico_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/Stack_Tecnologico_LectorPobre.md) · [DEVELOPMENT_GUIDELINES.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/DEVELOPMENT_GUIDELINES.md) · [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/VyV_LectorPobre.md) · [implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/infoLectorPobre/implementationPlan.md)
 > **Repositorio destino:** `c:\Users\j_pab\Documents\dev\lectorPobre` (monorepo; el panel vive como aplicación separada dentro de la carpeta `admin/`)
-> **Objetivo:** Entregar un Panel de Control propio, alojado en un dominio distinto al de la tienda, que ofrezca **todas las funcionalidades de gestión que hoy ofrece Sanity Studio** (y más: métricas, stock, moderación) para comodidad del cliente, sin que los clientes de la tienda puedan acceder ni siquiera descubrir su existencia.
+> **Objetivo:** Planificar secuencialmente las mejoras evolutivas del catálogo previas al panel (`v1.2.0` – `v1.4.0`) y la entrega del Panel de Control propio (`v2.0.0`), alojado en un dominio distinto al de la tienda, que ofrezca **todas las funcionalidades de gestión que hoy ofrece Sanity Studio** (y más: métricas, stock, moderación) sin que los clientes de la tienda puedan acceder ni descubrir su existencia.
 
 ---
 
@@ -11,26 +12,27 @@
 
 ### 1.1 Relación con el plan de la tienda
 
-El desarrollo se divide en dos entregas secuenciales e independientes:
+El desarrollo se divide en entregas secuenciales e independientes:
 
-| Release | Contenido | Plan | Gestión de contenido |
-|---|---|---|---|
-| **Release 1** | Tienda pública (Fases 0–5 y 7) | [implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md) | Solo **Sanity Studio** |
-| **Release 2** | Panel de Control propio (este plan) | `panelControlImplementacion.md` | Panel propio **+** Sanity Studio como respaldo |
+| Release | Versión | Contenido | Plan | Gestión de contenido |
+|---|---|---|---|---|
+| **Release 1** | `v1.1.2` *(actual en `main`)* | Tienda pública (Fases 0–5, 7 + SEO + Search Console) | [implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md) | Solo **Sanity Studio** |
+| **Pre-Panel (Evolución Catálogo)** | `v1.2.0` → `v1.4.0` | Corrección de buscador (`P0.0-A`), subcategorías (`P0.0-B`), ordenación y filtros de precio (`P0.0-C`) | `panelControlImplementacion.md` (Sección Pre-Panel) | Solo **Sanity Studio** |
+| **Release 2** | `v2.0.0` | Panel de Control propio (`P0`–`P7`) | `panelControlImplementacion.md` | Panel propio **+** Sanity Studio como respaldo |
 
 > [!IMPORTANT]
-> **Prerrequisito de inicio:** las 7 fases activas del plan de la tienda deben estar terminadas y la tienda desplegada en producción. Este plan **no modifica** la tienda: la tienda nunca enlaza ni referencia al panel.
+> **Prerrequisito de inicio:** las 7 fases activas del plan de la tienda deben estar terminadas y la tienda desplegada en producción (`v1.1.2`). La tienda nunca enlaza ni referencia al panel. Antes de construir el panel (`v2.0.0`), se ejecutan tres entregas incrementales sobre el catálogo y Sanity (`v1.2.0`, `v1.3.0` y `v1.4.0`) para corregir el comportamiento multi-término/Enter del buscador, incorporar subcategorías jerárquicas, habilitar la ordenación dinámica (con fallback aleatorio) y agregar filtros de precio por presupuesto, asegurando que el futuro panel nazca compatible con todas estas capacidades.
 
 ### 1.2 Qué incluye el Panel de Control
 
 | Módulo | Descripción | Requisitos ERS |
 |---|---|---|
 | Autenticación | Login, logout con invalidación real, sesión protegida | RF-08, RF-09, RF-10 |
-| Productos | Crear, editar, eliminar, publicar/despublicar, orden | RF-11, RF-13 |
+| Productos | Crear, editar, eliminar, publicar/despublicar, orden, asignación de subcategoría | RF-11, RF-13 |
 | Imágenes | Subir, reemplazar, eliminar y asignar imagen principal/galería | RF-12 |
 | Stock | Vista y edición rápida de existencias, alertas de bajo stock | RF-14 |
-| Categorías | CRUD de categorías y asignación | RF-13 (ampliado) |
-| Configuración global | Paleta (RF-15), variantes visuales (RF-16), WhatsApp (RF-17), redes sociales (RF-05), sinónimos de búsqueda | RF-15, RF-16, RF-17, RF-05 |
+| Categorías y Subcategorías | CRUD de categorías y subcategorías jerárquicas, asignación y reordenamiento | RF-13 (ampliado), RF-04 (ampliado) |
+| Configuración global | Paleta (RF-15), variantes visuales (RF-16), WhatsApp (RF-17), redes sociales (RF-05), sinónimos de búsqueda, criterio de orden predeterminado del catálogo | RF-15, RF-16, RF-17, RF-05, RF-04 (ampliado) |
 | Moderación | Aprobar/rechazar/eliminar comentarios y calificaciones | RF-06, RF-07 |
 | Métricas y gráficas | Productos más vistos, comentarios, calificaciones, stock, resumen de tráfico | RF-14 (ampliado) / RNF-06 |
 
@@ -41,18 +43,35 @@ El desarrollo se divide en dos entregas secuenciales e independientes:
 
 ---
 
-## 2. Resumen Ejecutivo — Fases del Panel
+## 2. Resumen Ejecutivo — Hoja de Ruta y Fases
 
-| Fase | Nombre | Alcance | Entregables clave |
-|---|---|---|---|
-| P0 | Prerrequisitos y aislamiento | Dominio, proyecto Vercel, tokens | Subdominio `admin.`, proyecto Vercel separado, token Sanity exclusivo del panel |
-| P1 | Scaffolding del panel | App `admin/`, layout, CI | Nuxt (SPA/SSR sin SSG público), `pnpm-workspace`, CI, `noindex` |
-| P2 | Autenticación y seguridad de acceso | RF-08, RF-09, RF-10 | Login bcrypt+JWT, cookie httpOnly, logout con JTI en KV, middleware, bloqueo por intentos |
-| P3 | API de administración (Go) | Proxy seguro hacia Sanity | `/api/admin/*` con validación de JWT en cada función, capa de mutaciones |
-| P4 | Gestión de catálogo | Productos, categorías, imágenes, stock | CRUD completo, subida de imágenes, edición rápida de stock |
-| P5 | Configuración global y moderación | Paleta, variantes, redes, comentarios | Formularios de configuración, bandeja de moderación |
-| P6 | Métricas y gráficas | Dashboard | Gráficas y KPIs desde Sanity y analítica |
-| P7 | Hardening, pruebas y liberación | Seguridad, V&V, despliegue | Checklist de seguridad, pruebas E2E, release, documentación para el cliente |
+### 2.1 Hoja de Ruta de Versiones (SemVer y Flujo Git `develop` → `main`)
+
+Partiendo de la versión **`v1.1.2`** actualmente desplegada en producción, cada bloque previo al panel se integra primero mediante Pull Request hacia `develop` y posteriormente se libera a `main` como una versión SemVer independiente:
+
+| Versión | Tipo | Fase asociada | Alcance funcional y técnico | Flujo de ramas sugerido (`develop` → `main`) |
+|---|---|---|---|---|
+| **`v1.1.2`** | *Base actual* | Release 1 | Tienda pública en producción con SEO, JSON-LD y verificación en Google Search Console | `main` *(desplegada)* |
+| **`v1.2.0`** | *Minor (Pre-Panel)* | **P0.0-A** | Mejora de relevancia multi-término en Fuse.js (sin falsos positivos OR) y UX al presionar `Enter` (retención de sugerencias como chips, scroll directo a resultados y sincronización `?q=`) | `feat/search-relevance-ux` → `develop` → `release/1.2.0` → `main` |
+| **`v1.3.0`** | *Minor (Pre-Panel)* | **P0.0-B** | Subcategorías jerárquicas en Sanity (`subcategoria`) y catálogo (chips contextuales de 2.º nivel y breadcrumbs Schema.org), conviviendo sin migración con `palabrasClave` | `feat/catalog-subcategories` → `develop` → `release/1.3.0` → `main` |
+| **`v1.4.0`** | *Minor (Pre-Panel)* | **P0.0-C** | Ordenación dinámica configurable (`criterioOrdenDefault` en Sanity con fallback `aleatorio` + selector de 6 opciones para el cliente) y filtros de presupuesto (`< $50`, `< $100`, `< $200` y rango `De $X a $Y`) | `feat/catalog-sorting-price-filters` → `develop` → `release/1.4.0` → `main` |
+| **`v2.0.0`** | *Major (Release 2)* | **P0 – P7** | Panel de Control propio aislado (`admin/` + `admin-api/`), cierre de TODOs de autenticación en SonarCloud, CRUD completo, moderación, métricas y hardening | Hitos en `develop` (`2.0.0-alpha.1` P0–P2, `2.0.0-beta.1` P3–P5, `2.0.0-rc.1` P6–P7) → `release/2.0.0` → `main` |
+
+### 2.2 Fases de Ejecución
+
+| Fase | Versión objetivo | Nombre | Alcance | Entregables clave |
+|---|---|---|---|---|
+| **P0.0-A** | `v1.2.0` | Mejoras de buscador y UX al presionar Enter | Motor de búsqueda (`fuseEngine.ts`, `normalize.ts`) y barra (`index.vue`) | Búsqueda conjuntiva por entidad/niveles, umbral adaptativo, confirmación con `Enter`, chips de sugerencias guardadas y `?q=` |
+| **P0.0-B** | `v1.3.0` | Subcategorías jerárquicas | Taxonomía Sanity y navegación en tienda | Esquema `subcategoria`, relación padre-hija, chips contextuales, breadcrumbs, convivencia total con etiquetas |
+| **P0.0-C** | `v1.4.0` | Ordenación dinámica y filtros de precio | Configuración global Sanity + controles en catálogo | `criterioOrdenDefault` (fallback `aleatorio`), semilla SSR, selector cliente de 6 opciones, presets y rango de precio |
+| **P0** | `v2.0.0` | Prerrequisitos y aislamiento | Dominio, proyecto Vercel, tokens | Subdominio `admin.`, proyecto Vercel separado, token Sanity exclusivo del panel |
+| **P1** | `v2.0.0` | Scaffolding del panel | App `admin/`, layout, CI | Nuxt (SPA/SSR sin SSG público), `pnpm-workspace`, CI, `noindex` |
+| **P2** | `v2.0.0` | Autenticación y seguridad de acceso | RF-08, RF-09, RF-10 | Login bcrypt+JWT, cookie httpOnly, logout con JTI en KV, middleware, bloqueo por intentos |
+| **P3** | `v2.0.0` | API de administración (Go) | Proxy seguro hacia Sanity | `/api/admin/*` con validación de JWT en cada función, capa de mutaciones |
+| **P4** | `v2.0.0` | Gestión de catálogo | Productos, categorías, imágenes, stock | CRUD completo, subida de imágenes, edición rápida de stock |
+| **P5** | `v2.0.0` | Configuración global y moderación | Paleta, variantes, redes, comentarios | Formularios de configuración, bandeja de moderación |
+| **P6** | `v2.0.0` | Métricas y gráficas | Dashboard | Gráficas y KPIs desde Sanity y analítica |
+| **P7** | `v2.0.0` | Hardening, pruebas y liberación | Seguridad, V&V, despliegue | Checklist de seguridad, pruebas E2E, release, documentación para el cliente |
 
 ---
 
@@ -81,13 +100,16 @@ El desarrollo se divide en dos entregas secuenciales e independientes:
 
 Durante el desarrollo del Release 1 (Tienda Online) se introdujeron comentarios `TODO` y handlers stub que SonarCloud/SonarLint identifica como tareas de mantenimiento abiertas. Estos marcadores fueron diseñados deliberadamente para preservar la compilación global del monorepo mientras se posponía la lógica administrativa al Release 2 (ver sección 1.1 y `DEVELOPMENT_GUIDELINES.md` §3.5).
 
+> [!NOTE]
+> Se distingue explícitamente entre la **deuda funcional/UX del catálogo** (motor de búsqueda multi-término y manejo de `Enter`, resuelta en **`v1.2.0`** antes del panel) y la **deuda técnica de autenticación y constantes de backend** (listada abajo, resuelta en **`v2.0.0`** durante las fases P1–P3 del panel).
+
 A continuación se detalla la matriz canónica para sanear el 100% de estos issues al ejecutar las fases correspondientes de este plan:
 
-| Issue SonarCloud | Archivo y Línea | Comentario Original | Requisito | Fase de Resolución en Release 2 | Acción Requerida |
+| Issue SonarCloud | Archivo y Línea | Comentario Original | Requisito | Versión y Fase de Resolución | Acción Requerida |
 |---|---|---|---|---|---|
-| [`AaFemq538vtWdHVNHwwq`](https://sonarcloud.io/project/issues?open=AaFemq538vtWdHVNHwwq&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/login.go:6` | `// TODO(RF-08): Implement bcrypt password validation and JWT signing. Issue #8.` | RF-08, RNF-04 | **Fase P2.1** | Reemplazar el handler stub que retorna HTTP 501 por la implementación completa de login con validación bcrypt en tiempo constante, emisión de JWT firmado en cookie `httpOnly` y rate limiting de 5 intentos por IP. Eliminar el comentario `TODO`. |
-| [`AaFemq398vtWdHVNHwwi`](https://sonarcloud.io/project/issues?open=AaFemq398vtWdHVNHwwi&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/logout/logout.go:2` | `// TODO(RF-09): Implementar invalidación de JWT (expiración corta o denylist en memoria). Issue #9.` | RF-09, RNF-04 | **Fase P2.2** | Reemplazar el handler stub por la invalidación real en Vercel KV insertando el identificador `jti` en la denylist con TTL equivalente a la expiración del token y eliminación de la cookie de sesión. Eliminar el comentario `TODO`. |
-| [`AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `pkg/constants/errorcodes.go:3` | `// TODO: Ampliar con códigos adicionales conforme se implementen nuevos handlers en la Fase 5.` | RNF-04 | **Fase P1.1 / P3.1** | Consolidar la estructura canónica `ErrCodes` incorporando los códigos de error específicos del panel administrativo (`TokenExpired`, `TokenRevoked`, `Forbidden`, `RevConflict`) y retirar el comentario preventivo de la Fase 5. |
+| [`AaFemq538vtWdHVNHwwq`](https://sonarcloud.io/project/issues?open=AaFemq538vtWdHVNHwwq&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/login.go:6` | `// TODO(RF-08): Implement bcrypt password validation and JWT signing. Issue #8.` | RF-08, RNF-04 | **`v2.0.0` · Fase P2.1** | Reemplazar el handler stub que retorna HTTP 501 por la implementación completa de login con validación bcrypt en tiempo constante, emisión de JWT firmado en cookie `httpOnly` y rate limiting de 5 intentos por IP. Eliminar el comentario `TODO`. |
+| [`AaFemq398vtWdHVNHwwi`](https://sonarcloud.io/project/issues?open=AaFemq398vtWdHVNHwwi&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `api/auth/logout/logout.go:2` | `// TODO(RF-09): Implementar invalidación de JWT (expiración corta o denylist en memoria). Issue #9.` | RF-09, RNF-04 | **`v2.0.0` · Fase P2.2** | Reemplazar el handler stub por la invalidación real en Vercel KV insertando el identificador `jti` en la denylist con TTL equivalente a la expiración del token y eliminación de la cookie de sesión. Eliminar el comentario `TODO`. |
+| [`AaFemq518vtWdHVNHwwj`](https://sonarcloud.io/project/issues?open=AaFemq518vtWdHVNHwwj&id=Jose-Pablo-Martinez_lectorPobre-catalog) | `pkg/constants/errorcodes.go:3` | `// TODO: Ampliar con códigos adicionales conforme se implementen nuevos handlers en la Fase 5.` | RNF-04 | **`v2.0.0` · Fase P1.1 / P3.1** | Consolidar la estructura canónica `ErrCodes` incorporando los códigos de error específicos del panel administrativo (`TokenExpired`, `TokenRevoked`, `Forbidden`, `RevConflict`) y retirar el comentario preventivo de la Fase 5. |
 
 ---
 
@@ -123,6 +145,203 @@ lectorPobre/
 ├── sanity/                   # Esquemas compartidos (sin cambios)
 └── pnpm-workspace.yaml       # Agrega admin/ y admin-api/
 ```
+
+---
+
+## Fases Previas al Panel — Deuda Funcional y Mejoras de Catálogo (`v1.2.0` – `v1.4.0`)
+
+Antes de iniciar la construcción del panel administrativo (`v2.0.0`), se resuelven tres bloques evolutivos sobre el catálogo público y Sanity Studio, cada uno versionado y desplegado de forma independiente (`develop` → `main` partiendo desde `v1.1.2`).
+
+---
+
+### Fase P0.0-A (`v1.2.0`) — Mejora del Motor de Búsqueda y UX al Presionar Enter
+
+**Objetivo:** Corregir la explosión de falsos positivos en búsquedas multi-término (por ejemplo, que buscar `"llavero de Dragon lee"` devuelva únicamente los productos de Dragon Lee ordenados por relevancia en lugar de ~92 piezas de otros luchadores) y completar el flujo interactivo al presionar `Enter` para conservar sugerencias útiles e ir directo a los resultados.
+
+**Satisface:** RF-18 (Búsqueda difusa y autocompletado), RF-23 (Sinónimos y palabras clave), RNF-07, RNF-08.
+
+#### Diagnóstico de Causa Raíz (Código Actual)
+
+1. **Explosión OR y ruido en tokens cortos (`composables/search/fuseEngine.ts` L166–L194):** actualmente `search()` tokeniza la consulta, expande sinónimos en un `Set` plano y ejecuta una búsqueda independiente en Fuse.js por cada término, combinando los resultados con `Math.max`. Al buscar `"llavero de Dragon lee"`, el token genérico `"llavero"` arrastra todos los llaveros y el token corto `"lee"` (3 caracteres) con `threshold: 0.35` e `ignoreLocation: true` coincide difusamente con palabras como `"libre"`, `"lleva"` o `"leyenda"` dentro de descripciones de stickers de otros luchadores, produciendo decenas de falsos positivos. Además, `computeFieldWeightBoost` entrega el bono máximo de nombre si coincide *cualquier* token aislado.
+2. **Flujo incompleto al presionar `Enter` (`pages/index.vue` L247–L252):** `manejarTecladoBuscador` solo actúa sobre `Enter` cuando el usuario navegó explícitamente con flechas (`indiceSugerenciaActiva >= 0`). Si el usuario escribe una búsqueda y presiona `Enter` directamente, el dropdown queda abierto obstruyendo el catálogo, las sugerencias mostradas desaparecen al perder el foco sin quedar disponibles para refinar, el teclado virtual móvil no se oculta y la vista no se desplaza a los resultados.
+
+#### Cambios a Implementar (`v1.2.0`)
+
+1. **Motor de búsqueda conjuntivo por niveles y corte de relevancia (`composables/search/fuseEngine.ts`, `composables/search/normalize.ts`):**
+   - **Pre-filtrado de stopwords:** eliminar artículos y preposiciones (`STOPWORDS_ES`: `"de"`, `"del"`, `"la"`, `"el"`, etc.) antes de construir grupos de búsqueda.
+   - **Grupos de sinónimos por token (sin aplanamiento OR global):** conservar la expansión de sinónimos agrupada por cada token fuente de la consulta para evaluar cuántos conceptos distintos de la búsqueda satisface cada producto.
+   - **Umbral adaptativo por longitud:** aplicar `threshold: 0.25` para tokens de 4 o más caracteres y **coincidencia exacta de palabra o prefijo (`threshold: 0`, límite de palabra)** para tokens cortos de 3 o menos caracteres (`"lee"`, `"pin"`, `"la"`), evitando falsos positivos contra `"libre"`, `"lleva"` o descripciones largas.
+   - **Separación de tokens genéricos vs. tokens de entidad:** clasificar modificadores de formato/categoría (`llavero`, `sticker`, `pin`, `grande`, `pequeno`, `holografico`, `mascara`, `retrato`, `acrilico`) como tokens de contexto, y los nombres propios o términos específicos (`dragon`, `lee`, `esfinge`, `mistico`) como tokens de entidad obligatoria.
+   - **Ranking por niveles y umbral de corte (`score >= 0.55`):**
+     - **Nivel 1 (Coincidencia total AND):** productos que satisfacen todos los grupos de tokens (ej. `"Llavero de Dragon Lee"` primero).
+     - **Nivel 2 (Misma entidad en otro formato):** productos que satisfacen todos los tokens de entidad aunque difiera el tipo de producto (ej. `"Sticker G/GH/P/PH de Dragon Lee"`), mostrados inmediatamente después de los exactos.
+     - **Descarte de ruido:** excluir productos que solo coincidan con el término genérico (`"llavero"`) o con coincidencias débiles aisladas en `descripcionNorm`.
+   - **Bonificación proporcional en `computeFieldWeightBoost`:** escalar el puntaje de campo según el porcentaje de grupos de consulta cubiertos (`coverageRatio`), impidiendo que coincidir con una sola palabra genérica empate con una coincidencia completa.
+2. **Confirmación de búsqueda con `Enter` y persistencia de sugerencias (`pages/index.vue`, `composables/search/useSearch.ts`):**
+   - Si `indiceSugerenciaActiva >= 0`: `Enter` aplica la sugerencia resaltada y cierra el dropdown.
+   - Si `indiceSugerenciaActiva === -1`: `Enter` ejecuta `ev.preventDefault()`, guarda un *snapshot* de las sugerencias relevantes actuales en estado reactivo (`sugerenciasConfirmadas`), cierra el listbox desplegable, aplica `blur()` al `<input>` para ocultar el teclado en móvil, hace scroll suave hacia el grid de productos (`#catalog-results-grid`), dispara `trackSearch` de inmediato cancelando el debounce pendiente y sincroniza `?q=<consulta>` en la URL con `router.replace`.
+   - **Chips de sugerencias guardadas:** debajo de la barra de búsqueda, mientras exista una búsqueda confirmada con `Enter`, renderizar las `sugerenciasConfirmadas` (categorías o productos relacionados) como chips interactivos de un clic para navegar directo al producto o refinar sin perder el contexto.
+   - Al ejecutar `limpiarBusqueda()`, vaciar `searchQuery`, limpiar `sugerenciasConfirmadas` y remover `?q` de la URL.
+
+#### Tests (`v1.2.0` — Modelo en V)
+
+| Sección | Tests | Origen |
+|---|---|---|
+| Motor de Búsqueda | `PC-UT-SRCH-01` (`"llavero de Dragon lee"` devuelve primero `Llavero de Dragon Lee` y luego solo productos de Dragon Lee, cero piezas de otros luchadores), `PC-UT-SRCH-02` (tokens cortos `<= 3` caracteres no hacen match espurio con palabras como `"libre"` en descripciones), `PC-UT-SRCH-03` (tolerancia a typos y sinónimos sigue activa, ej. `"yavero mistco"`) | Nuevos |
+| UX Barra y Enter | `PC-ST-SRCH-01` (al presionar `Enter` sin selección activa se cierra el dropdown, se conservan visibles las sugerencias relacionadas guardadas, se sincroniza `?q=` y se muestran los resultados en pantalla) | Nuevos |
+
+#### Verificación y Controles (`v1.2.0`)
+
+- [ ] Búsqueda `"llavero de Dragon lee"` devuelve exclusivamente productos relacionados con Dragon Lee priorizando el llavero
+- [ ] Presionar `Enter` cierra el dropdown, mantiene visibles las sugerencias guardadas como chips, oculta teclado móvil y desplaza a resultados
+- [ ] Sin regresiones en tolerancia a acentos, typos razonables ni expansión de sinónimos (`useSearch.test.ts` + nuevos `PC-UT-SRCH-*` en verde)
+- [ ] Commit sugerido: `feat(search): improve multi-token relevance ranking and commit search on Enter [RF-18, RF-23]`
+
+---
+
+### Fase P0.0-B (`v1.3.0`) — Subcategorías Jerárquicas en Sanity y Catálogo
+
+**Objetivo:** Extender el modelo de datos en Sanity y la navegación del catálogo para soportar subcategorías jerárquicas vinculadas a categorías principales. Esto permite organizar de manera intuitiva nuevas líneas de productos de temáticas variadas (arte botánico, cultura pop diversa, artesanías locales, papelería de autor, etc.) sin depender de la lucha libre como eje único y dejando lista la taxonomía que administrará el panel de control.
+
+**Satisface:** RF-04 (Filtrado por categoría y navegación en catálogo — ampliado), RF-13 (Gestión de catálogo).
+
+#### Principio de No-Migración y Coexistencia con Etiquetas (`palabrasClave`)
+
+> [!IMPORTANT]
+> **Las subcategorías y las etiquetas son conceptos complementarios con propósitos técnicos distintos; NO se realiza migración de etiquetas a subcategorías:**
+> 1. **Etiquetas (`palabrasClave`):** Siguen siendo términos libres no jerárquicos (vocabulario abierto). Se utilizan exclusivamente para:
+>    - Ponderación en el motor de búsqueda difusa Fuse.js (`palabrasClaveNorm`).
+>    - Expansión de sinónimos (`DEFAULT_SYNONYM_GROUPS`).
+>    - Cálculo vectorial de similitud por contenido TF-IDF para piezas recomendadas (`SimilarProducts`).
+> 2. **Subcategorías:** Representan una taxonomía estructurada y formal (vocabulario cerrado). Pertenecen obligatoriamente a una categoría principal padre (ej. Categoría: *Llaveros* → Subcategoría: *Acrílico*, *Resina*, *Locales*) y se utilizan exclusivamente para:
+>    - Navegación visual y filtrado facetado en la interfaz de la tienda.
+>    - Organización administrativa formal en el futuro panel de control.
+
+#### Tareas (`v1.3.0`)
+
+1. **Esquema de Sanity (`sanity/schemaTypes/subcategory.ts`):**
+   - Definir documento `subcategoria` con campos: `nombre` (string, requerido), `slug` (slug generado desde nombre, requerido), `categoriaPadre` (referencia estricta a `categoria`, requerida), `descripcion` (texto opcional) y `orden` (número para ordenamiento determinista en menú).
+   - Actualizar `sanity/schemaTypes/product.ts` agregando el campo opcional `subcategoria` como referencia a `subcategoria`, con filtro GROQ condicionado a que su categoría padre coincida con la categoría seleccionada en el producto (`options.filter: 'categoriaPadre._ref == $categoriaId'`).
+2. **Consultas GROQ y Tipos TypeScript (`types/sanity.ts`, `composables/useCatalog.ts`):**
+   - Incorporar interfaz `Subcategoria` en `types/sanity.ts` y actualizar `Producto` con `subcategoria?: { nombre: string; slug: { current: string } }`.
+   - Crear consulta `CATALOG_SUBCATEGORIES_QUERY` y actualizar `PRODUCTO_GROQ_FIELDS` con `subcategoria->{nombre, slug, "categoriaPadreSlug": categoriaPadre->slug.current}`.
+3. **Navegación y Filtrado en Frontend (`pages/index.vue`, `composables/useCatalog.ts`):**
+   - Extender `useCatalog.ts` con estado reactivo `subcategoriaSeleccionada` y lógica de filtrado bidimensional (productos que coincidan con la categoría activa y, si aplica, con la subcategoría activa).
+   - Al seleccionar una categoría principal en la barra superior de filtros, renderizar un segundo nivel de chips/pills contextuales con las subcategorías correspondientes y el chip `"Todas"`.
+   - Limpiar automáticamente `subcategoriaSeleccionada` al cambiar de categoría principal o al ejecutar una búsqueda difusa libre.
+4. **Ficha de Detalle de Producto (`pages/product/[slug].vue`):**
+   - Actualizar el encabezado y las migas de pan Schema.org (`BreadcrumbList`) para reflejar la jerarquía: `Catálogo › Categoría › Subcategoría › Producto`.
+
+#### Tests (`v1.3.0` — Modelo en V)
+
+| Sección | Tests | Origen |
+|---|---|---|
+| Esquema y Filtros | `PC-UT-SUB-01` (validación de campos obligatorios y referencia `categoriaPadre` en `subcategoria`), `PC-IT-SUB-01` (filtrado bidimensional categoría + subcategoría en `useCatalog.ts` y limpieza al cambiar de categoría padre) | Nuevos |
+
+#### Verificación y Controles (`v1.3.0`)
+
+- [ ] Esquema `subcategoria` desplegado en Sanity con validación estricta de `categoriaPadre`
+- [ ] Slugs de subcategorías sanitizados con regex cerrada `^[a-z0-9]+(?:-[a-z0-9]+)*$` evitando inyección de caracteres especiales (`M-2`)
+- [ ] Consultas GROQ 100% parametrizadas con `$params` para subcategorías, sin concatenación dinámica de strings (`M-3`)
+- [ ] Filtrado bidimensional en tienda verificado: la selección de subcategorías solo muestra piezas que pertenecen a la categoría padre activa
+- [ ] Búsqueda difusa y recomendaciones por etiquetas (`palabrasClave`) operan con total normalidad sin degradación ni mezcla funcional
+- [ ] Commit sugerido: `feat(catalog): add hierarchical subcategories in Sanity and storefront [RF-04, RF-13]`
+
+---
+
+### Fase P0.0-C (`v1.4.0`) — Ordenación Dinámica Configurable y Filtros de Rango de Precio
+
+**Objetivo:** Incorporar un sistema de ordenación dinámica configurable desde Sanity (con fallback aleatorio por defecto) y controles de ordenación y presupuesto por rango de precios directamente en la barra de filtros del catálogo para el cliente.
+
+**Satisface:** RF-01 (Listado en catálogo), RF-04 (Navegación en catálogo — ampliado), RF-15/RF-16 (Configuración global de catálogo).
+
+#### Sistema de Ordenación Dinámica (Sanity + Cliente)
+
+1. **Definición en Sanity (`sanity/schemaTypes/globalConfig.ts`):**
+   - Agregar campo `criterioOrdenDefault` (string con lista cerrada de opciones) en `configuracionGlobal`:
+     - `'aleatorio'` (**Valor por defecto** si el administrador no define ninguno o queda en blanco).
+     - `'recientes'` (Novedades: `_createdAt desc`).
+     - `'alfabetico_asc'` (Nombre A - Z: comparación lexicográfica completa en español `localeCompare('es')`, ordenando carácter por carácter de tal forma que *"Llavero Místico"* preceda a *"Llavero Xibalba"*).
+     - `'alfabetico_desc'` (Nombre Z - A).
+     - `'precio_asc'` (Precio: menor a mayor).
+     - `'precio_desc'` (Precio: mayor a menor).
+2. **Inicialización y Control del Cliente en la Tienda (`pages/index.vue`, `composables/useCatalog.ts`):**
+   - La tienda lee `configGlobal.criterioOrdenDefault` y arranca con ese orden (fallback automático a `'aleatorio'` si no está configurado).
+   - Para el criterio aleatorio, se genera una semilla SSR sincronizada (`useState('catalogo-sort-seed')`) para evitar *hydration mismatch* entre servidor y cliente.
+   - En la interfaz del catálogo, junto a los filtros de categorías, se incorpora un menú desplegable accesible (`<select>` estilizado o listbox) con la etiqueta `"Ordenar por:"`, ofreciendo al cliente las 6 opciones completas para que pueda alternar libremente su preferencia de vista.
+   - El cambio de orden recalcula reactivamente `productosPaginados` y reinicia la paginación a `paginaActual = 1`.
+
+#### Filtros de Rango de Precio por Presupuesto
+
+1. **Lógica en Composable (`composables/useCatalog.ts`):**
+   - Variables reactivas: `filtroPrecioPreset` (`'todos' | 'lt50' | 'lt100' | 'lt200' | 'custom'`) y rango manual `precioMin` / `precioMax`.
+   - Integración conjuntiva (AND) en `productosFiltrados`: además de coincidir con la búsqueda, categoría y subcategoría, el precio del producto debe cumplir `precio >= (precioMin ?? 0) && precio <= (precioMax ?? Infinity)`.
+2. **Componente de Filtro de Precios en Tienda (`pages/index.vue`):**
+   - Selector visual de presupuesto ubicado junto a los controles de navegación con dos modalidades:
+     - **Presets rápidos de un clic:** *Cualquier precio* (sin restricción), *Menos de \$50 MXN* (`precio <= 50`), *Menos de \$100 MXN* (`precio <= 100`) y *Menos de \$200 MXN* (`precio <= 200`).
+     - **Rango personalizado:** campos de entrada numéricos para precio mínimo y máximo (`De $X a $Y`) con botón de aplicar y validación en cliente (`X >= 0` y `Y >= X`).
+   - Botón de limpieza rápida para reiniciar el filtro de precio a *Cualquier precio*.
+
+#### Tests (`v1.4.0` — Modelo en V)
+
+| Sección | Tests | Origen |
+|---|---|---|
+| Ordenación Catálogo | `PC-UT-ORD-01` (orden alfabético completo A-Z y Z-A comparando strings completos con `localeCompare`), `PC-UT-ORD-02` (orden por precio ascendente/descendente), `PC-UT-ORD-03` (orden aleatorio determinista mediante semilla SSR), `PC-UT-ORD-04` (fallback a aleatorio cuando `criterioOrdenDefault` es nulo o indefinido) | Nuevos |
+| Filtro de Precios | `PC-UT-PRC-01` (filtrado por presets `< $50`, `< $100`, `< $200`), `PC-UT-PRC-02` (filtrado por rango personalizado min/max), `PC-UT-PRC-03` (validación y descarte de precios negativos o rangos invertidos) | Nuevos |
+| Integración Combinada | `PC-IT-CAT-01` (filtrado simultáneo búsqueda + categoría + subcategoría + rango de precio + ordenación en `useCatalog.ts`), `PC-IT-CAT-02` (convivencia total y no interferencia con búsqueda difusa y sinónimos de etiquetas) | Nuevos |
+| Interfaz Tienda | `PC-ST-CAT-01` (renderizado y conmutación de dropdown de orden y selector de presupuesto en `pages/index.vue`) | Nuevos |
+
+#### Verificación y Controles (`v1.4.0`)
+
+- [ ] Valores de ordenación restringidos a una lista blanca cerrada (`aleatorio`, `recientes`, `alfabetico_asc`, `alfabetico_desc`, `precio_asc`, `precio_desc`); cualquier valor desconocido aplica fallback a `aleatorio`
+- [ ] Filtros de precios sanitizados validando números finitos `>= 0`; prevención de inyección o valores `NaN`/negativos (`V-08`)
+- [ ] Semilla SSR de orden aleatorio verificada sin *hydration mismatch* en consola de Nuxt
+- [ ] Commit sugerido: `feat(catalog): add configurable dynamic sorting and budget price filters [RF-01, RF-04, RF-15]`
+
+---
+
+### P0.0-BP — Buenas Prácticas de Programación para Mejoras Previas al Panel (`v1.2.0` – `v1.4.0`)
+
+Para garantizar mantenibilidad, rendimiento en cliente y cumplimiento estricto de `DEVELOPMENT_GUIDELINES.md`, toda implementación de las fases `P0.0-A`, `P0.0-B` y `P0.0-C` debe respetar los siguientes lineamientos técnicos:
+
+1. **Relevancia y Rendimiento en Búsqueda Difusa (Fuse.js + TypeScript):**
+   - **Pre-filtrado de stopwords y umbral estricto:** eliminar artículos/preposiciones antes de buscar en Fuse.js y mantener `threshold` entre `0.2` y `0.3` para términos de 4 o más caracteres, exigiendo coincidencia exacta o de prefijo (`threshold: 0`) en tokens cortos (`<= 3` caracteres) para evitar falsos positivos masivos.
+   - **Agrupación conjuntiva sin explosión OR:** expandir sinónimos por cada concepto/token original en lugar de mezclar todos los términos en un único conjunto OR plano; aplicar un *score cutoff* mínimo determinista antes de regresar resultados.
+   - **Motor puro desacoplado:** `fuseEngine.ts` y `normalize.ts` deben mantenerse libres de APIs de Vue/DOM para permitir pruebas unitarias rápidas, deterministas y sin mocks complejos.
+2. **UX de Buscador, Accesibilidad WAI-ARIA y Sincronización de URL (Vue 3 / Nuxt 3):**
+   - **Patrón WAI-ARIA Editable Combobox:** conservar y completar `role="combobox"`, `aria-autocomplete="list"`, `aria-expanded`, `aria-controls`, `aria-activedescendant`, `role="listbox"` y `role="option"` conforme a la guía WAI-ARIA APG, gestionando `ArrowDown`, `ArrowUp`, `Enter` y `Escape` de forma consistente.
+   - **Historial limpio con `router.replace`:** sincronizar la búsqueda confirmada (`?q=`) y filtros activos mediante `router.replace` (nunca `router.push` por cada tecla) para no contaminar el historial de navegación del botón *Atrás*.
+   - **Limpieza de temporizadores y eventos:** cancelar cualquier `setTimeout` de debounce pendiente en `onBeforeUnmount` y al confirmar búsqueda con `Enter` para evitar eventos analíticos duplicados o fugas de memoria.
+3. **Seguridad de Hidratación SSR y Estado Reactivo Inmutable:**
+   - **Cero discrepancias SSR/CSR (*Hydration Mismatch*):** cualquier valor no determinista utilizado en el render inicial (como la semilla de ordenamiento aleatorio) debe nacer dentro de `useState()` de Nuxt para que servidor y cliente hidraten el mismo orden exacto.
+   - **Ordenamiento y filtrado inmutables:** no mutar arreglos reactivos fuente in-place (`Array.prototype.sort` directo sobre `productos.value`); operar siempre sobre copias (`[...lista].sort(...)` o `.toSorted()`) en `computed` puros encadenados (`búsqueda → categoría/subcategoría → precio → orden → paginación`).
+4. **Calidad de Código, SonarQube y Validación Defensiva:**
+   - **Funciones pequeñas y SRP:** extraer funciones auxiliares puras (por ejemplo, `evaluarCoberturaGrupos`, `aplicarFiltroPrecio`, `compararProductos`) con baja complejidad ciclomática y retornos tempranos.
+   - **Validación defensiva de query params:** validar `?q=`, `?sort=`, `?min=` y `?max=` al leer de `useRoute().query` usando listas blancas cerradas, acotando longitud de strings y verificando `Number.isFinite` y límites no negativos antes de aplicarlos.
+   - **Expresiones regulares lineales:** evitar patrones regex con backtracking superlineal (regla aplicada tras el saneamiento en `useStructuredData.ts`); preferir manipulaciones de strings en tiempo lineal cuando aplique.
+
+---
+
+## 4.1 Puntos Críticos de Vulnerabilidad, Prevención de Backdoors y Buenas Prácticas de Seguridad del Panel (`v2.0.0`)
+
+Al construir el Panel de Administración propio (`admin/` + `admin-api/`), cualquier falla de diseño en autenticación, autorización o cadena de suministro comprometería todo el contenido en `production` de Sanity. La siguiente matriz mapea los **puntos críticos de ataque (OWASP Top 10 / OWASP API Security Top 10 2023)**, las **malas prácticas prohibidas** y los **controles obligatorios** para esta arquitectura (`Nuxt 3 + Vercel Serverless + Go + Sanity + CI/CD`):
+
+| Área Crítica | Vector de Ataque / Riesgo | Mala Práctica a Evitar | Control Obligatorio en `v2.0.0` (Dónde aplica) |
+|---|---|---|---|
+| **Autenticación y Sesión (`API2:2023`)** | Secuestro de token por XSS, ataque de algoritmo `alg: none`, enumeración de usuario o tokens revocados que siguen funcionando | Guardar JWT en `localStorage`/`sessionStorage`; aceptar cualquier algoritmo en `jwt.Parse`; omitir denylist o permitir acceso si Redis/KV falla | Cookie `__Host-admin_session` (`HttpOnly; Secure; SameSite=Strict; Path=/`); `jwt.WithValidMethods([]string{"HS256"})`; secreto CSPRNG `>= 32` bytes; `subtle.ConstantTimeCompare` + bcrypt dummy anti-timing; revocación de `jti` en Vercel KV en modo **Fail-Closed** (**P2**) |
+| **Autorización y Mass Assignment (`API1 / API3 / API5:2023`)** | Llamadas directas por `curl`/Postman a `/api/admin/*` saltándose la UI de Nuxt; sobrescritura de `_type`, `global-config` o contadores `ratingSum`/`ratingCount` | Confiar solo en `middleware/auth.ts` de Nuxt; deserializar JSON a `map[string]any` y reenviarlo directo a Sanity; omitir validación de `_type` objetivo | Middleware Go `RequireAdmin` obligatorio en **cada** endpoint; DTOs tipados en Go con `json.Decoder` + `DisallowUnknownFields()`; validación de `_id` (`^[A-Za-z0-9_-]{1,100}$`), `_type` esperado y control de revisión `_rev` (**P2, P3**) |
+| **CSRF y Aislamiento de Origen** | Peticiones forjadas desde sitios externos aprovechando que la cookie de sesión viaja automáticamente | Usar `Access-Control-Allow-Origin: *` con credenciales o aceptar peticiones `POST/PATCH/DELETE` sin validar `Origin` | Política multicapa: `SameSite=Strict` + verificación estricta `Origin == ALLOWED_ORIGIN` + exigencia de `Content-Type: application/json` (o cabecera custom) + CORS cerrado con `Vary: Origin` (**P0, P2, P3**) |
+| **Inyección (GROQ, Blind Stored XSS, CSS, SSRF y Archivos)** | Inyección de filtros GROQ; cliente público deja comentario con `<script>` que se ejecuta al moderar (*Blind Stored XSS*); SVG con `<script>` disfrazado de `.png`; SSRF vía hook de rebuild o métricas | Concatenar `fmt.Sprintf` en queries GROQ; renderizar comentarios con `v-html`; confiar en extensión/MIME del cliente al subir fotos; aceptar URL de webhook desde el body | 100% queries GROQ con `$params`; prohibición total de `v-html` (usar `{{ texto }}`); validación de *magic bytes* (`http.DetectContentType`) bloqueando `image/svg+xml` y HTML; regex estricta en colores hex y URLs `https://`; URLs externas (`STORE_REBUILD_HOOK_URL`, Plausible API) leídas únicamente de entorno servidor (**P3, P4, P5, P6**) |
+| **Abuso de Recursos y DoS Serverless (`API4:2023`)** | Fuerza bruta al login, saturación de memoria con payloads grandes, falsificación de IP con `X-Forwarded-For` o reconstrucciones masivas en Vercel | Leer la IP de `X-Forwarded-For` sin validar; omitir límites de body; disparar deploy hook en cada clic sin enfriamiento | `http.MaxBytesReader` (8 KB login, 64 KB JSON, 5 MB imágenes); rate limiting atómico en KV usando exclusivamente `X-Vercel-Forwarded-For`; contraseñas `<= 72` bytes para bcrypt; paginación acotada (`[0...100]`) y cooldown de 5 min en webhooks (**P2, P3, P6**) |
+| **Prevención de Backdoors, Shadow APIs y Supply Chain (CI/CD)** | Puertas traseras ocultas (`SKIP_AUTH`, cabeceras mágicas); rutas admin expuestas en `lectorpobre.vercel.app`; paquetes comprometidos en npm/Go o GitHub Actions mutables | Dejar banderas de bypass para pruebas/dev; olvidar excluir `admin-api/` en la tienda pública; usar `@v4` en Actions sin SHA; exponer tokens en logs o PRs | Cero bypasses en código; revisión obligatoria en PR + SAST (SonarCloud); `.vercelignore` de tienda excluyendo `admin/`, `admin-api/` y `api/auth`; GitHub Actions fijados por **commit SHA completo** con `permissions: contents: read`; `pnpm install --frozen-lockfile`, `pnpm audit`, `go.sum` + `govulncheck` + `gitleaks`; registro de auditoría (*Audit Log*) sin secretos y rotación de `SANITY_ADMIN_WRITE_TOKEN` (**P0, P1, P7**) |
+
+> [!WARNING]
+> **5 Anti-Patrones Prohibidos en la Implementación del Panel (`v2.0.0`):**
+> 1. **Cero puertas traseras o bypass de desarrollo:** prohibido incluir variables como `DISABLE_AUTH`, cabeceras secretas (`X-Debug-Admin`) o credenciales fijas de respaldo.
+> 2. **Cero `v-html` en moderación:** todo contenido generado por usuarios finales debe renderizarse como texto plano interpolado.
+> 3. **Cero `map[string]any` sin tipado hacia Sanity:** toda mutación debe pasar por structs Go estrictos con `DisallowUnknownFields()`.
+> 4. **Cero `localStorage` para sesión y cero CORS `*`:** la sesión vive únicamente en cookie `__Host-` y los orígenes permitidos deben ser explícitos.
+> 5. **Cero dependencias o Actions sin fijar:** prohibido instalar dependencias con scripts de post-instalación sin auditar o usar tags móviles en GitHub Actions críticos.
 
 ---
 
@@ -269,7 +488,8 @@ lectorPobre/
 | PATCH/DELETE | `/api/admin/productos/{id}` | Editar / eliminar |
 | POST/DELETE | `/api/admin/imagenes` | Subir (asset Sanity) / eliminar |
 | PATCH | `/api/admin/stock/{id}` | Ajustar existencias |
-| GET/POST/PATCH/DELETE | `/api/admin/categorias` | CRUD de categorías |
+| GET/POST/PATCH/DELETE | `/api/admin/categorias` | CRUD de categorías principales |
+| GET/POST/PATCH/DELETE | `/api/admin/subcategorias` | CRUD de subcategorías jerárquicas con validación de categoría padre |
 | GET/PATCH | `/api/admin/config` | Configuración global |
 | GET/PATCH/DELETE | `/api/admin/moderacion` | Comentarios y calificaciones |
 | GET | `/api/admin/metricas` | Agregados para el dashboard |
@@ -302,7 +522,7 @@ lectorPobre/
 
 1. **Productos:** tabla con búsqueda, filtros (categoría, estado, stock) y paginación; formulario de creación/edición con validación y vista previa de cómo se verá en la tienda. Validar en servidor `slug` con regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (evitando caracteres que rompan rutas o el sitemap XML — `M-2`) y `precio` numérico finito `>= 0` (`V-08`).
 2. **Imágenes:** subida con previsualización, recorte/hotspot básico, texto alternativo obligatorio (accesibilidad), reordenar galería. **Seguridad de archivos (`POST /api/admin/imagenes`):** validar *magic bytes* en servidor con `http.DetectContentType` permitiendo únicamente `image/jpeg`, `image/png`, `image/webp` e `image/avif` (rechazar explícitamente `image/svg+xml` y HTML para prevenir Stored XSS), limitar tamaño a 5 MB y generar nombres de asset sanitizados sin usar rutas del cliente.
-3. **Categorías:** CRUD con reordenamiento; impedir eliminar una categoría que aún tenga productos referenciados sin reasignación previa.
+3. **Categorías y Subcategorías:** CRUD de categorías y subcategorías jerárquicas (establecidas en P0.0) con reordenamiento determinista; selector dependiente de subcategoría en formulario de producto; impedir eliminar categorías o subcategorías que aún tengan productos referenciados sin reasignación previa.
 4. **Stock:** edición rápida en línea, indicador de bajo stock configurable, historial opcional de ajustes; validar en servidor que `stock` sea entero en rango `[0, 99999]`.
 5. Confirmación explícita al eliminar y estado "borrador/publicado".
 
@@ -429,15 +649,20 @@ lectorPobre/
 
 ```mermaid
 graph LR
-    R1[Release 1: Tienda desplegada] --> P0[P0: Prerrequisitos]
-    P0 --> P1[P1: Scaffolding]
-    P1 --> P2[P2: Autenticación]
-    P2 --> P3[P3: API de administración]
-    P3 --> P4[P4: Catálogo]
-    P3 --> P5[P5: Configuración y moderación]
-    P4 --> P6[P6: Métricas]
+    R1["v1.1.2: Tienda desplegada"] --> V12["v1.2.0 P0.0-A: Buscador y UX Enter"]
+    V12 --> V13["v1.3.0 P0.0-B: Subcategorías"]
+    V13 --> V14["v1.4.0 P0.0-C: Orden y Precios"]
+    V14 --> P0["v2.0.0 P0: Prerrequisitos"]
+    P0 --> P1["P1: Scaffolding"]
+    V13 -. "taxonomía lista para admin" .-> P4["P4: Catálogo"]
+    V14 -. "orden default y filtros" .-> P5["P5: Configuración y moderación"]
+    P1 --> P2["P2: Autenticación"]
+    P2 --> P3["P3: API de administración"]
+    P3 --> P4
+    P3 --> P5
+    P4 --> P6["P6: Métricas"]
     P5 --> P6
-    P6 --> P7[P7: Hardening y liberación]
+    P6 --> P7["P7: Hardening y liberación"]
 ```
 
 ---
@@ -446,36 +671,38 @@ graph LR
 
 Se reutiliza [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/VyV_LectorPobre.md) como marco de verificación (Modelo en V, mismos niveles y criterios de salida).
 
-| Fuente | IDs | Uso en el Panel |
+| Fuente | IDs | Uso en el Plan |
 |---|---|---|
 | VyV §5.6 | ST-18, ST-19, ST-20, ST-21 | Login, error genérico, ruta protegida, JWT expirado (P2) |
 | VyV §6.1.4 | UAT-11 | Acceso del administrador al panel (P2, P7) |
 | VyV §6.1.4 | UAT-12..UAT-15 | Edición de contenido; se validan primero en Studio (Release 1) y se re-validan aquí (P4, P5) |
 | VyV NF | NF-10 | Protección de acceso (P2, P7) |
-| Nuevos (este plan) | `PC-UT-xx`, `PC-IT-xx`, `PC-ST-xx`, `PC-SEC-xx`, `PC-UAT-xx` | Cobertura específica del panel; se agregan al VyV al implementarse |
+| Nuevos (este plan) | `PC-UT-SRCH-*`, `PC-ST-SRCH-*`, `PC-UT-SUB-*`, `PC-UT-ORD-*`, `PC-UT-PRC-*`, `PC-UT-xx`, `PC-IT-xx`, `PC-ST-xx`, `PC-SEC-xx`, `PC-UAT-xx` | Cobertura de mejoras pre-panel (`v1.2.0`–`v1.4.0`) y pruebas específicas del panel (`v2.0.0`); se agregan al VyV al implementarse |
 
 **Nota:** en el VyV, UT-GO-25 y UT-GO-26 corresponden a pruebas HMAC (webhook), no a login; las pruebas unitarias de login del panel usan los IDs `PC-UT-*`.
 
 ---
 
-## 7. Trazabilidad RF/RNF → Fase del Panel
+## 7. Trazabilidad RF/RNF → Fase y Versión
 
-| Requisito | Descripción | Fase del panel |
+| Requisito | Descripción | Fase / Versión |
 |---|---|---|
-| RF-08 | Login de administrador | **P2** |
-| RF-09 | Logout con invalidación | **P2** |
-| RF-10 | Panel protegido | **P2**, **P3** |
-| RF-11 | Editar producto | **P4** |
-| RF-12 | Modificar imagen | **P4** |
-| RF-13 | Crear/eliminar productos y categorías | **P4** |
-| RF-14 | Visualizar y editar stock (+ métricas) | **P4**, **P6** |
-| RF-15 | Personalización de paleta | **P5** |
-| RF-16 | Variantes visuales | **P5** |
-| RF-17 | Enlace WhatsApp | **P5** |
-| RF-05 | Redes sociales (administración) | **P5** |
-| RF-06 / RF-07 | Moderación de calificaciones/comentarios | **P5** |
-| RNF-04 | Seguridad del backend sin estado | **P0, P2, P3, P7** |
-| RNF-06 | Analítica de tráfico (lectura) | **P6** |
+| RF-18 / RF-23 (ampliado) | Búsqueda multi-término por relevancia sin falsos positivos y confirmación con sugerencias persistentes al presionar `Enter` | **P0.0-A (`v1.2.0`)** |
+| RF-04 (ampliado) | Filtrado por subcategorías, ordenación dinámica (Sanity/cliente) y filtro de precios | **P0.0-B (`v1.3.0`)**, **P0.0-C (`v1.4.0`)**, **P4**, **P5** |
+| RF-08 | Login de administrador | **P2 (`v2.0.0`)** |
+| RF-09 | Logout con invalidación | **P2 (`v2.0.0`)** |
+| RF-10 | Panel protegido | **P2**, **P3 (`v2.0.0`)** |
+| RF-11 | Editar producto (incluye selector de subcategoría) | **P4 (`v2.0.0`)** |
+| RF-12 | Modificar imagen | **P4 (`v2.0.0`)** |
+| RF-13 (ampliado) | Crear/eliminar productos, categorías y subcategorías | **P0.0-B (`v1.3.0`)**, **P4 (`v2.0.0`)** |
+| RF-14 | Visualizar y editar stock (+ métricas) | **P4**, **P6 (`v2.0.0`)** |
+| RF-15 | Personalización de paleta | **P5 (`v2.0.0`)** |
+| RF-16 | Variantes visuales | **P5 (`v2.0.0`)** |
+| RF-17 | Enlace WhatsApp | **P5 (`v2.0.0`)** |
+| RF-05 | Redes sociales (administración) | **P5 (`v2.0.0`)** |
+| RF-06 / RF-07 | Moderación de calificaciones/comentarios | **P5 (`v2.0.0`)** |
+| RNF-04 | Seguridad del backend sin estado | **P0, P2, P3, P7 (`v2.0.0`)** |
+| RNF-06 | Analítica de tráfico (lectura) | **P6 (`v2.0.0`)** |
 
 ---
 
@@ -484,7 +711,9 @@ Se reutiliza [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/lectorPob
 | Riesgo | Mitigación |
 |---|---|
 | Fuga del token de escritura | Token exclusivo del panel, solo en servidor, rotación documentada |
-| Fuerza bruta al login | Rate limiting + bloqueo + hash bcrypt de costo alto |
+| Fuerza bruta al login | Rate limiting + bloqueo en KV leyendo `X-Vercel-Forwarded-For` + hash bcrypt de costo alto |
+| Backdoors, Shadow APIs o compromiso en cadena de suministro (CI/CD) | Cero flags de bypass en auth, exclusión `.vercelignore` en tienda pública, Actions fijados por commit SHA completo, `pnpm audit`, `govulncheck`, `gitleaks` y revisión obligatoria de PR |
+| Blind Stored XSS en bandeja de moderación | Prohibición total de `v-html` en comentarios/calificaciones de usuarios y renderizado exclusivo como texto plano |
 | Un solo administrador/contraseña | Documentar recuperación; evaluar usuarios múltiples y 2FA en una iteración futura |
 | Divergencia con los esquemas de Sanity | Esquemas compartidos desde `sanity/`; pruebas de integración contra `staging` |
 | Reconstrucciones excesivas de la tienda | Debounce de webhooks y edición por lotes |
@@ -492,5 +721,5 @@ Se reutiliza [VyV_LectorPobre.md](file:///c:/Users/j_pab/Documents/dev/lectorPob
 
 ---
 
-*Última actualización: Octubre 2026 · Aplica a LectorPobre ERS v1.2*
-*Este plan se ejecuta únicamente después de completar el Release 1 descrito en [implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md).*
+*Última actualización: Noviembre 2026 · Base en producción: `v1.1.2` · Aplica a LectorPobre ERS v1.2*
+*El Release 2 (`v2.0.0`) se ejecuta después de completar el Release 1 (`v1.1.2`) descrito en [implementationPlan.md](file:///c:/Users/j_pab/Documents/dev/lectorPobre/docs/implementationPlan.md) y las versiones evolutivas previas al panel (`v1.2.0` – `v1.4.0`).*

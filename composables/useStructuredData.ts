@@ -71,6 +71,43 @@ export function buildWebsiteJsonLd(options: WebsiteSchemaOptions): Record<string
 }
 
 /**
+ * Construye la ruta de migas de pan Schema.org (`Catálogo › Categoría › Subcategoría › Producto`).
+ */
+export function buildProductBreadcrumbs(
+    prod: Producto,
+    siteUrl: string,
+    currentUrl: string
+): Array<{ '@type': 'ListItem'; position: number; name: string; item: string }> {
+    const items: Array<{ name: string; item: string }> = [
+        { name: 'Catálogo', item: `${siteUrl}/` },
+    ];
+
+    const catSlug = prod.categoria?.slug?.current ?? prod.categoria?.nombre ?? '';
+    if (prod.categoria?.nombre && catSlug) {
+        const catUrl = `${siteUrl}/?cat=${encodeURIComponent(catSlug)}`;
+        items.push({ name: prod.categoria.nombre, item: catUrl });
+    }
+
+    const subSlug = prod.subcategoria?.slug?.current ?? prod.subcategoria?.nombre ?? '';
+    if (prod.subcategoria?.nombre && subSlug) {
+        const encodedSub = encodeURIComponent(subSlug);
+        const subUrl = catSlug
+            ? `${siteUrl}/?cat=${encodeURIComponent(catSlug)}&sub=${encodedSub}`
+            : `${siteUrl}/?sub=${encodedSub}`;
+        items.push({ name: prod.subcategoria.nombre, item: subUrl });
+    }
+
+    items.push({ name: prod.nombre, item: currentUrl });
+
+    return items.map((entry, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        name: entry.name,
+        item: entry.item,
+    }));
+}
+
+/**
  * Genera el JSON-LD para la ficha de producto y su ruta de navegación (BreadcrumbList),
  * permitiendo a Google mostrar precio, disponibilidad, estrellas y reseñas en los resultados.
  */
@@ -82,20 +119,7 @@ export function buildProductJsonLd(options: ProductSchemaOptions): Record<string
     const mainImage = options.imageUrl || `${siteUrl}/logo.png`;
     const stock = typeof options.stockActual === 'number' ? options.stockActual : prod.stock;
 
-    const breadcrumbs = [
-        {
-            '@type': 'ListItem',
-            position: 1,
-            name: 'Catálogo',
-            item: `${siteUrl}/`,
-        },
-        {
-            '@type': 'ListItem',
-            position: 2,
-            name: prod.nombre,
-            item: currentUrl,
-        },
-    ];
+    const breadcrumbs = buildProductBreadcrumbs(prod, siteUrl, currentUrl);
 
     const productNode: Record<string, any> = {
         '@type': 'Product',

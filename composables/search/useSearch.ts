@@ -76,6 +76,8 @@ export function useSearch(
 
     const indiceCargado = ref(false);
     const cargandoIndice = ref(false);
+    const busquedaConfirmada = ref('');
+    const sugerenciasConfirmadas = ref<Suggestion[]>([]);
 
     /**
      * Hidrata el motor con los productos en memoria cuando aún no se ha descargado
@@ -194,6 +196,27 @@ export function useSearch(
 
     const limpiarBusqueda = (): void => {
         query.value = '';
+        busquedaConfirmada.value = '';
+        sugerenciasConfirmadas.value = [];
+    };
+
+    /**
+     * Confirma la búsqueda actual (al presionar Enter), preservando un snapshot
+     * de las sugerencias relevantes para acceso rápido o refinamiento posterior.
+     */
+    const confirmarBusqueda = (texto?: string): void => {
+        const limpio = (texto ?? query.value).trim();
+        if (!limpio) {
+            limpiarBusqueda();
+            return;
+        }
+
+        query.value = limpio;
+        busquedaConfirmada.value = limpio;
+        if (!indiceCargado.value) {
+            syncInMemoryIndex();
+        }
+        sugerenciasConfirmadas.value = [...sugerencias.value];
     };
 
     return {
@@ -203,6 +226,9 @@ export function useSearch(
         sinResultados,
         sugerencias,
         sugeridosEstadoVacio,
+        busquedaConfirmada,
+        sugerenciasConfirmadas,
+        confirmarBusqueda,
         cargarIndice,
         limpiarBusqueda,
         indiceCargado,
