@@ -188,6 +188,24 @@ export const globalConfig = defineType({
             initialValue: 24,
             validation: Rule => Rule.min(1).integer()
         }),
+        defineField({
+            name: 'criterioOrdenDefault',
+            title: 'Orden predeterminado del catálogo',
+            type: 'string',
+            description: 'Orden inicial en el que se muestran los productos al abrir la tienda. Si se deja sin definir, aplica orden aleatorio.',
+            options: {
+                list: [
+                    { title: 'Aleatorio (predeterminado)', value: 'aleatorio' },
+                    { title: 'Más recientes primero', value: 'recientes' },
+                    { title: 'Alfabético (A - Z)', value: 'alfabetico_asc' },
+                    { title: 'Alfabético (Z - A)', value: 'alfabetico_desc' },
+                    { title: 'Precio: menor a mayor', value: 'precio_asc' },
+                    { title: 'Precio: mayor a menor', value: 'precio_desc' },
+                ],
+                layout: 'dropdown',
+            },
+            initialValue: 'aleatorio',
+        }),
 
         // ── Búsqueda y Recomendaciones (RF-23) ────────────────────────────────
         defineField({

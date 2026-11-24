@@ -8,18 +8,94 @@
  */
 
 import { computed, type Ref, ref, watch } from 'vue';
+import {
+    type FiltroPrecioPreset,
+    type RangoPrecio,
+    esRangoPrecioInvalido,
+    matchesPriceFilter,
+    ordenarProductos,
+    resolverCriterioOrden,
+    resolverRangoPrecio,
+    sanitizarPrecioLimite,
+} from '~/composables/catalog/catalogFilters';
 import { useSearch } from '~/composables/search/useSearch';
-import type { Categoria, ConfiguracionGlobal, Producto } from '~/types/sanity';
+import type {
+    Categoria,
+    ConfiguracionGlobal,
+    CriterioOrdenCatalogo,
+    Producto,
+    Subcategoria,
+} from '~/types/sanity';
 
 export type EstrategiaDestacado = 'aleatorio' | 'popularidad';
+
+export const SLUG_FORMAT_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Valida que un slug siga el formato seguro `^[a-z0-9]+(?:-[a-z0-9]+)*$` (M-2).
+ */
+export function isValidSlug(value: string): boolean {
+    const clean = value.trim();
+    return clean.length > 0 && SLUG_FORMAT_RE.test(clean);
+}
+
+/**
+ * Verifica si un producto pertenece a la categoría filtrada (por slug o nombre).
+ */
+export function matchesCategoryFilter(
+    producto: Producto,
+    categoryFilter: string
+): boolean {
+    const clean = categoryFilter.trim().toLowerCase();
+    if (!clean) return true;
+    const slugCat = producto.categoria?.slug?.current?.toLowerCase() ?? '';
+    const nombreCat = producto.categoria?.nombre?.toLowerCase() ?? '';
+    return slugCat === clean || nombreCat === clean;
+}
+
+/**
+ * Verifica si un producto pertenece a la subcategoría filtrada (por slug o nombre).
+ */
+export function matchesSubcategoryFilter(
+    producto: Producto,
+    subcategoryFilter: string
+): boolean {
+    const clean = subcategoryFilter.trim().toLowerCase();
+    if (!clean) return true;
+    const slugSub = producto.subcategoria?.slug?.current?.toLowerCase() ?? '';
+    const nombreSub = producto.subcategoria?.nombre?.toLowerCase() ?? '';
+    return slugSub === clean || nombreSub === clean;
+}
+
+/**
+ * Devuelve únicamente las subcategorías cuya categoría padre coincide con el filtro activo.
+ */
+export function filterSubcategoriesByParent(
+    subcategorias: readonly Subcategoria[],
+    categoryFilter: string
+): Subcategoria[] {
+    const clean = categoryFilter.trim().toLowerCase();
+    if (!clean) return [];
+    return subcategorias.filter((sub) => {
+        const parentSlug = sub.categoriaPadre?.slug?.current?.toLowerCase() ?? '';
+        const parentName = sub.categoriaPadre?.nombre?.toLowerCase() ?? '';
+        return parentSlug === clean || parentName === clean;
+    });
+}
 
 export interface UseCatalogOptions {
     pagina?: number;
     categoria?: string;
+    subcategoria?: string;
+    criterioOrden?: CriterioOrdenCatalogo;
+    filtroPrecioPreset?: FiltroPrecioPreset;
+    precioMin?: number | null;
+    precioMax?: number | null;
     productosPorPagina?: number;
     estrategiaDestacado?: EstrategiaDestacado;
     initialProductos?: Producto[];
     initialCategorias?: Categoria[];
+    initialSubcategorias?: Subcategoria[];
     initialConfig?: Partial<ConfiguracionGlobal>;
 }
 
@@ -116,6 +192,7 @@ export const PRODUCTO_GROQ_FIELDS = `
     imagenPrincipal,
     imagenes,
     categoria->{nombre, slug},
+    subcategoria->{nombre, slug, "categoriaPadreSlug": categoriaPadre->slug.current},
     stock,
     precio,
     activo,
@@ -164,6 +241,19 @@ export const CATALOG_CATEGORIES_QUERY = `*[_type == "categoria"] | order(orden a
     orden
 }`;
 
+export const CATALOG_SUBCATEGORIES_QUERY = `*[_type == "subcategoria"] | order(orden asc, nombre asc) {
+    _id,
+    _type,
+    _createdAt,
+    _updatedAt,
+    _rev,
+    nombre,
+    slug,
+    categoriaPadre->{_id, nombre, slug},
+    descripcion,
+    orden
+}`;
+
 export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
     _id,
     _type,
@@ -185,17 +275,18 @@ export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
     patronDecorativo,
     umbralStockBajo,
     productosPorPagina,
+    criterioOrdenDefault,
     sinonimos
 }`;
 
 /**
  * Obtiene una semilla aleatoria sincronizada entre SSR y cliente mediante `useState`
- * de Nuxt para evitar diferencias de hidratación en `productoRecomendado`.
+ * de Nuxt para evitar diferencias de hidratación tanto en destacado como en ordenación.
  */
-function obtenerSemillaDestacadoSSR(): Ref<number> {
+function obtenerSemillaSSR(clave: string): Ref<number> {
     try {
         if (typeof useState === 'function') {
-            return useState<number>('catalogo-featured-seed', () =>
+            return useState<number>(clave, () =>
                 obtenerIndiceAleatorioSeguro(10000)
             );
         }
@@ -211,6 +302,7 @@ function obtenerSemillaDestacadoSSR(): Ref<number> {
 export function useCatalog(options: UseCatalogOptions = {}) {
     const productos = ref<Producto[]>(options.initialProductos ?? []);
     const categorias = ref<Categoria[]>(options.initialCategorias ?? []);
+    const subcategorias = ref<Subcategoria[]>(options.initialSubcategorias ?? []);
     const configGlobal = ref<Partial<ConfiguracionGlobal> | null>(
         options.initialConfig ?? null
     );
@@ -221,14 +313,16 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         try {
             const sanity = useSanity();
             const asyncCatalog = useAsyncData('catalogo-lectorpobre', async () => {
-                const [prods, cats, cfg] = await Promise.all([
+                const [prods, cats, subs, cfg] = await Promise.all([
                     sanity.fetch<Producto[]>(CATALOG_PRODUCTS_QUERY),
                     sanity.fetch<Categoria[]>(CATALOG_CATEGORIES_QUERY),
+                    sanity.fetch<Subcategoria[]>(CATALOG_SUBCATEGORIES_QUERY),
                     sanity.fetch<ConfiguracionGlobal | null>(GLOBAL_CONFIG_QUERY),
                 ]);
                 return {
                     productos: prods ?? [],
                     categorias: cats ?? [],
+                    subcategorias: subs ?? [],
                     configGlobal: cfg ?? null,
                 };
             });
@@ -239,6 +333,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                     if (val) {
                         productos.value = val.productos;
                         categorias.value = val.categorias;
+                        subcategorias.value = val.subcategorias;
                         configGlobal.value = val.configGlobal;
                     }
                 },
@@ -266,11 +361,53 @@ export function useCatalog(options: UseCatalogOptions = {}) {
     }
 
     const categoriaSeleccionada = ref<string>(options.categoria ?? '');
+    const subcategoriaSeleccionada = ref<string>(options.subcategoria ?? '');
     const paginaActual = ref<number>(options.pagina ?? 1);
     const estrategiaDestacado = ref<EstrategiaDestacado>(
         options.estrategiaDestacado ?? 'aleatorio'
     );
-    const semillaDestacado = obtenerSemillaDestacadoSSR();
+    const semillaDestacado = obtenerSemillaSSR('catalogo-featured-seed');
+    const semillaOrden = obtenerSemillaSSR('catalogo-sort-seed');
+
+    const criterioOrden = ref<CriterioOrdenCatalogo>(
+        resolverCriterioOrden(
+            options.criterioOrden ?? options.initialConfig?.criterioOrdenDefault
+        )
+    );
+    const ordenModificadoPorUsuario = ref<boolean>(Boolean(options.criterioOrden));
+
+    watch(
+        () => configGlobal.value?.criterioOrdenDefault,
+        (nuevoDefault) => {
+            if (!ordenModificadoPorUsuario.value) {
+                criterioOrden.value = resolverCriterioOrden(nuevoDefault);
+            }
+        }
+    );
+
+    const filtroPrecioPreset = ref<FiltroPrecioPreset>(
+        options.filtroPrecioPreset ?? 'todos'
+    );
+    const precioMin = ref<number | null>(sanitizarPrecioLimite(options.precioMin));
+    const precioMax = ref<number | null>(sanitizarPrecioLimite(options.precioMax));
+
+    const rangoPrecioActivo = computed<RangoPrecio>(() =>
+        resolverRangoPrecio(
+            filtroPrecioPreset.value,
+            precioMin.value,
+            precioMax.value
+        )
+    );
+
+    const filtroPrecioActivo = computed<boolean>(
+        () =>
+            rangoPrecioActivo.value.min !== null ||
+            rangoPrecioActivo.value.max !== null
+    );
+
+    const subcategoriasActivas = computed<Subcategoria[]>(() =>
+        filterSubcategoriesByParent(subcategorias.value, categoriaSeleccionada.value)
+    );
 
     const productoRecomendado = computed<Producto | null>(() =>
         seleccionarProductoDestacado(
@@ -288,34 +425,51 @@ export function useCatalog(options: UseCatalogOptions = {}) {
 
     const searchQuery = search.query;
 
-    watch([categoriaSeleccionada, searchQuery], () => {
-        paginaActual.value = 1;
+    watch(searchQuery, (nuevaQuery) => {
+        if ((nuevaQuery ?? '').trim().length > 0 && subcategoriaSeleccionada.value) {
+            subcategoriaSeleccionada.value = '';
+        }
     });
+
+    watch(
+        [
+            categoriaSeleccionada,
+            subcategoriaSeleccionada,
+            searchQuery,
+            criterioOrden,
+            filtroPrecioPreset,
+            precioMin,
+            precioMax,
+        ],
+        () => {
+            paginaActual.value = 1;
+        },
+        { flush: 'sync' }
+    );
 
     const productosFiltrados = computed<Producto[]>(() => {
         const listaActivos = (productos.value ?? []).filter(
             (p) => p.activo !== false
         );
 
-        let base: Producto[] = listaActivos;
         const q = searchQuery.value.trim();
+        const base: Producto[] =
+            q.length > 0
+                ? search.resultadosProductos.value.filter((p) => p.activo !== false)
+                : listaActivos;
 
-        if (q.length > 0) {
-            base = search.resultadosProductos.value.filter(
-                (p) => p.activo !== false
-            );
+        const filtrados = base.filter(
+            (p) =>
+                matchesCategoryFilter(p, categoriaSeleccionada.value) &&
+                matchesSubcategoryFilter(p, subcategoriaSeleccionada.value) &&
+                matchesPriceFilter(p, rangoPrecioActivo.value)
+        );
+
+        if (q.length > 0 && criterioOrden.value === 'aleatorio') {
+            return filtrados;
         }
 
-        const catFilter = categoriaSeleccionada.value.trim().toLowerCase();
-        if (!catFilter) {
-            return base;
-        }
-
-        return base.filter((p) => {
-            const slugCat = p.categoria?.slug?.current?.toLowerCase() ?? '';
-            const nombreCat = p.categoria?.nombre?.toLowerCase() ?? '';
-            return slugCat === catFilter || nombreCat === catFilter;
-        });
+        return ordenarProductos(filtrados, criterioOrden.value, semillaOrden.value);
     });
 
     const tamanoPagina = computed<number>(() => {
@@ -341,22 +495,84 @@ export function useCatalog(options: UseCatalogOptions = {}) {
 
     const seleccionarCategoria = (slugONombre: string): void => {
         categoriaSeleccionada.value = slugONombre;
+        subcategoriaSeleccionada.value = '';
+    };
+
+    const seleccionarSubcategoria = (slugONombre: string): void => {
+        subcategoriaSeleccionada.value = slugONombre;
+    };
+
+    const seleccionarOrden = (criterio: string): void => {
+        ordenModificadoPorUsuario.value = true;
+        criterioOrden.value = resolverCriterioOrden(criterio);
+    };
+
+    const seleccionarPresetPrecio = (preset: FiltroPrecioPreset): void => {
+        filtroPrecioPreset.value = preset;
+        if (preset !== 'custom') {
+            precioMin.value = null;
+            precioMax.value = null;
+        }
+    };
+
+    const aplicarRangoPrecioPersonalizado = (
+        minRaw: unknown,
+        maxRaw: unknown
+    ): boolean => {
+        if (esRangoPrecioInvalido(minRaw, maxRaw)) {
+            return false;
+        }
+        const minSan = sanitizarPrecioLimite(minRaw);
+        const maxSan = sanitizarPrecioLimite(maxRaw);
+        if (minSan === null && maxSan === null) {
+            filtroPrecioPreset.value = 'todos';
+            precioMin.value = null;
+            precioMax.value = null;
+            return true;
+        }
+        filtroPrecioPreset.value = 'custom';
+        precioMin.value = minSan;
+        precioMax.value = maxSan;
+        return true;
+    };
+
+    const limpiarFiltroPrecio = (): void => {
+        filtroPrecioPreset.value = 'todos';
+        precioMin.value = null;
+        precioMax.value = null;
     };
 
     return {
         productos,
         categorias,
+        subcategorias,
+        subcategoriasActivas,
         configGlobal,
         productoRecomendado,
         productoDestacado: productoRecomendado,
         estrategiaDestacado,
         obtenerExplicacionRecomendacion,
         categoriaSeleccionada,
+        subcategoriaSeleccionada,
+        criterioOrden,
+        filtroPrecioPreset,
+        precioMin,
+        precioMax,
+        rangoPrecioActivo,
+        filtroPrecioActivo,
         seleccionarCategoria,
+        seleccionarSubcategoria,
+        seleccionarOrden,
+        seleccionarPresetPrecio,
+        aplicarRangoPrecioPersonalizado,
+        limpiarFiltroPrecio,
         searchQuery,
         sugerencias: search.sugerencias,
         sugeridosEstadoVacio: search.sugeridosEstadoVacio,
         sinResultadosBusqueda: search.sinResultados,
+        busquedaConfirmada: search.busquedaConfirmada,
+        sugerenciasConfirmadas: search.sugerenciasConfirmadas,
+        confirmarBusqueda: search.confirmarBusqueda,
         cargarIndiceBusqueda: search.cargarIndice,
         limpiarBusqueda: search.limpiarBusqueda,
         productosFiltrados,

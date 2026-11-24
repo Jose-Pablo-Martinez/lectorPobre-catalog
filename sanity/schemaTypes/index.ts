@@ -8,6 +8,7 @@ import type { SchemaTypeDefinition } from 'sanity';
 
 import { product }      from './product';
 import { category }     from './category';
+import { subcategory }  from './subcategory';
 import { comment }      from './comment';
 import { rating }       from './rating';
 import { globalConfig } from './globalConfig';
@@ -17,6 +18,7 @@ import { globalConfig } from './globalConfig';
 export const schemaTypes: SchemaTypeDefinition[] = [
     product,
     category,
+    subcategory,
     comment,
     rating,
     globalConfig,

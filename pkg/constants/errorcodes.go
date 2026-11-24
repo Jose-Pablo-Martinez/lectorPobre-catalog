@@ -1,6 +1,5 @@
 // Package constants centraliza los códigos de error de LectorPobre compartidos por todos los handlers.
 // Los mismos valores deben reflejarse en el frontend dentro de types/api.ts → ErrorCode.
-// TODO: Ampliar con códigos adicionales conforme se implementen nuevos handlers en la Fase 5.
 package constants
 
 // ErrCodes contiene todos los códigos canónicos de error devueltos por las funciones serverless de Go.

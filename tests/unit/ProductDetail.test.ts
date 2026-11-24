@@ -197,4 +197,38 @@ describe('UT-VUE-06 & UT-VUE-07: Detalle de Producto y Enlaces de WhatsApp', () 
         await addBtn.trigger('click');
         expect(addBtn.text()).toContain('Stock máximo en carrito');
     });
+
+    it('P0.0-B: renderiza subcategoría y migas de pan de 4 niveles en la ficha de producto', () => {
+        const wrapperConSub = mount(ProductDetailPage, {
+            props: {
+                initialProducto: {
+                    ...DETALLE_PRODUCTO,
+                    subcategoria: {
+                        nombre: 'Esmaltados',
+                        slug: { _type: 'slug', current: 'esmaltados' },
+                    },
+                },
+                initialConfig: null,
+                initialComentarios: [],
+                initialCatalogo: [],
+            },
+        });
+
+        expect(wrapperConSub.find('[data-testid="detail-subcategory"]').text()).toBe('Esmaltados');
+        const crumbs = wrapperConSub.find('[data-testid="detail-breadcrumbs"]');
+        expect(crumbs.text()).toContain('Catálogo');
+        expect(crumbs.text()).toContain('Pins');
+        expect(crumbs.text()).toContain('Esmaltados');
+        expect(crumbs.text()).toContain('Pin Goku Ultra Instinto');
+
+        const wrapperSinSub = mount(ProductDetailPage, {
+            props: {
+                initialProducto: DETALLE_PRODUCTO,
+                initialConfig: null,
+                initialComentarios: [],
+                initialCatalogo: [],
+            },
+        });
+        expect(wrapperSinSub.find('[data-testid="detail-subcategory"]').exists()).toBe(false);
+    });
 });

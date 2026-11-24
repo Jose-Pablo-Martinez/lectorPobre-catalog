@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { registerProductPrerenderRoutes } from './server/utils/sitemap';
+
 export default defineNuxtConfig({
     compatibilityDate: '2024-04-03',
     devtools: { enabled: false },
@@ -74,6 +76,12 @@ export default defineNuxtConfig({
         prerender: {
             crawlLinks: process.env.NODE_ENV === 'production',
             routes: ['/', '/sitemap.xml'],
+        },
+    },
+
+    hooks: {
+        async 'prerender:routes'(ctx) {
+            await registerProductPrerenderRoutes(ctx.routes);
         },
     },
 

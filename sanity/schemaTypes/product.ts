@@ -57,6 +57,21 @@ export const product = defineType({
             validation: Rule => Rule.required()
         }),
         defineField({
+            name: 'subcategoria',
+            title: 'Subcategoría (opcional)',
+            type: 'reference',
+            to: [{type: 'subcategoria'}],
+            description: 'Taxonomía jerárquica vinculada a la categoría padre. Independiente de las palabras clave.',
+            options: {
+                filter: ({ document }) => {
+                    const categoriaId = (document?.categoria as { _ref?: string } | undefined)?._ref;
+                    return categoriaId
+                        ? { filter: 'categoriaPadre._ref == $categoriaId', params: { categoriaId } }
+                        : { filter: '_id == ""' };
+                }
+            }
+        }),
+        defineField({
             name: 'stock',
             title: 'Stock disponible',
             type: 'number',

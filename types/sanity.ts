@@ -75,6 +75,12 @@ export interface SanityImage {
  * @satisfies RF-06 - Calificación por estrellas: promedio, total y desglose por nivel.
  * @satisfies RF-14 - Gestión de stock; usar umbralStockBajo de ConfiguracionGlobal para evaluar.
  */
+export interface ProductoSubcategoriaRef {
+    nombre: string;
+    slug: { _type: 'slug'; current: string };
+    categoriaPadreSlug?: string;
+}
+
 export interface Producto extends SanityDocument {
     _type: 'producto';
     /** Nombre comercial del producto. Requerido. Máximo 120 caracteres. */
@@ -95,6 +101,8 @@ export interface Producto extends SanityDocument {
         nombre: string;
         slug: { _type: 'slug'; current: string };
     };
+    /** Subcategoría jerárquica opcional vinculada a la categoría padre (P0.0-B). */
+    subcategoria?: ProductoSubcategoriaRef | null;
     /** Unidades disponibles en stock. 0 = botón de contacto deshabilitado. RF-14. */
     stock: number;
     /** Precio opcional utilizado únicamente en la plantilla del mensaje de WhatsApp. RF-17. */
@@ -141,6 +149,26 @@ export interface Categoria extends SanityDocument {
     slug?: { _type: 'slug'; current: string };
     descripcion?: string;
     /** Controla el orden de visualización en los filtros del catálogo. Menor = primero. */
+    orden?: number;
+}
+
+// ── Subcategoria ──────────────────────────────────────────────────────────────
+
+/**
+ * Subcategoría jerárquica vinculada obligatoriamente a una categoría padre.
+ * Convive de forma independiente con `palabrasClave` (etiquetas libres).
+ * @satisfies RF-04 - Filtrado por subcategoría y navegación.
+ */
+export interface Subcategoria extends SanityDocument {
+    _type: 'subcategoria';
+    nombre: string;
+    slug: { _type: 'slug'; current: string };
+    categoriaPadre: {
+        _id?: string;
+        nombre: string;
+        slug?: { _type: 'slug'; current: string };
+    };
+    descripcion?: string;
     orden?: number;
 }
 
@@ -213,6 +241,14 @@ export interface Calificacion extends SanityDocument {
  * @satisfies RF-03, RF-14 - Configuración del umbral de stock bajo.
  * @satisfies RF-23 - Definición global de grupos de sinónimos para búsqueda.
  */
+export type CriterioOrdenCatalogo =
+    | 'aleatorio'
+    | 'recientes'
+    | 'alfabetico_asc'
+    | 'alfabetico_desc'
+    | 'precio_asc'
+    | 'precio_desc';
+
 export interface ConfiguracionGlobal extends SanityDocument {
     _type: 'configuracionGlobal';
     nombreSitio?: string;
@@ -270,6 +306,12 @@ export interface ConfiguracionGlobal extends SanityDocument {
      * Valor por defecto: 24. Resuelve Tema Abierto #2 del ERS. RF-19.
      */
     productosPorPagina: number;
+
+    /**
+     * Criterio predeterminado de ordenación inicial del catálogo (P0.0-C).
+     * Fallback automático a `'aleatorio'` si no se define.
+     */
+    criterioOrdenDefault?: CriterioOrdenCatalogo;
 
     /**
      * Grupos globales de sinónimos para expansión en búsqueda difusa y recomendaciones. RF-23.

@@ -75,9 +75,13 @@ describe('Datos Estructurados Schema.org JSON-LD (RF-20)', () => {
         expect(jsonLd['@context']).toBe('https://schema.org');
         const breadcrumbNode = jsonLd['@graph'].find((n: any) => n['@type'] === 'BreadcrumbList');
         expect(breadcrumbNode).toBeDefined();
-        expect(breadcrumbNode.itemListElement).toHaveLength(2);
-        expect(breadcrumbNode.itemListElement[1].name).toBe('Llavero Gato Mágico');
+        expect(breadcrumbNode.itemListElement).toHaveLength(3);
+        expect(breadcrumbNode.itemListElement[1].name).toBe('Llaveros');
         expect(breadcrumbNode.itemListElement[1].item).toBe(
+            'https://lectorpobre.vercel.app/?cat=llaveros'
+        );
+        expect(breadcrumbNode.itemListElement[2].name).toBe('Llavero Gato Mágico');
+        expect(breadcrumbNode.itemListElement[2].item).toBe(
             'https://lectorpobre.vercel.app/product/llavero-gato-magico'
         );
 
@@ -118,6 +122,34 @@ describe('Datos Estructurados Schema.org JSON-LD (RF-20)', () => {
         expect(removeTrailingSlash('https://lectorpobre.vercel.app/')).toBe('https://lectorpobre.vercel.app');
         expect(removeTrailingSlash('https://lectorpobre.vercel.app///')).toBe('https://lectorpobre.vercel.app');
         expect(removeTrailingSlash('')).toBe('');
+    });
+
+    it('P0.0-B: buildProductJsonLd genera BreadcrumbList jerárquico de 4 niveles con subcategoría', () => {
+        const productoConSubcategoria: Producto = {
+            ...PRODUCTO_MOCK,
+            subcategoria: {
+                nombre: 'Resina',
+                slug: { _type: 'slug', current: 'resina' },
+                categoriaPadreSlug: 'llaveros',
+            },
+        };
+
+        const jsonLd = buildProductJsonLd({
+            producto: productoConSubcategoria,
+            siteUrl: 'https://lectorpobre.vercel.app',
+            stockActual: 5,
+            comentarios: [],
+        });
+
+        const breadcrumbNode = jsonLd['@graph'].find((n: any) => n['@type'] === 'BreadcrumbList');
+        expect(breadcrumbNode.itemListElement).toHaveLength(4);
+        expect(breadcrumbNode.itemListElement[0].name).toBe('Catálogo');
+        expect(breadcrumbNode.itemListElement[1].name).toBe('Llaveros');
+        expect(breadcrumbNode.itemListElement[2].name).toBe('Resina');
+        expect(breadcrumbNode.itemListElement[2].item).toBe(
+            'https://lectorpobre.vercel.app/?cat=llaveros&sub=resina'
+        );
+        expect(breadcrumbNode.itemListElement[3].name).toBe('Llavero Gato Mágico');
     });
 });
 
