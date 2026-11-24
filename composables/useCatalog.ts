@@ -8,10 +8,21 @@
  */
 
 import { computed, type Ref, ref, watch } from 'vue';
+import {
+    type FiltroPrecioPreset,
+    type RangoPrecio,
+    esRangoPrecioInvalido,
+    matchesPriceFilter,
+    ordenarProductos,
+    resolverCriterioOrden,
+    resolverRangoPrecio,
+    sanitizarPrecioLimite,
+} from '~/composables/catalog/catalogFilters';
 import { useSearch } from '~/composables/search/useSearch';
 import type {
     Categoria,
     ConfiguracionGlobal,
+    CriterioOrdenCatalogo,
     Producto,
     Subcategoria,
 } from '~/types/sanity';
@@ -76,6 +87,10 @@ export interface UseCatalogOptions {
     pagina?: number;
     categoria?: string;
     subcategoria?: string;
+    criterioOrden?: CriterioOrdenCatalogo;
+    filtroPrecioPreset?: FiltroPrecioPreset;
+    precioMin?: number | null;
+    precioMax?: number | null;
     productosPorPagina?: number;
     estrategiaDestacado?: EstrategiaDestacado;
     initialProductos?: Producto[];
@@ -260,17 +275,18 @@ export const GLOBAL_CONFIG_QUERY = `*[_type == "configuracionGlobal"][0] {
     patronDecorativo,
     umbralStockBajo,
     productosPorPagina,
+    criterioOrdenDefault,
     sinonimos
 }`;
 
 /**
  * Obtiene una semilla aleatoria sincronizada entre SSR y cliente mediante `useState`
- * de Nuxt para evitar diferencias de hidratación en `productoRecomendado`.
+ * de Nuxt para evitar diferencias de hidratación tanto en destacado como en ordenación.
  */
-function obtenerSemillaDestacadoSSR(): Ref<number> {
+function obtenerSemillaSSR(clave: string): Ref<number> {
     try {
         if (typeof useState === 'function') {
-            return useState<number>('catalogo-featured-seed', () =>
+            return useState<number>(clave, () =>
                 obtenerIndiceAleatorioSeguro(10000)
             );
         }
@@ -350,7 +366,44 @@ export function useCatalog(options: UseCatalogOptions = {}) {
     const estrategiaDestacado = ref<EstrategiaDestacado>(
         options.estrategiaDestacado ?? 'aleatorio'
     );
-    const semillaDestacado = obtenerSemillaDestacadoSSR();
+    const semillaDestacado = obtenerSemillaSSR('catalogo-featured-seed');
+    const semillaOrden = obtenerSemillaSSR('catalogo-sort-seed');
+
+    const criterioOrden = ref<CriterioOrdenCatalogo>(
+        resolverCriterioOrden(
+            options.criterioOrden ?? options.initialConfig?.criterioOrdenDefault
+        )
+    );
+    const ordenModificadoPorUsuario = ref<boolean>(Boolean(options.criterioOrden));
+
+    watch(
+        () => configGlobal.value?.criterioOrdenDefault,
+        (nuevoDefault) => {
+            if (!ordenModificadoPorUsuario.value) {
+                criterioOrden.value = resolverCriterioOrden(nuevoDefault);
+            }
+        }
+    );
+
+    const filtroPrecioPreset = ref<FiltroPrecioPreset>(
+        options.filtroPrecioPreset ?? 'todos'
+    );
+    const precioMin = ref<number | null>(sanitizarPrecioLimite(options.precioMin));
+    const precioMax = ref<number | null>(sanitizarPrecioLimite(options.precioMax));
+
+    const rangoPrecioActivo = computed<RangoPrecio>(() =>
+        resolverRangoPrecio(
+            filtroPrecioPreset.value,
+            precioMin.value,
+            precioMax.value
+        )
+    );
+
+    const filtroPrecioActivo = computed<boolean>(
+        () =>
+            rangoPrecioActivo.value.min !== null ||
+            rangoPrecioActivo.value.max !== null
+    );
 
     const subcategoriasActivas = computed<Subcategoria[]>(() =>
         filterSubcategoriesByParent(subcategorias.value, categoriaSeleccionada.value)
@@ -378,9 +431,21 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         }
     });
 
-    watch([categoriaSeleccionada, subcategoriaSeleccionada, searchQuery], () => {
-        paginaActual.value = 1;
-    });
+    watch(
+        [
+            categoriaSeleccionada,
+            subcategoriaSeleccionada,
+            searchQuery,
+            criterioOrden,
+            filtroPrecioPreset,
+            precioMin,
+            precioMax,
+        ],
+        () => {
+            paginaActual.value = 1;
+        },
+        { flush: 'sync' }
+    );
 
     const productosFiltrados = computed<Producto[]>(() => {
         const listaActivos = (productos.value ?? []).filter(
@@ -393,11 +458,18 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                 ? search.resultadosProductos.value.filter((p) => p.activo !== false)
                 : listaActivos;
 
-        return base.filter(
+        const filtrados = base.filter(
             (p) =>
                 matchesCategoryFilter(p, categoriaSeleccionada.value) &&
-                matchesSubcategoryFilter(p, subcategoriaSeleccionada.value)
+                matchesSubcategoryFilter(p, subcategoriaSeleccionada.value) &&
+                matchesPriceFilter(p, rangoPrecioActivo.value)
         );
+
+        if (q.length > 0 && criterioOrden.value === 'aleatorio') {
+            return filtrados;
+        }
+
+        return ordenarProductos(filtrados, criterioOrden.value, semillaOrden.value);
     });
 
     const tamanoPagina = computed<number>(() => {
@@ -430,6 +502,46 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         subcategoriaSeleccionada.value = slugONombre;
     };
 
+    const seleccionarOrden = (criterio: string): void => {
+        ordenModificadoPorUsuario.value = true;
+        criterioOrden.value = resolverCriterioOrden(criterio);
+    };
+
+    const seleccionarPresetPrecio = (preset: FiltroPrecioPreset): void => {
+        filtroPrecioPreset.value = preset;
+        if (preset !== 'custom') {
+            precioMin.value = null;
+            precioMax.value = null;
+        }
+    };
+
+    const aplicarRangoPrecioPersonalizado = (
+        minRaw: unknown,
+        maxRaw: unknown
+    ): boolean => {
+        if (esRangoPrecioInvalido(minRaw, maxRaw)) {
+            return false;
+        }
+        const minSan = sanitizarPrecioLimite(minRaw);
+        const maxSan = sanitizarPrecioLimite(maxRaw);
+        if (minSan === null && maxSan === null) {
+            filtroPrecioPreset.value = 'todos';
+            precioMin.value = null;
+            precioMax.value = null;
+            return true;
+        }
+        filtroPrecioPreset.value = 'custom';
+        precioMin.value = minSan;
+        precioMax.value = maxSan;
+        return true;
+    };
+
+    const limpiarFiltroPrecio = (): void => {
+        filtroPrecioPreset.value = 'todos';
+        precioMin.value = null;
+        precioMax.value = null;
+    };
+
     return {
         productos,
         categorias,
@@ -442,8 +554,18 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         obtenerExplicacionRecomendacion,
         categoriaSeleccionada,
         subcategoriaSeleccionada,
+        criterioOrden,
+        filtroPrecioPreset,
+        precioMin,
+        precioMax,
+        rangoPrecioActivo,
+        filtroPrecioActivo,
         seleccionarCategoria,
         seleccionarSubcategoria,
+        seleccionarOrden,
+        seleccionarPresetPrecio,
+        aplicarRangoPrecioPersonalizado,
+        limpiarFiltroPrecio,
         searchQuery,
         sugerencias: search.sugerencias,
         sugeridosEstadoVacio: search.sugeridosEstadoVacio,

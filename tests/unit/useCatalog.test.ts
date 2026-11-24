@@ -302,4 +302,107 @@ describe('UT-VUE-01, UT-VUE-02, UT-VUE-03: Composable useCatalog', () => {
         catalog.seleccionarCategoria('');
         expect(catalog.productosFiltrados.value[0]?._id).toBe('prod-1');
     });
+
+    it('PC-IT-CAT-01: combina categoría, subcategoría, filtro de precio y ordenación dinámica reiniciando página a 1', () => {
+        const subcategoriasMock: Subcategoria[] = [
+            {
+                _id: 'sub-acrilico',
+                _type: 'subcategoria',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Acrílico',
+                slug: { _type: 'slug', current: 'acrilico' },
+                categoriaPadre: {
+                    _id: 'cat-1',
+                    nombre: 'Llaveros',
+                    slug: { _type: 'slug', current: 'llaveros' },
+                },
+            },
+        ];
+
+        const productos: Producto[] = [
+            {
+                ...PRODUCTOS_MOCK[0]!,
+                _id: 'l-xib',
+                nombre: 'Llavero Xibalba',
+                precio: 90,
+                subcategoria: { nombre: 'Acrílico', slug: { _type: 'slug', current: 'acrilico' } },
+            },
+            {
+                ...PRODUCTOS_MOCK[0]!,
+                _id: 'l-mis',
+                nombre: 'Llavero Místico',
+                precio: 75,
+                subcategoria: { nombre: 'Acrílico', slug: { _type: 'slug', current: 'acrilico' } },
+            },
+            {
+                ...PRODUCTOS_MOCK[0]!,
+                _id: 'l-esp',
+                nombre: 'Llavero Edición Oro',
+                precio: 150,
+                subcategoria: { nombre: 'Acrílico', slug: { _type: 'slug', current: 'acrilico' } },
+            },
+            PRODUCTOS_MOCK[1]!,
+        ];
+
+        const catalog = useCatalog({
+            initialProductos: productos,
+            initialCategorias: CATEGORIAS_MOCK,
+            initialSubcategorias: subcategoriasMock,
+            productosPorPagina: 1,
+        });
+
+        catalog.seleccionarCategoria('llaveros');
+        catalog.seleccionarSubcategoria('acrilico');
+        catalog.seleccionarPresetPrecio('lt100');
+        catalog.paginaActual.value = 2;
+        catalog.seleccionarOrden('alfabetico_asc');
+
+        expect(catalog.paginaActual.value).toBe(1);
+        expect(catalog.productosFiltrados.value.map((p) => p.nombre)).toEqual([
+            'Llavero Místico',
+            'Llavero Xibalba',
+        ]);
+
+        // Rango personalizado válido e inválido
+        expect(catalog.aplicarRangoPrecioPersonalizado('200', '100')).toBe(false);
+        expect(catalog.aplicarRangoPrecioPersonalizado('80', '160')).toBe(true);
+        expect(catalog.productosFiltrados.value.map((p) => p._id)).toEqual([
+            'l-esp',
+            'l-xib',
+        ]);
+
+        expect(catalog.aplicarRangoPrecioPersonalizado('', '')).toBe(true);
+        expect(catalog.filtroPrecioActivo.value).toBe(false);
+
+        catalog.seleccionarPresetPrecio('lt100');
+        expect(catalog.filtroPrecioActivo.value).toBe(true);
+        catalog.limpiarFiltroPrecio();
+        expect(catalog.filtroPrecioPreset.value).toBe('todos');
+    });
+
+    it('PC-IT-CAT-02: hereda criterioOrdenDefault de Sanity (fallback aleatorio) y respeta relevancia de búsqueda', () => {
+        const sinConfig = useCatalog({
+            initialProductos: PRODUCTOS_MOCK,
+            initialCategorias: CATEGORIAS_MOCK,
+        });
+        expect(sinConfig.criterioOrden.value).toBe('aleatorio');
+
+        const conConfig = useCatalog({
+            initialProductos: PRODUCTOS_MOCK,
+            initialCategorias: CATEGORIAS_MOCK,
+            initialConfig: { criterioOrdenDefault: 'precio_desc' },
+        });
+        expect(conConfig.criterioOrden.value).toBe('precio_desc');
+        expect(conConfig.productosFiltrados.value.map((p) => p._id)).toEqual([
+            'prod-1',
+            'prod-2',
+        ]);
+
+        // En búsqueda con orden aleatorio se respeta el orden del buscador
+        sinConfig.searchQuery.value = 'michi';
+        expect(sinConfig.productosFiltrados.value).toHaveLength(1);
+        expect(sinConfig.productosFiltrados.value[0]?._id).toBe('prod-1');
+    });
 });

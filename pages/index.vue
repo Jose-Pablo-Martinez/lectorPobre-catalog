@@ -10,7 +10,7 @@
   @satisfies RF-01, RF-04, RF-15, RF-18, RF-19, RF-20, RF-22, RF-23, RNF-05, RNF-07
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     ArrowRight,
     Check,
@@ -27,6 +27,10 @@ import {
 } from 'lucide-vue-next';
 import ProductCard from '~/components/ProductCard.vue';
 import RecentlyViewed from '~/components/RecentlyViewed.vue';
+import {
+    OPCIONES_ORDEN_CATALOGO,
+    type FiltroPrecioPreset,
+} from '~/composables/catalog/catalogFilters';
 import type { Suggestion } from '~/composables/search/types';
 import { obtenerClasesBotonPedido, useCart } from '~/composables/useCart';
 import { useCatalog } from '~/composables/useCatalog';
@@ -46,8 +50,15 @@ const {
     categoriaSeleccionada,
     subcategoriasActivas,
     subcategoriaSeleccionada,
+    criterioOrden,
+    filtroPrecioPreset,
+    filtroPrecioActivo,
     seleccionarCategoria,
     seleccionarSubcategoria,
+    seleccionarOrden,
+    seleccionarPresetPrecio,
+    aplicarRangoPrecioPersonalizado,
+    limpiarFiltroPrecio,
     searchQuery,
     sugerencias,
     sugeridosEstadoVacio,
@@ -234,30 +245,91 @@ const sincronizarQueryEnUrl = (valor: string): void => {
     }
 };
 
+const inputPrecioMin = ref('');
+const inputPrecioMax = ref('');
+const errorRangoPrecio = ref('');
+
+const PRESETS_PRECIO_UI: ReadonlyArray<{
+    id: FiltroPrecioPreset;
+    label: string;
+}> = [
+    { id: 'todos', label: 'Cualquier precio' },
+    { id: 'lt50', label: 'Menos de $50' },
+    { id: 'lt100', label: 'Menos de $100' },
+    { id: 'lt200', label: 'Menos de $200' },
+];
+
+const manejarCambioOrden = (ev: Event): void => {
+    const target = ev.target as HTMLSelectElement | null;
+    if (target) {
+        seleccionarOrden(target.value);
+    }
+};
+
+const manejarSeleccionPresetPrecio = (preset: FiltroPrecioPreset): void => {
+    errorRangoPrecio.value = '';
+    if (preset !== 'custom') {
+        inputPrecioMin.value = '';
+        inputPrecioMax.value = '';
+    }
+    seleccionarPresetPrecio(preset);
+};
+
+const manejarAplicarRangoPrecio = (): void => {
+    errorRangoPrecio.value = '';
+    const aplicado = aplicarRangoPrecioPersonalizado(
+        inputPrecioMin.value,
+        inputPrecioMax.value
+    );
+    if (!aplicado) {
+        errorRangoPrecio.value =
+            'Ingresa montos válidos iguales o mayores a 0 (mínimo <= máximo).';
+    }
+};
+
+const manejarLimpiarPrecio = (): void => {
+    inputPrecioMin.value = '';
+    inputPrecioMax.value = '';
+    errorRangoPrecio.value = '';
+    limpiarFiltroPrecio();
+};
+
+const manejarRestablecerTodo = (): void => {
+    seleccionarCategoria('');
+    manejarLimpiarPrecio();
+    manejarLimpiarBusqueda();
+};
+
+const leerQueryParam = (query: Record<string, unknown>, clave: string, maxLen = 100): string => {
+    const val = query?.[clave];
+    return typeof val === 'string' ? val.trim().slice(0, maxLen) : '';
+};
+
+const aplicarFiltrosInicialesDesdeUrl = (query: Record<string, unknown>): void => {
+    const cat = leerQueryParam(query, 'cat');
+    if (cat) seleccionarCategoria(cat);
+
+    const sub = leerQueryParam(query, 'sub');
+    if (sub) seleccionarSubcategoria(sub);
+
+    const sort = leerQueryParam(query, 'sort', 40);
+    if (sort) seleccionarOrden(sort);
+
+    const minStr = leerQueryParam(query, 'min', 20);
+    const maxStr = leerQueryParam(query, 'max', 20);
+    if ((minStr || maxStr) && aplicarRangoPrecioPersonalizado(minStr, maxStr)) {
+        inputPrecioMin.value = minStr;
+        inputPrecioMax.value = maxStr;
+    }
+
+    const q = leerQueryParam(query, 'q');
+    if (q) confirmarBusqueda(q);
+};
+
 onMounted(() => {
     try {
         const route = useRoute();
-        const catParam = route.query?.cat;
-        if (typeof catParam === 'string') {
-            const cleanCat = catParam.trim().slice(0, 100);
-            if (cleanCat.length > 0) {
-                seleccionarCategoria(cleanCat);
-            }
-        }
-        const subParam = route.query?.sub;
-        if (typeof subParam === 'string') {
-            const cleanSub = subParam.trim().slice(0, 100);
-            if (cleanSub.length > 0) {
-                seleccionarSubcategoria(cleanSub);
-            }
-        }
-        const qParam = route.query?.q;
-        if (typeof qParam === 'string') {
-            const limpio = qParam.trim().slice(0, 100);
-            if (limpio.length > 0) {
-                confirmarBusqueda(limpio);
-            }
-        }
+        aplicarFiltrosInicialesDesdeUrl(route.query as Record<string, unknown>);
     } catch {
         // Fallback seguro en entorno de pruebas unitarias
     }
@@ -804,6 +876,116 @@ try {
                 </button>
             </fieldset>
 
+            <!-- Ordenación dinámica y filtro de presupuesto por rango de precio (P0.0-C) -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2 border-t border-zinc-100 dark:border-slate-800">
+                <fieldset
+                    class="flex flex-wrap items-center gap-2 m-0 p-0 border-0 min-w-0"
+                    aria-label="Filtrar por precio"
+                    data-testid="price-filter-bar"
+                >
+                    <span class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 mr-1 shrink-0">
+                        Presupuesto:
+                    </span>
+
+                    <button
+                        v-for="preset in PRESETS_PRECIO_UI"
+                        :key="preset.id"
+                        type="button"
+                        :aria-pressed="filtroPrecioPreset === preset.id"
+                        class="min-h-[36px] sm:min-h-[32px] shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                        :class="
+                            filtroPrecioPreset === preset.id
+                                ? 'bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+                                : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
+                        "
+                        :data-testid="`price-preset-${preset.id}`"
+                        @click="manejarSeleccionPresetPrecio(preset.id)"
+                    >
+                        {{ preset.label }}
+                    </button>
+
+                    <div class="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-1">
+                        <label for="price-min-input" class="sr-only">Precio mínimo</label>
+                        <input
+                            id="price-min-input"
+                            v-model="inputPrecioMin"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="De $"
+                            class="w-20 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
+                            data-testid="price-min-input"
+                            @keydown.enter.prevent="manejarAplicarRangoPrecio"
+                        />
+                        <span class="text-xs text-zinc-400" aria-hidden="true">-</span>
+                        <label for="price-max-input" class="sr-only">Precio máximo</label>
+                        <input
+                            id="price-max-input"
+                            v-model="inputPrecioMax"
+                            type="number"
+                            min="0"
+                            step="1"
+                            inputmode="numeric"
+                            placeholder="A $"
+                            class="w-20 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
+                            data-testid="price-max-input"
+                            @keydown.enter.prevent="manejarAplicarRangoPrecio"
+                        />
+                        <button
+                            type="button"
+                            class="min-h-[32px] px-3 py-1 rounded-lg bg-brand-acento text-zinc-950 font-display text-xs font-bold border border-brand-texto dark:border-slate-500 hover:opacity-90 transition-opacity cursor-pointer"
+                            data-testid="price-custom-apply"
+                            @click="manejarAplicarRangoPrecio"
+                        >
+                            Aplicar
+                        </button>
+                        <button
+                            v-if="filtroPrecioActivo"
+                            type="button"
+                            class="text-xs font-semibold text-zinc-500 dark:text-slate-400 hover:text-brand-primario underline cursor-pointer ml-1"
+                            data-testid="price-filter-clear"
+                            @click="manejarLimpiarPrecio"
+                        >
+                            Limpiar precio
+                        </button>
+                    </div>
+
+                    <p
+                        v-if="errorRangoPrecio"
+                        role="alert"
+                        class="w-full font-sans text-xs text-red-600 dark:text-red-400 font-medium"
+                        data-testid="price-error-message"
+                    >
+                        {{ errorRangoPrecio }}
+                    </p>
+                </fieldset>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <label
+                        for="catalog-sort-select"
+                        class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 shrink-0"
+                    >
+                        Ordenar por:
+                    </label>
+                    <select
+                        id="catalog-sort-select"
+                        :value="criterioOrden"
+                        class="min-h-[36px] px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-sans font-semibold text-zinc-800 dark:text-slate-100 focus:border-brand-secundario focus:outline-none cursor-pointer"
+                        data-testid="catalog-sort-select"
+                        @change="manejarCambioOrden"
+                    >
+                        <option
+                            v-for="opt in OPCIONES_ORDEN_CATALOGO"
+                            :key="opt.value"
+                            :value="opt.value"
+                        >
+                            {{ opt.label }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Resumen accesible de resultados (aria-live) -->
             <div
                 id="catalog-results-grid"
@@ -815,14 +997,11 @@ try {
                     Mostrando {{ productosPaginados.length }} de {{ productosFiltrados.length }} piezas disponibles
                 </span>
                 <button
-                    v-if="categoriaSeleccionada || subcategoriaSeleccionada || searchQuery"
+                    v-if="categoriaSeleccionada || subcategoriaSeleccionada || searchQuery || filtroPrecioActivo"
                     type="button"
                     class="font-bold text-brand-secundario hover:text-brand-primario hover:underline transition-colors cursor-pointer"
                     data-testid="reset-filters-button"
-                    @click="
-                        seleccionarCategoria('');
-                        manejarLimpiarBusqueda();
-                    "
+                    @click="manejarRestablecerTodo"
                 >
                     Restablecer filtros
                 </button>
