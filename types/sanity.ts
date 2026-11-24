@@ -241,6 +241,14 @@ export interface Calificacion extends SanityDocument {
  * @satisfies RF-03, RF-14 - Configuración del umbral de stock bajo.
  * @satisfies RF-23 - Definición global de grupos de sinónimos para búsqueda.
  */
+export type CriterioOrdenCatalogo =
+    | 'aleatorio'
+    | 'recientes'
+    | 'alfabetico_asc'
+    | 'alfabetico_desc'
+    | 'precio_asc'
+    | 'precio_desc';
+
 export interface ConfiguracionGlobal extends SanityDocument {
     _type: 'configuracionGlobal';
     nombreSitio?: string;
@@ -298,6 +306,12 @@ export interface ConfiguracionGlobal extends SanityDocument {
      * Valor por defecto: 24. Resuelve Tema Abierto #2 del ERS. RF-19.
      */
     productosPorPagina: number;
+
+    /**
+     * Criterio predeterminado de ordenación inicial del catálogo (P0.0-C).
+     * Fallback automático a `'aleatorio'` si no se define.
+     */
+    criterioOrdenDefault?: CriterioOrdenCatalogo;
 
     /**
      * Grupos globales de sinónimos para expansión en búsqueda difusa y recomendaciones. RF-23.
