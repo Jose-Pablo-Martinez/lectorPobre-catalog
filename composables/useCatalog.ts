@@ -409,10 +409,6 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         filterSubcategoriesByParent(subcategorias.value, categoriaSeleccionada.value)
     );
 
-    const subcategoriasActivas = computed<Subcategoria[]>(() =>
-        filterSubcategoriesByParent(subcategorias.value, categoriaSeleccionada.value)
-    );
-
     const productoRecomendado = computed<Producto | null>(() =>
         seleccionarProductoDestacado(
             productos.value,
