@@ -36,6 +36,7 @@ export default defineConfig({
                 'composables/**/*.ts',
                 'plugins/**/*.ts',
                 'scripts/recommendations/**/*.ts',
+                'server/**/*.ts',
             ],
             exclude: [
                 '**/*.d.ts',

@@ -261,6 +261,7 @@ const manejarTecladoBuscador = (ev: KeyboardEvent): void => {
 // Metadatos SEO, Open Graph y Datos Estructurados JSON-LD (RF-20)
 try {
     const siteUrl = 'https://lectorpobre.vercel.app';
+    const canonicalHomeUrl = `${siteUrl}/`;
     const logoUrl = `${siteUrl}/logo.png`;
     const websiteJsonLd = buildWebsiteJsonLd({
         siteUrl,
@@ -277,7 +278,7 @@ try {
         ogTitle: 'Lector Pobre | Arte y Artesanías Originales de diseños únicos',
         ogDescription:
             'Llaveros, pines, prints y stickers semi-artesanales de diseños completamente originales sobre lucha libre y cultura pop.',
-        ogUrl: siteUrl,
+        ogUrl: canonicalHomeUrl,
         ogImage: logoUrl,
         twitterImage: logoUrl,
         twitterCard: 'summary_large_image',
@@ -287,7 +288,7 @@ try {
         link: [
             {
                 rel: 'canonical',
-                href: siteUrl,
+                href: canonicalHomeUrl,
             },
         ],
         script: [
