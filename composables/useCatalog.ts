@@ -9,17 +9,78 @@
 
 import { computed, type Ref, ref, watch } from 'vue';
 import { useSearch } from '~/composables/search/useSearch';
-import type { Categoria, ConfiguracionGlobal, Producto } from '~/types/sanity';
+import type {
+    Categoria,
+    ConfiguracionGlobal,
+    Producto,
+    Subcategoria,
+} from '~/types/sanity';
 
 export type EstrategiaDestacado = 'aleatorio' | 'popularidad';
+
+export const SLUG_FORMAT_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Valida que un slug siga el formato seguro `^[a-z0-9]+(?:-[a-z0-9]+)*$` (M-2).
+ */
+export function isValidSlug(value: string): boolean {
+    const clean = value.trim();
+    return clean.length > 0 && SLUG_FORMAT_RE.test(clean);
+}
+
+/**
+ * Verifica si un producto pertenece a la categoría filtrada (por slug o nombre).
+ */
+export function matchesCategoryFilter(
+    producto: Producto,
+    categoryFilter: string
+): boolean {
+    const clean = categoryFilter.trim().toLowerCase();
+    if (!clean) return true;
+    const slugCat = producto.categoria?.slug?.current?.toLowerCase() ?? '';
+    const nombreCat = producto.categoria?.nombre?.toLowerCase() ?? '';
+    return slugCat === clean || nombreCat === clean;
+}
+
+/**
+ * Verifica si un producto pertenece a la subcategoría filtrada (por slug o nombre).
+ */
+export function matchesSubcategoryFilter(
+    producto: Producto,
+    subcategoryFilter: string
+): boolean {
+    const clean = subcategoryFilter.trim().toLowerCase();
+    if (!clean) return true;
+    const slugSub = producto.subcategoria?.slug?.current?.toLowerCase() ?? '';
+    const nombreSub = producto.subcategoria?.nombre?.toLowerCase() ?? '';
+    return slugSub === clean || nombreSub === clean;
+}
+
+/**
+ * Devuelve únicamente las subcategorías cuya categoría padre coincide con el filtro activo.
+ */
+export function filterSubcategoriesByParent(
+    subcategorias: readonly Subcategoria[],
+    categoryFilter: string
+): Subcategoria[] {
+    const clean = categoryFilter.trim().toLowerCase();
+    if (!clean) return [];
+    return subcategorias.filter((sub) => {
+        const parentSlug = sub.categoriaPadre?.slug?.current?.toLowerCase() ?? '';
+        const parentName = sub.categoriaPadre?.nombre?.toLowerCase() ?? '';
+        return parentSlug === clean || parentName === clean;
+    });
+}
 
 export interface UseCatalogOptions {
     pagina?: number;
     categoria?: string;
+    subcategoria?: string;
     productosPorPagina?: number;
     estrategiaDestacado?: EstrategiaDestacado;
     initialProductos?: Producto[];
     initialCategorias?: Categoria[];
+    initialSubcategorias?: Subcategoria[];
     initialConfig?: Partial<ConfiguracionGlobal>;
 }
 
@@ -116,6 +177,7 @@ export const PRODUCTO_GROQ_FIELDS = `
     imagenPrincipal,
     imagenes,
     categoria->{nombre, slug},
+    subcategoria->{nombre, slug, "categoriaPadreSlug": categoriaPadre->slug.current},
     stock,
     precio,
     activo,
@@ -160,6 +222,19 @@ export const CATALOG_CATEGORIES_QUERY = `*[_type == "categoria"] | order(orden a
     _rev,
     nombre,
     slug,
+    descripcion,
+    orden
+}`;
+
+export const CATALOG_SUBCATEGORIES_QUERY = `*[_type == "subcategoria"] | order(orden asc, nombre asc) {
+    _id,
+    _type,
+    _createdAt,
+    _updatedAt,
+    _rev,
+    nombre,
+    slug,
+    categoriaPadre->{_id, nombre, slug},
     descripcion,
     orden
 }`;
@@ -211,6 +286,7 @@ function obtenerSemillaDestacadoSSR(): Ref<number> {
 export function useCatalog(options: UseCatalogOptions = {}) {
     const productos = ref<Producto[]>(options.initialProductos ?? []);
     const categorias = ref<Categoria[]>(options.initialCategorias ?? []);
+    const subcategorias = ref<Subcategoria[]>(options.initialSubcategorias ?? []);
     const configGlobal = ref<Partial<ConfiguracionGlobal> | null>(
         options.initialConfig ?? null
     );
@@ -221,14 +297,16 @@ export function useCatalog(options: UseCatalogOptions = {}) {
         try {
             const sanity = useSanity();
             const asyncCatalog = useAsyncData('catalogo-lectorpobre', async () => {
-                const [prods, cats, cfg] = await Promise.all([
+                const [prods, cats, subs, cfg] = await Promise.all([
                     sanity.fetch<Producto[]>(CATALOG_PRODUCTS_QUERY),
                     sanity.fetch<Categoria[]>(CATALOG_CATEGORIES_QUERY),
+                    sanity.fetch<Subcategoria[]>(CATALOG_SUBCATEGORIES_QUERY),
                     sanity.fetch<ConfiguracionGlobal | null>(GLOBAL_CONFIG_QUERY),
                 ]);
                 return {
                     productos: prods ?? [],
                     categorias: cats ?? [],
+                    subcategorias: subs ?? [],
                     configGlobal: cfg ?? null,
                 };
             });
@@ -239,6 +317,7 @@ export function useCatalog(options: UseCatalogOptions = {}) {
                     if (val) {
                         productos.value = val.productos;
                         categorias.value = val.categorias;
+                        subcategorias.value = val.subcategorias;
                         configGlobal.value = val.configGlobal;
                     }
                 },
@@ -266,11 +345,16 @@ export function useCatalog(options: UseCatalogOptions = {}) {
     }
 
     const categoriaSeleccionada = ref<string>(options.categoria ?? '');
+    const subcategoriaSeleccionada = ref<string>(options.subcategoria ?? '');
     const paginaActual = ref<number>(options.pagina ?? 1);
     const estrategiaDestacado = ref<EstrategiaDestacado>(
         options.estrategiaDestacado ?? 'aleatorio'
     );
     const semillaDestacado = obtenerSemillaDestacadoSSR();
+
+    const subcategoriasActivas = computed<Subcategoria[]>(() =>
+        filterSubcategoriesByParent(subcategorias.value, categoriaSeleccionada.value)
+    );
 
     const productoRecomendado = computed<Producto | null>(() =>
         seleccionarProductoDestacado(
@@ -288,7 +372,13 @@ export function useCatalog(options: UseCatalogOptions = {}) {
 
     const searchQuery = search.query;
 
-    watch([categoriaSeleccionada, searchQuery], () => {
+    watch(searchQuery, (nuevaQuery) => {
+        if ((nuevaQuery ?? '').trim().length > 0 && subcategoriaSeleccionada.value) {
+            subcategoriaSeleccionada.value = '';
+        }
+    });
+
+    watch([categoriaSeleccionada, subcategoriaSeleccionada, searchQuery], () => {
         paginaActual.value = 1;
     });
 
@@ -297,25 +387,17 @@ export function useCatalog(options: UseCatalogOptions = {}) {
             (p) => p.activo !== false
         );
 
-        let base: Producto[] = listaActivos;
         const q = searchQuery.value.trim();
+        const base: Producto[] =
+            q.length > 0
+                ? search.resultadosProductos.value.filter((p) => p.activo !== false)
+                : listaActivos;
 
-        if (q.length > 0) {
-            base = search.resultadosProductos.value.filter(
-                (p) => p.activo !== false
-            );
-        }
-
-        const catFilter = categoriaSeleccionada.value.trim().toLowerCase();
-        if (!catFilter) {
-            return base;
-        }
-
-        return base.filter((p) => {
-            const slugCat = p.categoria?.slug?.current?.toLowerCase() ?? '';
-            const nombreCat = p.categoria?.nombre?.toLowerCase() ?? '';
-            return slugCat === catFilter || nombreCat === catFilter;
-        });
+        return base.filter(
+            (p) =>
+                matchesCategoryFilter(p, categoriaSeleccionada.value) &&
+                matchesSubcategoryFilter(p, subcategoriaSeleccionada.value)
+        );
     });
 
     const tamanoPagina = computed<number>(() => {
@@ -341,18 +423,27 @@ export function useCatalog(options: UseCatalogOptions = {}) {
 
     const seleccionarCategoria = (slugONombre: string): void => {
         categoriaSeleccionada.value = slugONombre;
+        subcategoriaSeleccionada.value = '';
+    };
+
+    const seleccionarSubcategoria = (slugONombre: string): void => {
+        subcategoriaSeleccionada.value = slugONombre;
     };
 
     return {
         productos,
         categorias,
+        subcategorias,
+        subcategoriasActivas,
         configGlobal,
         productoRecomendado,
         productoDestacado: productoRecomendado,
         estrategiaDestacado,
         obtenerExplicacionRecomendacion,
         categoriaSeleccionada,
+        subcategoriaSeleccionada,
         seleccionarCategoria,
+        seleccionarSubcategoria,
         searchQuery,
         sugerencias: search.sugerencias,
         sugeridosEstadoVacio: search.sugeridosEstadoVacio,

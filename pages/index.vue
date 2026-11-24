@@ -44,7 +44,10 @@ const {
     estrategiaDestacado,
     obtenerExplicacionRecomendacion,
     categoriaSeleccionada,
+    subcategoriasActivas,
+    subcategoriaSeleccionada,
     seleccionarCategoria,
+    seleccionarSubcategoria,
     searchQuery,
     sugerencias,
     sugeridosEstadoVacio,
@@ -234,6 +237,20 @@ const sincronizarQueryEnUrl = (valor: string): void => {
 onMounted(() => {
     try {
         const route = useRoute();
+        const catParam = route.query?.cat;
+        if (typeof catParam === 'string') {
+            const cleanCat = catParam.trim().slice(0, 100);
+            if (cleanCat.length > 0) {
+                seleccionarCategoria(cleanCat);
+            }
+        }
+        const subParam = route.query?.sub;
+        if (typeof subParam === 'string') {
+            const cleanSub = subParam.trim().slice(0, 100);
+            if (cleanSub.length > 0) {
+                seleccionarSubcategoria(cleanSub);
+            }
+        }
         const qParam = route.query?.q;
         if (typeof qParam === 'string') {
             const limpio = qParam.trim().slice(0, 100);
@@ -741,6 +758,52 @@ try {
                 </button>
             </fieldset>
 
+            <!-- Segundo nivel contextual: Subcategorías de la categoría activa (P0.0-B) -->
+            <fieldset
+                v-if="categoriaSeleccionada && subcategoriasActivas.length > 0"
+                class="flex items-center gap-2 overflow-x-auto sm:flex-wrap no-scrollbar py-1 m-0 p-0 border-0 min-w-0"
+                aria-label="Filtrar por subcategoría"
+                data-testid="subcategory-filter-bar"
+            >
+                <span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 mr-1 shrink-0">
+                    <span>Subcategorías:</span>
+                </span>
+
+                <button
+                    type="button"
+                    :aria-pressed="subcategoriaSeleccionada === ''"
+                    class="min-h-[36px] sm:min-h-[32px] shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                    :class="
+                        subcategoriaSeleccionada === ''
+                            ? 'bg-brand-acento text-zinc-950 border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+                            : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
+                    "
+                    data-testid="subcategory-chip-all"
+                    @click="seleccionarSubcategoria('')"
+                >
+                    Todas
+                </button>
+
+                <button
+                    v-for="sub in subcategoriasActivas"
+                    :key="sub._id"
+                    type="button"
+                    :aria-pressed="
+                        subcategoriaSeleccionada === (sub.slug?.current ?? sub.nombre)
+                    "
+                    class="min-h-[36px] sm:min-h-[32px] shrink-0 inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                    :class="
+                        subcategoriaSeleccionada === (sub.slug?.current ?? sub.nombre)
+                            ? 'bg-brand-acento text-zinc-950 border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+                            : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
+                    "
+                    :data-testid="`subcategory-chip-${sub.slug?.current ?? sub.nombre}`"
+                    @click="seleccionarSubcategoria(sub.slug?.current ?? sub.nombre)"
+                >
+                    <span>{{ sub.nombre }}</span>
+                </button>
+            </fieldset>
+
             <!-- Resumen accesible de resultados (aria-live) -->
             <div
                 id="catalog-results-grid"
@@ -752,7 +815,7 @@ try {
                     Mostrando {{ productosPaginados.length }} de {{ productosFiltrados.length }} piezas disponibles
                 </span>
                 <button
-                    v-if="categoriaSeleccionada || searchQuery"
+                    v-if="categoriaSeleccionada || subcategoriaSeleccionada || searchQuery"
                     type="button"
                     class="font-bold text-brand-secundario hover:text-brand-primario hover:underline transition-colors cursor-pointer"
                     data-testid="reset-filters-button"

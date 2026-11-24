@@ -47,6 +47,7 @@ export default defineConfig({
                         // Tipos de documento regulares listados automáticamente
                         S.documentTypeListItem('producto').title('Productos'),
                         S.documentTypeListItem('categoria').title('Categorías'),
+                        S.documentTypeListItem('subcategoria').title('Subcategorías'),
                         S.documentTypeListItem('comentario').title('Comentarios'),
                         S.documentTypeListItem('calificacion').title('Calificaciones'),
                         S.divider(),

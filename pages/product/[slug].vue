@@ -399,8 +399,8 @@ try {
 
 <template>
     <div class="space-y-10" data-testid="product-detail-page">
-        <!-- Navegación de regreso -->
-        <nav aria-label="Ruta de navegación">
+        <!-- Navegación de regreso y migas de pan jerárquicas (P0.0-B) -->
+        <nav aria-label="Ruta de navegación" class="flex flex-wrap items-center justify-between gap-3">
             <a
                 href="/"
                 class="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-100 hover:text-zinc-950 dark:hover:text-zinc-950 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
@@ -409,6 +409,44 @@ try {
                 <ArrowLeft class="w-4 h-4" aria-hidden="true" />
                 <span>Volver al catálogo</span>
             </a>
+
+            <ol
+                v-if="producto"
+                class="flex flex-wrap items-center gap-1.5 font-sans text-xs text-zinc-600 dark:text-slate-400"
+                data-testid="detail-breadcrumbs"
+            >
+                <li>
+                    <a href="/" class="hover:text-brand-secundario hover:underline">
+                        Catálogo
+                    </a>
+                </li>
+                <template v-if="producto.categoria?.nombre">
+                    <li aria-hidden="true">›</li>
+                    <li>
+                        <a
+                            :href="`/?cat=${encodeURIComponent(producto.categoria.slug?.current ?? producto.categoria.nombre)}`"
+                            class="hover:text-brand-secundario hover:underline"
+                        >
+                            {{ producto.categoria.nombre }}
+                        </a>
+                    </li>
+                </template>
+                <template v-if="producto.subcategoria?.nombre">
+                    <li aria-hidden="true">›</li>
+                    <li>
+                        <a
+                            :href="`/?cat=${encodeURIComponent(producto.categoria?.slug?.current ?? producto.categoria?.nombre ?? '')}&sub=${encodeURIComponent(producto.subcategoria.slug?.current ?? producto.subcategoria.nombre)}`"
+                            class="hover:text-brand-secundario hover:underline"
+                        >
+                            {{ producto.subcategoria.nombre }}
+                        </a>
+                    </li>
+                </template>
+                <li aria-hidden="true">›</li>
+                <li class="font-semibold text-zinc-900 dark:text-slate-200 truncate max-w-[200px]" aria-current="page">
+                    {{ producto.nombre }}
+                </li>
+            </ol>
         </nav>
 
         <!-- Vista principal del producto -->
@@ -480,16 +518,26 @@ try {
             <!-- Columna derecha: Información, stock, compra y calificación -->
             <div class="lg:col-span-6 space-y-6">
                 <div class="p-6 sm:p-7 bg-white dark:bg-slate-900/90 rounded-2xl border border-zinc-200 dark:border-slate-800 shadow-sm space-y-5 transition-colors">
-                    <!-- Categoría y badge de stock en tiempo real (RF-03) -->
+                    <!-- Categoría, subcategoría y badge de stock en tiempo real (RF-03) -->
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span
-                            v-if="producto.categoria?.nombre"
-                            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secundario/10 dark:bg-sky-950/40 border border-brand-secundario/20 dark:border-sky-800/60 font-sans text-xs font-semibold text-brand-secundario dark:text-sky-300"
-                            data-testid="detail-category"
-                        >
-                            <Tag class="w-3.5 h-3.5" aria-hidden="true" />
-                            <span>{{ producto.categoria.nombre }}</span>
-                        </span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                v-if="producto.categoria?.nombre"
+                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-secundario/10 dark:bg-sky-950/40 border border-brand-secundario/20 dark:border-sky-800/60 font-sans text-xs font-semibold text-brand-secundario dark:text-sky-300"
+                                data-testid="detail-category"
+                            >
+                                <Tag class="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>{{ producto.categoria.nombre }}</span>
+                            </span>
+
+                            <span
+                                v-if="producto.subcategoria?.nombre"
+                                class="inline-flex items-center px-3 py-1 rounded-full bg-brand-acento/25 dark:bg-amber-950/40 border border-brand-acento/60 dark:border-amber-700/60 font-sans text-xs font-semibold text-zinc-900 dark:text-amber-200"
+                                data-testid="detail-subcategory"
+                            >
+                                {{ producto.subcategoria.nombre }}
+                            </span>
+                        </div>
 
                         <StockIndicator
                             :stock="stockActual"
