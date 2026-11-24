@@ -30,7 +30,7 @@ export const OPCIONES_ORDEN_CATALOGO: ReadonlyArray<{
     value: CriterioOrdenCatalogo;
     label: string;
 }> = [
-    { value: 'aleatorio', label: 'Aleatorio (sorpresa)' },
+    { value: 'aleatorio', label: 'Aleatorio' },
     { value: 'recientes', label: 'Más recientes' },
     { value: 'alfabetico_asc', label: 'Nombre: A - Z' },
     { value: 'alfabetico_desc', label: 'Nombre: Z - A' },

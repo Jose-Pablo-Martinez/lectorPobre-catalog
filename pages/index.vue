@@ -12,19 +12,24 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
+    ArrowLeft,
     ArrowRight,
     Check,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     CircleAlert,
+    CornerDownRight,
     Filter,
     Image as ImageIcon,
     Search,
     ShoppingBag,
+    SlidersHorizontal,
     Bird,
     Tag,
     X,
 } from 'lucide-vue-next';
+import BaseSelect from '~/components/BaseSelect.vue';
 import ProductCard from '~/components/ProductCard.vue';
 import RecentlyViewed from '~/components/RecentlyViewed.vue';
 import {
@@ -248,6 +253,27 @@ const sincronizarQueryEnUrl = (valor: string): void => {
 const inputPrecioMin = ref('');
 const inputPrecioMax = ref('');
 const errorRangoPrecio = ref('');
+const mostrarMasFiltros = ref(false);
+
+const conmutarMasFiltros = (): void => {
+    mostrarMasFiltros.value = !mostrarMasFiltros.value;
+};
+
+const tieneSubcategoriasActivas = computed<boolean>(
+    () => Boolean(categoriaSeleccionada.value) && subcategoriasActivas.value.length > 0
+);
+
+const nombreCategoriaActiva = computed<string>(() => {
+    const activa = categorias.value.find(
+        (cat) => (cat.slug?.current ?? cat.nombre) === categoriaSeleccionada.value
+    );
+    return activa?.nombre ?? categoriaSeleccionada.value;
+});
+
+const clasesChipSubcategoria = (valor: string): string =>
+    subcategoriaSeleccionada.value === valor
+        ? 'bg-brand-acento text-zinc-950 border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+        : 'bg-white dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700';
 
 const PRESETS_PRECIO_UI: ReadonlyArray<{
     id: FiltroPrecioPreset;
@@ -258,13 +284,6 @@ const PRESETS_PRECIO_UI: ReadonlyArray<{
     { id: 'lt100', label: 'Menos de $100' },
     { id: 'lt200', label: 'Menos de $200' },
 ];
-
-const manejarCambioOrden = (ev: Event): void => {
-    const target = ev.target as HTMLSelectElement | null;
-    if (target) {
-        seleccionarOrden(target.value);
-    }
-};
 
 const manejarSeleccionPresetPrecio = (preset: FiltroPrecioPreset): void => {
     errorRangoPrecio.value = '';
@@ -320,6 +339,7 @@ const aplicarFiltrosInicialesDesdeUrl = (query: Record<string, unknown>): void =
     if ((minStr || maxStr) && aplicarRangoPrecioPersonalizado(minStr, maxStr)) {
         inputPrecioMin.value = minStr;
         inputPrecioMax.value = maxStr;
+        mostrarMasFiltros.value = true;
     }
 
     const q = leerQueryParam(query, 'q');
@@ -483,7 +503,7 @@ try {
     <div class="space-y-6 sm:space-y-8" data-testid="catalog-page">
         <!-- Hero Banner limpio estilo colección de Vograce -->
         <section
-            class="rounded-2xl bg-gradient-to-r from-blue-50/50 via-white to-pink-50/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border border-zinc-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm relative overflow-hidden transition-colors"
+            class="rounded-2xl bg-gradient-to-r from-blue-50/50 via-white to-pink-50/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border border-zinc-200 dark:border-slate-800 p-4 sm:p-8 shadow-sm relative overflow-hidden transition-colors"
             aria-labelledby="catalog-hero-heading"
         >
             <div class="max-w-3xl">
@@ -503,7 +523,7 @@ try {
         <!-- Nueva Funcionalidad: Sección de Producto Recomendado / Destacado -->
         <section
             v-if="!pending && productoRecomendado"
-            class="bg-white dark:bg-slate-900/90 border-2 border-brand-texto dark:border-slate-600 shadow-hard dark:shadow-[4px_4px_0px_rgba(0,0,0,0.6)] rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6 sm:gap-8 transition-colors"
+            class="bg-white dark:bg-slate-900/90 border-2 border-brand-texto dark:border-slate-600 shadow-hard dark:shadow-[4px_4px_0px_rgba(0,0,0,0.6)] rounded-xl p-4 sm:p-8 flex flex-col md:flex-row items-center gap-5 sm:gap-8 transition-colors"
             aria-labelledby="featured-product-heading"
             data-testid="featured-product-section"
         >
@@ -590,7 +610,7 @@ try {
                             v-if="mostrarExplicacionRecomendado"
                             id="featured-recommendation-tooltip"
                             role="tooltip"
-                            class="absolute z-20 left-0 top-full mt-2 w-72 sm:w-80 p-3.5 bg-white dark:bg-slate-800 border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] rounded-xl text-xs text-zinc-700 dark:text-slate-200 leading-relaxed pointer-events-auto"
+                            class="absolute z-20 left-0 top-full mt-2 w-[min(18rem,calc(100vw-3rem))] sm:w-80 p-3.5 bg-white dark:bg-slate-800 border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] rounded-xl text-xs text-zinc-700 dark:text-slate-200 leading-relaxed pointer-events-auto"
                             data-testid="featured-product-reason"
                         >
                             <div class="flex items-start gap-2.5">
@@ -634,10 +654,10 @@ try {
                     {{ precioRecomendadoFormateado }}
                 </p>
 
-                <div class="flex flex-wrap items-center gap-3 pt-1">
+                <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 pt-1">
                     <a
                         :href="detalleRecomendadoHref"
-                        class="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-lg bg-brand-secundario text-white px-4 py-2.5 font-display font-bold text-sm border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] hover:opacity-95 transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
+                        class="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-lg bg-brand-secundario text-white px-4 py-2.5 font-display font-bold text-sm border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] hover:opacity-95 transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario touch-manipulation"
                         data-testid="featured-detail-link"
                     >
                         <span>Más información del artículo</span>
@@ -702,7 +722,7 @@ try {
                         aria-controls="search-suggestions-listbox"
                         :aria-activedescendant="idSugerenciaActiva"
                         placeholder="Busca llaveros, pines, stickers, anime, lucha libre..."
-                        class="w-full pl-11 pr-10 py-3 rounded-xl border border-zinc-300 dark:border-slate-700 focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 shadow-sm text-zinc-900 dark:text-slate-100 placeholder-zinc-400 dark:placeholder-slate-400 bg-white dark:bg-slate-800 font-sans text-sm focus:outline-none transition-all"
+                        class="w-full pl-11 pr-12 py-3 rounded-xl border border-zinc-300 dark:border-slate-700 focus:border-brand-secundario focus:ring-2 focus:ring-brand-secundario/20 shadow-sm text-zinc-900 dark:text-slate-100 placeholder-zinc-400 dark:placeholder-slate-400 bg-white dark:bg-slate-800 font-sans text-base sm:text-sm focus:outline-none transition-all"
                         data-testid="search-input"
                         @focus="manejarFocusBuscador"
                         @blur="manejarBlurBuscador"
@@ -711,7 +731,7 @@ try {
                     <button
                         v-if="searchQuery"
                         type="button"
-                        class="absolute right-2 p-2 min-w-[40px] min-h-[40px] inline-flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-slate-200 focus-visible:outline-none"
+                        class="absolute right-1 p-2 min-w-[44px] min-h-[44px] inline-flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-slate-200 focus-visible:outline-none touch-manipulation"
                         aria-label="Limpiar búsqueda"
                         data-testid="clear-search-button"
                         @click="manejarLimpiarBusqueda"
@@ -768,25 +788,26 @@ try {
                         <a
                             v-if="sug.type === 'producto' && sug.slug"
                             :href="`/product/${encodeURIComponent(sug.slug)}`"
-                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-200 hover:text-zinc-950 border border-zinc-300 dark:border-slate-700 transition-colors"
+                            class="min-h-[40px] sm:min-h-[32px] inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 sm:py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-acento dark:hover:bg-brand-acento text-brand-texto dark:text-slate-200 hover:text-zinc-950 border border-zinc-300 dark:border-slate-700 transition-colors touch-manipulation"
                         >
-                            <span class="truncate max-w-[200px]">{{ sug.label }}</span>
+                            <span class="truncate max-w-[calc(100vw-5rem)] sm:max-w-[220px]">{{ sug.label }}</span>
                         </a>
                         <button
                             v-else
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-secundario hover:text-white text-brand-texto dark:text-slate-200 border border-zinc-300 dark:border-slate-700 transition-colors cursor-pointer"
+                            class="min-h-[40px] sm:min-h-[32px] inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 sm:py-1 text-xs font-medium bg-zinc-100 dark:bg-slate-800 hover:bg-brand-secundario hover:text-white text-brand-texto dark:text-slate-200 border border-zinc-300 dark:border-slate-700 transition-colors cursor-pointer touch-manipulation"
                             @click="aplicarSugerencia(sug)"
                         >
-                            <span class="truncate max-w-[200px]">{{ sug.label }}</span>
+                            <span class="truncate max-w-[calc(100vw-5rem)] sm:max-w-[220px]">{{ sug.label }}</span>
                         </button>
                     </template>
                 </div>
             </div>
 
-            <!-- Carrusel Mobile-First de chips de categoría (scroll táctil en móvil, wrap en sm+) -->
+            <!-- Carrusel Mobile-First de chips de categoría (en móvil se reemplaza por el drill-down al haber subcategorías) -->
             <fieldset
-                class="flex items-center gap-2 overflow-x-auto sm:flex-wrap no-scrollbar py-1 m-0 p-0 border-0 min-w-0"
+                :class="tieneSubcategoriasActivas ? 'hidden md:flex' : 'flex'"
+                class="items-center gap-2 overflow-x-auto md:flex-wrap no-scrollbar py-1 m-0 p-0 border-0 min-w-0"
                 aria-label="Filtrar por categoría"
             >
                 <span class="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase text-zinc-600 dark:text-slate-400 mr-1 shrink-0">
@@ -797,7 +818,7 @@ try {
                 <button
                     type="button"
                     :aria-pressed="categoriaSeleccionada === ''"
-                    class="min-h-[40px] sm:min-h-[36px] shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                    class="min-h-[44px] sm:min-h-[36px] shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
                     :class="
                         categoriaSeleccionada === ''
                             ? 'bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)] font-bold'
@@ -816,7 +837,7 @@ try {
                     :aria-pressed="
                         categoriaSeleccionada === (cat.slug?.current ?? cat.nombre)
                     "
-                    class="min-h-[40px] sm:min-h-[36px] shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                    class="min-h-[44px] sm:min-h-[36px] shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
                     :class="
                         categoriaSeleccionada === (cat.slug?.current ?? cat.nombre)
                             ? 'bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)] font-bold'
@@ -830,27 +851,45 @@ try {
                 </button>
             </fieldset>
 
-            <!-- Segundo nivel contextual: Subcategorías de la categoría activa (P0.0-B) -->
+            <!-- Móvil/Touch (< md): Opción 2 — Drill-down en una sola fila con breadcrumb -->
             <fieldset
-                v-if="categoriaSeleccionada && subcategoriasActivas.length > 0"
-                class="flex items-center gap-2 overflow-x-auto sm:flex-wrap no-scrollbar py-1 m-0 p-0 border-0 min-w-0"
-                aria-label="Filtrar por subcategoría"
-                data-testid="subcategory-filter-bar"
+                v-if="tieneSubcategoriasActivas"
+                class="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar py-1 m-0 p-0 border-0 min-w-0"
+                aria-label="Filtrar por subcategoría en móvil"
+                data-testid="mobile-subcategory-drilldown"
             >
-                <span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 mr-1 shrink-0">
-                    <span>Subcategorías:</span>
-                </span>
+                <button
+                    type="button"
+                    class="min-h-[44px] shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
+                    aria-label="Volver a todas las categorías"
+                    data-testid="mobile-drilldown-back"
+                    @click="seleccionarCategoria('')"
+                >
+                    <ArrowLeft class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Todas</span>
+                </button>
+
+                <span class="font-mono text-xs text-zinc-400 dark:text-slate-500 shrink-0" aria-hidden="true">/</span>
 
                 <button
                     type="button"
                     :aria-pressed="subcategoriaSeleccionada === ''"
-                    class="min-h-[36px] sm:min-h-[32px] shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
-                    :class="
-                        subcategoriaSeleccionada === ''
-                            ? 'bg-brand-acento text-zinc-950 border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
-                            : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
-                    "
-                    data-testid="subcategory-chip-all"
+                    class="min-h-[44px] shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm dark:shadow-[2px_2px_0px_rgba(0,0,0,0.6)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
+                    data-testid="mobile-drilldown-parent"
+                    @click="seleccionarSubcategoria('')"
+                >
+                    <Tag class="w-3 h-3 shrink-0" aria-hidden="true" />
+                    <span>{{ nombreCategoriaActiva }}</span>
+                </button>
+
+                <span class="h-5 w-px bg-zinc-300 dark:bg-slate-700 shrink-0 mx-0.5" aria-hidden="true" />
+
+                <button
+                    type="button"
+                    :aria-pressed="subcategoriaSeleccionada === ''"
+                    class="min-h-[44px] shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
+                    :class="clasesChipSubcategoria('')"
+                    data-testid="mobile-subcategory-chip-all"
                     @click="seleccionarSubcategoria('')"
                 >
                     Todas
@@ -858,132 +897,229 @@ try {
 
                 <button
                     v-for="sub in subcategoriasActivas"
-                    :key="sub._id"
+                    :key="`mobile-${sub._id}`"
                     type="button"
                     :aria-pressed="
                         subcategoriaSeleccionada === (sub.slug?.current ?? sub.nombre)
                     "
-                    class="min-h-[36px] sm:min-h-[32px] shrink-0 inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
-                    :class="
-                        subcategoriaSeleccionada === (sub.slug?.current ?? sub.nombre)
-                            ? 'bg-brand-acento text-zinc-950 border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
-                            : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
-                    "
-                    :data-testid="`subcategory-chip-${sub.slug?.current ?? sub.nombre}`"
+                    class="min-h-[44px] shrink-0 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
+                    :class="clasesChipSubcategoria(sub.slug?.current ?? sub.nombre)"
+                    :data-testid="`mobile-subcategory-chip-${sub.slug?.current ?? sub.nombre}`"
                     @click="seleccionarSubcategoria(sub.slug?.current ?? sub.nombre)"
                 >
                     <span>{{ sub.nombre }}</span>
                 </button>
             </fieldset>
 
-            <!-- Ordenación dinámica y filtro de presupuesto por rango de precio (P0.0-C) -->
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-2 border-t border-zinc-100 dark:border-slate-800">
-                <fieldset
-                    class="flex flex-wrap items-center gap-2 m-0 p-0 border-0 min-w-0"
-                    aria-label="Filtrar por precio"
-                    data-testid="price-filter-bar"
+            <!-- Escritorio (md+): Opción 1 — Bandeja contextual conectada (Nested Sub-Bar) -->
+            <Transition
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="opacity-0 -translate-y-1"
+                enter-to-class="opacity-100 translate-y-0"
+                leave-active-class="transition duration-100 ease-in"
+                leave-from-class="opacity-100 translate-y-0"
+                leave-to-class="opacity-0 -translate-y-1"
+            >
+                <div
+                    v-if="tieneSubcategoriasActivas"
+                    class="hidden md:block ml-2 pl-4 pr-3 py-2.5 rounded-r-xl rounded-bl-xl bg-zinc-50/90 dark:bg-slate-800/60 border border-zinc-200 dark:border-slate-700/80 border-l-4 border-l-brand-acento transition-colors"
+                    data-testid="subcategory-nested-tray"
                 >
-                    <span class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 mr-1 shrink-0">
-                        Presupuesto:
-                    </span>
+                    <fieldset
+                        class="flex flex-wrap items-center gap-2 m-0 p-0 border-0 min-w-0"
+                        aria-label="Filtrar por subcategoría"
+                        data-testid="subcategory-filter-bar"
+                    >
+                        <span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase text-zinc-600 dark:text-slate-300 mr-1 shrink-0">
+                            <CornerDownRight class="w-3.5 h-3.5 text-brand-secundario shrink-0" aria-hidden="true" />
+                            <span>En {{ nombreCategoriaActiva }}:</span>
+                        </span>
 
+                        <button
+                            type="button"
+                            :aria-pressed="subcategoriaSeleccionada === ''"
+                            class="min-h-[34px] shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                            :class="clasesChipSubcategoria('')"
+                            data-testid="subcategory-chip-all"
+                            @click="seleccionarSubcategoria('')"
+                        >
+                            Todas
+                        </button>
+
+                        <button
+                            v-for="sub in subcategoriasActivas"
+                            :key="sub._id"
+                            type="button"
+                            :aria-pressed="
+                                subcategoriaSeleccionada === (sub.slug?.current ?? sub.nombre)
+                            "
+                            class="min-h-[34px] shrink-0 inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                            :class="clasesChipSubcategoria(sub.slug?.current ?? sub.nombre)"
+                            :data-testid="`subcategory-chip-${sub.slug?.current ?? sub.nombre}`"
+                            @click="seleccionarSubcategoria(sub.slug?.current ?? sub.nombre)"
+                        >
+                            <span>{{ sub.nombre }}</span>
+                        </button>
+                    </fieldset>
+                </div>
+            </Transition>
+
+            <!-- Controles secundarios: botón "Más filtros" (presupuesto colapsable) y ordenación dinámica -->
+            <div class="space-y-3 pt-2 border-t border-zinc-100 dark:border-slate-800">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <button
-                        v-for="preset in PRESETS_PRECIO_UI"
-                        :key="preset.id"
                         type="button"
-                        :aria-pressed="filtroPrecioPreset === preset.id"
-                        class="min-h-[36px] sm:min-h-[32px] shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer"
+                        :aria-expanded="mostrarMasFiltros"
+                        aria-controls="catalog-more-filters-panel"
+                        class="min-h-[44px] sm:min-h-[38px] w-full sm:w-auto inline-flex items-center justify-between sm:justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all touch-manipulation cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario"
                         :class="
-                            filtroPrecioPreset === preset.id
-                                ? 'bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+                            mostrarMasFiltros || filtroPrecioActivo
+                                ? 'bg-brand-secundario/10 dark:bg-brand-secundario/20 border-2 border-brand-secundario text-brand-secundario font-bold'
                                 : 'bg-zinc-100 dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
                         "
-                        :data-testid="`price-preset-${preset.id}`"
-                        @click="manejarSeleccionPresetPrecio(preset.id)"
+                        data-testid="toggle-more-filters-button"
+                        @click="conmutarMasFiltros"
                     >
-                        {{ preset.label }}
+                        <span class="inline-flex items-center gap-2">
+                            <SlidersHorizontal class="w-4 h-4 shrink-0" aria-hidden="true" />
+                            <span>Más filtros</span>
+                            <span
+                                v-if="filtroPrecioActivo"
+                                class="px-1.5 py-0.5 rounded-full bg-brand-acento text-zinc-950 font-mono text-[10px] font-extrabold border border-zinc-950"
+                                data-testid="active-price-filter-badge"
+                            >
+                                Activo
+                            </span>
+                        </span>
+                        <ChevronDown
+                            class="w-4 h-4 shrink-0 transition-transform duration-200"
+                            :class="mostrarMasFiltros ? 'rotate-180' : ''"
+                            aria-hidden="true"
+                        />
                     </button>
 
-                    <div class="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-1">
-                        <label for="price-min-input" class="sr-only">Precio mínimo</label>
-                        <input
-                            id="price-min-input"
-                            v-model="inputPrecioMin"
-                            type="number"
-                            min="0"
-                            step="1"
-                            inputmode="numeric"
-                            placeholder="De $"
-                            class="w-20 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
-                            data-testid="price-min-input"
-                            @keydown.enter.prevent="manejarAplicarRangoPrecio"
+                    <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                        <span class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 shrink-0">
+                            Ordenar por:
+                        </span>
+                        <BaseSelect
+                            id="catalog-sort-select"
+                            class="flex-1 sm:flex-none"
+                            :model-value="criterioOrden"
+                            :options="OPCIONES_ORDEN_CATALOGO"
+                            label="Ordenar por"
+                            aria-label="Ordenar productos por"
+                            test-id-prefix="catalog-sort"
+                            @update:model-value="seleccionarOrden"
                         />
-                        <span class="text-xs text-zinc-400" aria-hidden="true">-</span>
-                        <label for="price-max-input" class="sr-only">Precio máximo</label>
-                        <input
-                            id="price-max-input"
-                            v-model="inputPrecioMax"
-                            type="number"
-                            min="0"
-                            step="1"
-                            inputmode="numeric"
-                            placeholder="A $"
-                            class="w-20 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
-                            data-testid="price-max-input"
-                            @keydown.enter.prevent="manejarAplicarRangoPrecio"
-                        />
-                        <button
-                            type="button"
-                            class="min-h-[32px] px-3 py-1 rounded-lg bg-brand-acento text-zinc-950 font-display text-xs font-bold border border-brand-texto dark:border-slate-500 hover:opacity-90 transition-opacity cursor-pointer"
-                            data-testid="price-custom-apply"
-                            @click="manejarAplicarRangoPrecio"
-                        >
-                            Aplicar
-                        </button>
-                        <button
-                            v-if="filtroPrecioActivo"
-                            type="button"
-                            class="text-xs font-semibold text-zinc-500 dark:text-slate-400 hover:text-brand-primario underline cursor-pointer ml-1"
-                            data-testid="price-filter-clear"
-                            @click="manejarLimpiarPrecio"
-                        >
-                            Limpiar precio
-                        </button>
                     </div>
-
-                    <p
-                        v-if="errorRangoPrecio"
-                        role="alert"
-                        class="w-full font-sans text-xs text-red-600 dark:text-red-400 font-medium"
-                        data-testid="price-error-message"
-                    >
-                        {{ errorRangoPrecio }}
-                    </p>
-                </fieldset>
-
-                <div class="flex items-center gap-2 shrink-0">
-                    <label
-                        for="catalog-sort-select"
-                        class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400 shrink-0"
-                    >
-                        Ordenar por:
-                    </label>
-                    <select
-                        id="catalog-sort-select"
-                        :value="criterioOrden"
-                        class="min-h-[36px] px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-sans font-semibold text-zinc-800 dark:text-slate-100 focus:border-brand-secundario focus:outline-none cursor-pointer"
-                        data-testid="catalog-sort-select"
-                        @change="manejarCambioOrden"
-                    >
-                        <option
-                            v-for="opt in OPCIONES_ORDEN_CATALOGO"
-                            :key="opt.value"
-                            :value="opt.value"
-                        >
-                            {{ opt.label }}
-                        </option>
-                    </select>
                 </div>
+
+                <!-- Panel desplegable de filtro de presupuesto por rango de precio (P0.0-C) -->
+                <Transition
+                    enter-active-class="transition duration-150 ease-out"
+                    enter-from-class="opacity-0 -translate-y-1"
+                    enter-to-class="opacity-100 translate-y-0"
+                    leave-active-class="transition duration-100 ease-in"
+                    leave-from-class="opacity-100 translate-y-0"
+                    leave-to-class="opacity-0 -translate-y-1"
+                >
+                    <div
+                        v-if="mostrarMasFiltros"
+                        id="catalog-more-filters-panel"
+                        class="rounded-xl bg-zinc-50/80 dark:bg-slate-800/50 border border-zinc-200 dark:border-slate-700/80 p-3 sm:p-4"
+                        data-testid="more-filters-panel"
+                    >
+                        <fieldset
+                            class="space-y-3 m-0 p-0 border-0 min-w-0"
+                            aria-label="Filtrar por precio"
+                            data-testid="price-filter-bar"
+                        >
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-mono text-[11px] font-bold uppercase text-zinc-500 dark:text-slate-400">
+                                    Presupuesto:
+                                </span>
+                                <button
+                                    v-if="filtroPrecioActivo"
+                                    type="button"
+                                    class="min-h-[40px] sm:min-h-[32px] px-2.5 rounded-lg text-xs font-semibold text-zinc-600 dark:text-slate-300 hover:text-brand-primario underline cursor-pointer touch-manipulation"
+                                    data-testid="price-filter-clear"
+                                    @click="manejarLimpiarPrecio"
+                                >
+                                    Limpiar precio
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                                <button
+                                    v-for="preset in PRESETS_PRECIO_UI"
+                                    :key="preset.id"
+                                    type="button"
+                                    :aria-pressed="filtroPrecioPreset === preset.id"
+                                    class="min-h-[44px] sm:min-h-[34px] px-3 py-2 sm:py-1 rounded-full text-xs font-semibold text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secundario cursor-pointer touch-manipulation"
+                                    :class="
+                                        filtroPrecioPreset === preset.id
+                                            ? 'bg-brand-secundario text-white border-2 border-brand-texto dark:border-slate-500 shadow-hard-sm font-bold'
+                                            : 'bg-white dark:bg-slate-800 hover:bg-zinc-200 dark:hover:bg-slate-700 text-zinc-700 dark:text-slate-200 border border-zinc-300 dark:border-slate-700'
+                                    "
+                                    :data-testid="`price-preset-${preset.id}`"
+                                    @click="manejarSeleccionPresetPrecio(preset.id)"
+                                >
+                                    {{ preset.label }}
+                                </button>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                                <div class="grid grid-cols-[1fr_auto_1fr] sm:flex items-center gap-2 w-full sm:w-auto">
+                                    <label for="price-min-input" class="sr-only">Precio mínimo</label>
+                                    <input
+                                        id="price-min-input"
+                                        v-model="inputPrecioMin"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        inputmode="numeric"
+                                        placeholder="De $"
+                                        class="w-full sm:w-24 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
+                                        data-testid="price-min-input"
+                                        @keydown.enter.prevent="manejarAplicarRangoPrecio"
+                                    />
+                                    <span class="text-xs text-zinc-400 text-center" aria-hidden="true">-</span>
+                                    <label for="price-max-input" class="sr-only">Precio máximo</label>
+                                    <input
+                                        id="price-max-input"
+                                        v-model="inputPrecioMax"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        inputmode="numeric"
+                                        placeholder="A $"
+                                        class="w-full sm:w-24 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg border border-zinc-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-base sm:text-xs font-mono text-zinc-900 dark:text-slate-100 focus:border-brand-secundario focus:outline-none"
+                                        data-testid="price-max-input"
+                                        @keydown.enter.prevent="manejarAplicarRangoPrecio"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    class="w-full sm:w-auto min-h-[44px] sm:min-h-[36px] px-4 py-2 sm:py-1 rounded-lg bg-brand-acento text-zinc-950 font-display text-xs font-bold border border-brand-texto dark:border-slate-500 hover:opacity-90 transition-opacity cursor-pointer touch-manipulation"
+                                    data-testid="price-custom-apply"
+                                    @click="manejarAplicarRangoPrecio"
+                                >
+                                    Aplicar
+                                </button>
+                            </div>
+
+                            <p
+                                v-if="errorRangoPrecio"
+                                role="alert"
+                                class="w-full font-sans text-xs text-red-600 dark:text-red-400 font-medium"
+                                data-testid="price-error-message"
+                            >
+                                {{ errorRangoPrecio }}
+                            </p>
+                        </fieldset>
+                    </div>
+                </Transition>
             </div>
 
             <!-- Resumen accesible de resultados (aria-live) -->
@@ -999,7 +1135,7 @@ try {
                 <button
                     v-if="categoriaSeleccionada || subcategoriaSeleccionada || searchQuery || filtroPrecioActivo"
                     type="button"
-                    class="font-bold text-brand-secundario hover:text-brand-primario hover:underline transition-colors cursor-pointer"
+                    class="min-h-[40px] sm:min-h-[32px] inline-flex items-center px-2 -mx-2 rounded-lg font-bold text-brand-secundario hover:text-brand-primario hover:underline transition-colors cursor-pointer touch-manipulation"
                     data-testid="reset-filters-button"
                     @click="manejarRestablecerTodo"
                 >
@@ -1046,14 +1182,14 @@ try {
             <!-- Controles de paginación táctiles (RF-19) -->
             <nav
                 v-if="totalPaginas > 1"
-                class="mt-8 flex items-center justify-center gap-3"
+                class="mt-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
                 aria-label="Paginación del catálogo"
                 data-testid="catalog-pagination"
             >
                 <button
                     type="button"
                     :disabled="paginaActual <= 1"
-                    class="min-h-[44px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-zinc-50 dark:hover:bg-slate-700 text-brand-texto dark:text-slate-100 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer"
+                    class="min-h-[44px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-zinc-50 dark:hover:bg-slate-700 text-brand-texto dark:text-slate-100 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer touch-manipulation"
                     aria-label="Página anterior"
                     @click="paginaActual = Math.max(1, paginaActual - 1)"
                 >
@@ -1068,7 +1204,7 @@ try {
                 <button
                     type="button"
                     :disabled="paginaActual >= totalPaginas"
-                    class="min-h-[44px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-zinc-50 dark:hover:bg-slate-700 text-brand-texto dark:text-slate-100 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer"
+                    class="min-h-[44px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-zinc-50 dark:hover:bg-slate-700 text-brand-texto dark:text-slate-100 font-display text-xs font-bold border-2 border-brand-texto dark:border-slate-600 shadow-hard-sm dark:shadow-[3px_3px_0px_rgba(0,0,0,0.6)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer touch-manipulation"
                     aria-label="Página siguiente"
                     @click="paginaActual = Math.min(totalPaginas, paginaActual + 1)"
                 >

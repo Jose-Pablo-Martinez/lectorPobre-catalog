@@ -10,6 +10,7 @@ import {
     esRangoPrecioInvalido,
     hashSeedConId,
     matchesPriceFilter,
+    OPCIONES_ORDEN_CATALOGO,
     ordenarProductos,
     resolverCriterioOrden,
     resolverRangoPrecio,
@@ -113,6 +114,9 @@ describe('P0.0-C: Ordenación Dinámica y Filtros de Precio (catalogFilters.ts)'
         expect(resolverCriterioOrden('')).toBe('aleatorio');
         expect(resolverCriterioOrden('inyeccion_desconocida')).toBe('aleatorio');
         expect(resolverCriterioOrden('alfabetico_asc')).toBe('alfabetico_asc');
+        expect(OPCIONES_ORDEN_CATALOGO.find((o) => o.value === 'aleatorio')?.label).toBe(
+            'Aleatorio'
+        );
     });
 
     it('PC-UT-PRC-01 & PC-UT-PRC-02: filtra por presets (<50, <100, <200) y rango personalizado De X a Y', () => {

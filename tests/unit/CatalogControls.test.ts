@@ -104,6 +104,10 @@ vi.mock('~/composables/useCatalog', () => ({
 describe('PC-ST-CAT-01 & PC-ST-SRCH-01: Controles de Ordenación, Presupuesto y Enter en pages/index.vue', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockCatalogState.categorias.value = [];
+        mockCatalogState.subcategoriasActivas.value = [];
+        mockCatalogState.categoriaSeleccionada.value = '';
+        mockCatalogState.subcategoriaSeleccionada.value = '';
         mockCatalogState.criterioOrden.value = 'aleatorio';
         mockCatalogState.filtroPrecioPreset.value = 'todos';
         mockCatalogState.filtroPrecioActivo.value = false;
@@ -114,15 +118,33 @@ describe('PC-ST-CAT-01 & PC-ST-SRCH-01: Controles de Ordenación, Presupuesto y 
         mockCatalogState.productosPaginados.value = mockCatalogState.productos.value;
     });
 
-    it('PC-ST-CAT-01: renderiza el selector de 6 órdenes, presets de presupuesto y rango De $X a $Y con validación', async () => {
+    it('PC-ST-CAT-01: renderiza el selector de 6 órdenes visible y colapsa/despliega filtros de presupuesto bajo "Más filtros"', async () => {
         const wrapper = mount(CatalogPage);
 
-        const sortSelect = wrapper.find('[data-testid="catalog-sort-select"]');
-        expect(sortSelect.exists()).toBe(true);
-        expect(sortSelect.findAll('option')).toHaveLength(OPCIONES_ORDEN_CATALOGO.length);
+        const sortTrigger = wrapper.find('[data-testid="catalog-sort-trigger"]');
+        expect(sortTrigger.exists()).toBe(true);
+        expect(sortTrigger.text()).toContain('Aleatorio');
 
-        await sortSelect.setValue('alfabetico_asc');
+        await sortTrigger.trigger('click');
+        const sortPanel = wrapper.find('[data-testid="catalog-sort-panel"]');
+        expect(sortPanel.exists()).toBe(true);
+        const options = sortPanel.findAll('[data-select-option]');
+        expect(options).toHaveLength(OPCIONES_ORDEN_CATALOGO.length);
+        expect(options[0]?.text()).toBe('Aleatorio');
+
+        await wrapper.find('[data-testid="catalog-sort-option-alfabetico_asc"]').trigger('click');
         expect(mockCatalogState.seleccionarOrden).toHaveBeenCalledWith('alfabetico_asc');
+
+        // Por defecto los filtros de precio están ocultos detrás de "Más filtros"
+        const moreFiltersBtn = wrapper.find('[data-testid="toggle-more-filters-button"]');
+        expect(moreFiltersBtn.exists()).toBe(true);
+        expect(moreFiltersBtn.attributes('aria-expanded')).toBe('false');
+        expect(wrapper.find('[data-testid="price-filter-bar"]').exists()).toBe(false);
+
+        // Al dar clic se despliegan los filtros de precio
+        await moreFiltersBtn.trigger('click');
+        expect(moreFiltersBtn.attributes('aria-expanded')).toBe('true');
+        expect(wrapper.find('[data-testid="price-filter-bar"]').exists()).toBe(true);
 
         // Presets de presupuesto
         expect(wrapper.find('[data-testid="price-preset-lt50"]').text()).toContain('$50');
@@ -139,13 +161,18 @@ describe('PC-ST-CAT-01 & PC-ST-SRCH-01: Controles de Ordenación, Presupuesto y 
         await wrapper.find('[data-testid="price-custom-apply"]').trigger('click');
         expect(wrapper.find('[data-testid="price-error-message"]').exists()).toBe(true);
 
-        // Rango válido limpia error y aplica
+        // Rango válido limpia error, aplica y muestra indicador activo al colapsar
         await wrapper.find('[data-testid="price-min-input"]').setValue('50');
         await wrapper.find('[data-testid="price-max-input"]').setValue('150');
         await wrapper.find('[data-testid="price-custom-apply"]').trigger('click');
         expect(wrapper.find('[data-testid="price-error-message"]').exists()).toBe(false);
         expect(mockCatalogState.aplicarRangoPrecioPersonalizado).toHaveBeenLastCalledWith(50, 150);
 
+        await moreFiltersBtn.trigger('click');
+        expect(wrapper.find('[data-testid="price-filter-bar"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="active-price-filter-badge"]').exists()).toBe(true);
+
+        await moreFiltersBtn.trigger('click');
         await wrapper.find('[data-testid="price-filter-clear"]').trigger('click');
         expect(mockCatalogState.limpiarFiltroPrecio).toHaveBeenCalled();
     });
@@ -162,5 +189,72 @@ describe('PC-ST-CAT-01 & PC-ST-SRCH-01: Controles de Ordenación, Presupuesto y 
         expect(mockCatalogState.confirmarBusqueda).toHaveBeenCalledWith('llavero mistico');
         expect(wrapper.find('[data-testid="search-suggestions"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="confirmed-search-suggestions"]').exists()).toBe(true);
+    });
+
+    it('PC-ST-SUB-01: renderiza bandeja conectada en desktop y drill-down en móvil para subcategorías activas', async () => {
+        const catLlaveros = {
+            _id: 'cat-llaveros',
+            _type: 'categoria' as const,
+            _createdAt: '2026-01-01T00:00:00Z',
+            _updatedAt: '2026-01-01T00:00:00Z',
+            _rev: '1',
+            nombre: 'Llaveros',
+            slug: { _type: 'slug' as const, current: 'llaveros' },
+        };
+        mockCatalogState.categorias.value = [catLlaveros];
+        mockCatalogState.categoriaSeleccionada.value = 'llaveros';
+        mockCatalogState.subcategoriasActivas.value = [
+            {
+                _id: 'sub-resina',
+                _type: 'subcategoria',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Resina',
+                slug: { _type: 'slug', current: 'resina' },
+                categoriaPadre: {
+                    _id: 'cat-llaveros',
+                    nombre: 'Llaveros',
+                    slug: { _type: 'slug', current: 'llaveros' },
+                },
+            },
+            {
+                _id: 'sub-acrilico',
+                _type: 'subcategoria',
+                _createdAt: '2026-01-01T00:00:00Z',
+                _updatedAt: '2026-01-01T00:00:00Z',
+                _rev: '1',
+                nombre: 'Acrílico',
+                slug: { _type: 'slug', current: 'acrilico' },
+                categoriaPadre: {
+                    _id: 'cat-llaveros',
+                    nombre: 'Llaveros',
+                    slug: { _type: 'slug', current: 'llaveros' },
+                },
+            },
+        ];
+
+        const wrapper = mount(CatalogPage);
+
+        // Desktop: bandeja conectada (Opción 1)
+        const desktopTray = wrapper.find('[data-testid="subcategory-nested-tray"]');
+        expect(desktopTray.exists()).toBe(true);
+        expect(desktopTray.text()).toContain('En Llaveros:');
+        await wrapper.find('[data-testid="subcategory-chip-resina"]').trigger('click');
+        expect(mockCatalogState.seleccionarSubcategoria).toHaveBeenCalledWith('resina');
+
+        // Móvil: drill-down con breadcrumb (Opción 2)
+        const mobileDrilldown = wrapper.find('[data-testid="mobile-subcategory-drilldown"]');
+        expect(mobileDrilldown.exists()).toBe(true);
+        expect(wrapper.find('[data-testid="mobile-drilldown-parent"]').text()).toContain('Llaveros');
+
+        await wrapper.find('[data-testid="mobile-subcategory-chip-acrilico"]').trigger('click');
+        expect(mockCatalogState.seleccionarSubcategoria).toHaveBeenCalledWith('acrilico');
+
+        await wrapper.find('[data-testid="mobile-drilldown-parent"]').trigger('click');
+        expect(mockCatalogState.seleccionarSubcategoria).toHaveBeenCalledWith('');
+
+        await wrapper.find('[data-testid="mobile-drilldown-back"]').trigger('click');
+        expect(mockCatalogState.seleccionarCategoria).toHaveBeenCalledWith('');
     });
 });
